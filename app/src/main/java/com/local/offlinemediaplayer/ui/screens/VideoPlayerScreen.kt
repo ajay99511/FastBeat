@@ -6,9 +6,12 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Rect
+import android.media.AudioManager
+import androidx.compose.foundation.gestures.detectDragGestures
 import android.os.Build
 import android.util.Rational
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -18,28 +21,34 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FeaturedPlayList
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.BrightnessHigh
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +68,12 @@ import com.local.offlinemediaplayer.viewmodel.ResizeMode
 import kotlinx.coroutines.delay
 import java.util.Formatter
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
+// Enum for tracking active gesture
+private enum class GestureMode { NONE, VOLUME, BRIGHTNESS, SEEK }
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -70,6 +85,34 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val isLocked by viewModel.isPlayerLocked.collectAsStateWithLifecycle()
     val isInPip by viewModel.isInPipMode.collectAsStateWithLifecycle()
 
+    // Player State
+    val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
+
+    // Gesture States
+    var gestureMode by remember { mutableStateOf(GestureMode.NONE) }
+    var gestureValue by remember { mutableFloatStateOf(0f) } // 0-1 for Vol/Bright, Seconds for Seek
+    var gestureText by remember { mutableStateOf("") }
+
+    // Internal Gesture Calculation State
+    var initialVolume by remember { mutableIntStateOf(0) }
+    var initialBrightness by remember { mutableFloatStateOf(0f) }
+    var initialSeekPosition by remember { mutableLongStateOf(0L) }
+    var accumulatedDragX by remember { mutableFloatStateOf(0f) }
+    var accumulatedDragY by remember { mutableFloatStateOf(0f) }
+
+    // Controls Visibility State
+    var isControlsVisible by remember { mutableStateOf(true) }
+
+    // Audio Manager
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
+
+    // Screen Dimensions for gesture calculations
+    val configuration = LocalConfiguration.current
+    val screenWidth = with(LocalDensity.current) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeight = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
+
     // Force Landscape on Entry, restore on Exit
     DisposableEffect(Unit) {
         val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -79,6 +122,10 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         onDispose {
             activity?.requestedOrientation = originalOrientation
             showSystemBars(activity)
+            // Reset brightness override on exit
+            val layoutParams = activity?.window?.attributes
+            layoutParams?.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            activity?.window?.attributes = layoutParams
         }
     }
 
@@ -111,10 +158,127 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         }
     }
 
+    // Auto-hide controls logic moved here to coordinate with gestures
+    LaunchedEffect(isControlsVisible, player?.isPlaying) {
+        if (isControlsVisible && player?.isPlaying == true) {
+            delay(3000)
+            isControlsVisible = false
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            // GESTURE INPUT HANDLING
+            .pointerInput(Unit) {
+                if (isLocked) return@pointerInput // Disable gestures if locked
+
+                detectTapGestures(
+                    onTap = {
+                        isControlsVisible = !isControlsVisible
+                    },
+                    onDoubleTap = { offset ->
+                        if (offset.x > screenWidth / 2) {
+                            viewModel.forward()
+                        } else {
+                            viewModel.rewind()
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                if (isLocked) return@pointerInput
+
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                accumulatedDragX = 0f
+                                accumulatedDragY = 0f
+                                gestureMode = GestureMode.NONE
+
+                                // Initialize values
+                                initialVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+                                val layoutParams = activity?.window?.attributes
+                                // If override is none (-1), try to get system brightness or default to 0.5
+                                var bright = layoutParams?.screenBrightness ?: -1f
+                                if (bright < 0) bright = 0.5f // Fallback estimate
+                                initialBrightness = bright
+
+                                initialSeekPosition = currentPosition
+                            },
+                            onDragEnd = {
+                                if (gestureMode == GestureMode.SEEK) {
+                                    // Commit seek
+                                    viewModel.seekTo(initialSeekPosition)
+                                }
+                                gestureMode = GestureMode.NONE
+                                isControlsVisible = true // Show controls after interaction
+                            },
+                            onDragCancel = {
+                                gestureMode = GestureMode.NONE
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume() // Consume the event
+                                accumulatedDragX += dragAmount.x
+                                accumulatedDragY += dragAmount.y
+
+                                // Determine Gesture Type if strictly None
+                                if (gestureMode == GestureMode.NONE) {
+                                    if (abs(accumulatedDragX) > abs(accumulatedDragY)) {
+                                        if (abs(accumulatedDragX) > 20) { // Threshold
+                                            gestureMode = GestureMode.SEEK
+                                        }
+                                    } else {
+                                        if (abs(accumulatedDragY) > 20) { // Threshold
+                                            // Left side = Volume, Right side = Brightness
+                                            gestureMode = if (change.position.x < screenWidth / 2) {
+                                                GestureMode.VOLUME
+                                            } else {
+                                                GestureMode.BRIGHTNESS
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Apply Logic based on Type
+                                when (gestureMode) {
+                                    GestureMode.VOLUME -> {
+                                        // Drag Up (negative Y) increases volume
+                                        val deltaPercent = -accumulatedDragY / screenHeight
+                                        val newVol = (initialVolume + (deltaPercent * maxVolume * 3)).toInt() // *3 for sensitivity
+                                        val clampedVol = newVol.coerceIn(0, maxVolume)
+
+                                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, clampedVol, 0)
+                                        gestureValue = clampedVol.toFloat() / maxVolume.toFloat()
+                                        gestureText = "${(gestureValue * 100).toInt()}%"
+                                    }
+                                    GestureMode.BRIGHTNESS -> {
+                                        // Drag Up increases brightness
+                                        val deltaPercent = -accumulatedDragY / screenHeight
+                                        val newBright = (initialBrightness + (deltaPercent * 2)).coerceIn(0.01f, 1f) // *2 sensitivity
+
+                                        val layoutParams = activity?.window?.attributes
+                                        layoutParams?.screenBrightness = newBright
+                                        activity?.window?.attributes = layoutParams
+
+                                        gestureValue = newBright
+                                        gestureText = "${(newBright * 100).toInt()}%"
+                                    }
+                                    GestureMode.SEEK -> {
+                                        val deltaPercent = accumulatedDragX / screenWidth
+                                        val seekChange = (deltaPercent * 90000).toLong() // +/- 90 seconds swipe
+                                        val newPos = (initialSeekPosition + seekChange).coerceIn(0, duration)
+
+                                        initialSeekPosition = newPos // Update local tracking
+                                        gestureValue = newPos.toFloat()
+                                        gestureText = formatSeekTime(newPos, duration)
+                                    }
+                                    else -> {}
+                                }
+                            }
+                        )
+            }
     ) {
         if (player != null) {
             AndroidView(
@@ -142,10 +306,19 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             )
         }
 
+        // VISUAL FEEDBACK FOR GESTURES
+        CenterGestureOverlay(
+            mode = gestureMode,
+            value = gestureValue,
+            text = gestureText
+        )
+
         // Custom Overlay Controls (Hidden in PiP)
         if (!isInPip) {
             VideoPlayerControls(
                 viewModel = viewModel,
+                isVisible = isControlsVisible, // Pass state down
+                onToggleVisibility = { isControlsVisible = !isControlsVisible }, // Pass toggle up (though tap logic is mostly handled by parent)
                 onBack = onBack,
                 onPip = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -168,8 +341,71 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 }
 
 @Composable
+private fun CenterGestureOverlay(
+    mode: GestureMode,
+    value: Float, // 0-1 for vol/bright
+    text: String
+) {
+    if (mode == GestureMode.NONE) return
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // ICON
+                val icon = when (mode) {
+                    GestureMode.VOLUME -> Icons.Outlined.VolumeUp
+                    GestureMode.BRIGHTNESS -> Icons.Outlined.BrightnessHigh
+                    GestureMode.SEEK -> if (text.contains("-")) Icons.Default.FastRewind else Icons.Default.FastForward
+                    else -> Icons.Default.Info
+                }
+
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // TEXT
+                Text(
+                    text = text,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // PROGRESS BAR (Only for Vol/Bright)
+                if (mode == GestureMode.VOLUME || mode == GestureMode.BRIGHTNESS) {
+                    LinearProgressIndicator(
+                        progress = { value.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = Color(0xFF00E5FF),
+                        trackColor = Color.White.copy(alpha = 0.3f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun VideoPlayerControls(
     viewModel: MainViewModel,
+    isVisible: Boolean, // Received from parent
+    onToggleVisibility: () -> Unit,
     onBack: () -> Unit,
     onPip: () -> Unit,
     onRotate: () -> Unit
@@ -182,25 +418,11 @@ fun VideoPlayerControls(
     val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
     val resizeMode by viewModel.resizeMode.collectAsStateWithLifecycle()
 
-    var isVisible by remember { mutableStateOf(true) }
-
-    // Auto-hide controls
-    LaunchedEffect(isVisible, isPlaying) {
-        if (isVisible && isPlaying) {
-            delay(3000)
-            isVisible = false
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                isVisible = !isVisible
-            }
+        // We do NOT add clickable here anymore to avoid conflicting with the parent pointerInput
+        // The parent handles tapping for visibility
     ) {
         // Gradient Overlays (Top and Bottom) for visibility
         AnimatedVisibility(
@@ -404,14 +626,12 @@ fun VideoPlayerControls(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            IconButton(onClick = { /* Lock orientation logic or just visual */ }) {
-                                Icon(Icons.Outlined.Lock, "Lock Orientation", tint = Color.Gray)
-                            }
+                            // Removed duplicate lock button here
                             IconButton(onClick = onRotate) {
                                 Icon(Icons.Outlined.ScreenRotation, "Rotate", tint = Color.Gray)
                             }
                             IconButton(onClick = { /* Queue list */ }) {
-                                Icon(Icons.AutoMirrored.Filled.FeaturedPlayList, "Queue", tint = Color.Gray)
+                                Icon(Icons.AutoMirrored.Filled.PlaylistPlay, "Queue", tint = Color.Gray)
                             }
                         }
                     }
@@ -474,6 +694,10 @@ private fun formatTime(timeMs: Long): String {
     } else {
         mFormatter.format("%02d:%02d", minutes, seconds).toString()
     }
+}
+
+private fun formatSeekTime(currentMs: Long, totalMs: Long): String {
+    return "${formatTime(currentMs)} / ${formatTime(totalMs)}"
 }
 
 private fun formatSize(bytes: Long): String {
