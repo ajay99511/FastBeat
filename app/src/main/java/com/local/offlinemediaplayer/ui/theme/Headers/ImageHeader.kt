@@ -1,5 +1,6 @@
 package com.local.offlinemediaplayer.ui.theme.Headers
 
+import android.media.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -13,8 +14,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun VideoHeader() {
-    val neonCyan = Color(0xFF00E5FF) // Cyan/Teal for VIDEO PLAYER text
+fun ImageHeader() {
+    val neonCyan = Color(0xFFB3261E)
+    // Cyan/Teal for VIDEO PLAYER text
     val darkBg = Color(0xFF0B0B0F)
 
     Column(
@@ -67,7 +69,7 @@ fun VideoHeader() {
             Spacer(modifier = Modifier.width(12.dp))
 
             Text(
-                text = "VIDEO PLAYER",
+                text = "IMAGE VIEWER",
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 3.sp,
@@ -76,6 +78,10 @@ fun VideoHeader() {
             )
 
             Spacer(modifier = Modifier.width(12.dp))
+//            val darkBg = Color(0xFF0B0B0F)
+//            val accentRed = Color(0xFF8B1E1E)
+//            val accentYellow = Color(0xFFB59F3B)
+//            val neonCyan = Color(0xFF00E5FF)
 
             // Right Line
             Box(

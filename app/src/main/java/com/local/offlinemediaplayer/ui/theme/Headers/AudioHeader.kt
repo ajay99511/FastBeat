@@ -13,8 +13,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun VideoHeader() {
-    val neonCyan = Color(0xFF00E5FF) // Cyan/Teal for VIDEO PLAYER text
+fun AudioHeader() {
+    val neonCyan = Color(0xFFC9B458) // Cyan/Teal for VIDEO PLAYER text
     val darkBg = Color(0xFF0B0B0F)
 
     Column(
@@ -67,7 +67,7 @@ fun VideoHeader() {
             Spacer(modifier = Modifier.width(12.dp))
 
             Text(
-                text = "VIDEO PLAYER",
+                text = "MUSIC PLAYER",
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 3.sp,

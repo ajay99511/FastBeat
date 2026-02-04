@@ -37,6 +37,8 @@ import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
 import com.local.offlinemediaplayer.ui.theme.Headers.AppHeader
+import com.local.offlinemediaplayer.ui.theme.Headers.AudioHeader
+import com.local.offlinemediaplayer.ui.theme.Headers.ImageHeader
 import com.local.offlinemediaplayer.ui.theme.Headers.VideoHeader
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
@@ -148,7 +150,6 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
 
     // Logic:
     // Show Header if: NOT playing video AND ( (Tab=Video AND VideoRoot) OR (Tab=Audio AND AudioRoot) OR (Tab=Images) )
-    // Note: User requested specific header "Only when we click videos tab"
 
     val showBars = !isVideoPlaying && (selectedTab != 1 || !isAudioDetailScreen)
 
@@ -163,10 +164,10 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                     }
                 } else if (selectedTab == 1) {
                     // Audio Tab Header (Standard)
-                    if (!isAudioDetailScreen) AppHeader()
+                    if (!isAudioDetailScreen) AudioHeader()
                 } else {
-                    // Images Tab Header (Standard)
-                    AppHeader()
+                    // Images Tab Header (Compact)
+                    ImageHeader()
                 }
             }
         },
