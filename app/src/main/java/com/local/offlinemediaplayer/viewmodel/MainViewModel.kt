@@ -15,6 +15,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
@@ -49,7 +51,8 @@ enum class ResizeMode {
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val app: Application,
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val mediaDao: MediaDao
 ) : AndroidViewModel(app) {
 
     // Media Lists
@@ -247,8 +250,21 @@ class MainViewModel @Inject constructor(
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 updateCurrentTrackFromPlayer(controller)
+                // When track changes, track a play count for the new track
+                mediaItem?.mediaId?.toLongOrNull()?.let { id ->
+                    recordPlay(id)
+                }
             }
         })
+    }
+
+    // Record analytics safely in background
+    private fun recordPlay(mediaId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            mediaDao.initAnalytics(mediaId, now)
+            mediaDao.incrementPlayCount(mediaId, now)
+        }
     }
 
     private fun updateCurrentTrackFromPlayer(controller: MediaController) {
@@ -271,10 +287,19 @@ class MainViewModel @Inject constructor(
     private fun startPositionUpdates() {
         stopPositionUpdates()
         positionUpdateJob = viewModelScope.launch {
+            var saveCounter = 0
             while (isActive) {
                 _player.value?.let { player ->
-                    _currentPosition.value = player.currentPosition
+                    val pos = player.currentPosition
+                    _currentPosition.value = pos
                     _duration.value = player.duration.coerceAtLeast(0L)
+
+                    // Save playback state every ~5 seconds (10 * 500ms)
+                    if (saveCounter++ % 10 == 0) {
+                        _currentTrack.value?.let { track ->
+                            savePlaybackState(track.id, pos, track.isVideo)
+                        }
+                    }
                 }
                 delay(500)
             }
@@ -282,8 +307,25 @@ class MainViewModel @Inject constructor(
     }
 
     private fun stopPositionUpdates() {
+        // One final save on pause/stop
+        _currentTrack.value?.let { track ->
+            savePlaybackState(track.id, _currentPosition.value, track.isVideo)
+        }
         positionUpdateJob?.cancel()
         positionUpdateJob = null
+    }
+
+    private fun savePlaybackState(mediaId: Long, position: Long, isVideo: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mediaDao.saveHistory(
+                PlaybackHistory(
+                    mediaId = mediaId,
+                    position = position,
+                    timestamp = System.currentTimeMillis(),
+                    mediaType = if (isVideo) "VIDEO" else "AUDIO"
+                )
+            )
+        }
     }
 
     // --- Media Loading ---
@@ -569,7 +611,7 @@ class MainViewModel @Inject constructor(
             _resizeMode.value = ResizeMode.FIT
             playSingleMedia(media)
         } else if (media.isImage) {
-            // No-op for now, or implement image viewer logic
+            // No-op for now
         } else {
             // Audio playback - set up queue
             val currentVisibleList = filteredAudioList.value.takeIf { it.isNotEmpty() } ?: _audioList.value
@@ -616,6 +658,14 @@ class MainViewModel @Inject constructor(
     }
 
     private fun playSingleMedia(media: MediaFile) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Optional: restore position from history if it exists
+            // val history = mediaDao.getHistory(media.id)
+            // val startPos = history?.position ?: 0L
+
+            // For now, start from 0 to avoid confusing "basic init"
+            // In future update, uncomment above and use startPos
+        }
         _player.value?.let { controller ->
             controller.setMediaItem(media.toMediaItem())
             controller.prepare()

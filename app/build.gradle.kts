@@ -18,6 +18,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Export schemas is true by default, but we disable it for simplicity here
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += mapOf("room.schemaLocation" to "$projectDir/schemas")
+            }
+        }
     }
 
     buildTypes {
@@ -52,12 +59,7 @@ dependencies {
     implementation(libs.androidx.material3)
 
     implementation("com.google.android.material:material:1.11.0")
-
-    // Icons Extended for Shuffle and other specific icons
-//    implementation("androidx.compose.material:material-icons-extended")
-//    implementation("androidx.compose.material:1.10.2")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
-
 
     // Hilt Dependency Injection
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
@@ -83,6 +85,11 @@ dependencies {
 
     // Gson for JSON Persistence
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // Room Database
+    implementation("androidx.room:room-runtime:2.7.0-alpha12")
+    implementation("androidx.room:room-ktx:2.7.0-alpha12")
+    kapt("androidx.room:room-compiler:2.7.0-alpha12")
 
     // Testing
     testImplementation(libs.junit)
