@@ -1,10 +1,11 @@
-
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,9 @@ fun MeScreen(
     val currentTheme by viewModel.currentTheme.collectAsStateWithLifecycle()
     val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
     val audioList by viewModel.audioList.collectAsStateWithLifecycle()
+
+    // Continue Watching Data
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
 
     // Simple local search state for MeScreen
     var searchQuery by remember { mutableStateOf("") }
@@ -103,7 +107,7 @@ fun MeScreen(
             )
         }
 
-        // 2. Collapsible Search Box (Replaces static placeholder)
+        // 2. Collapsible Search Box
         CollapsibleSearchBox(
             isVisible = isSearchVisible,
             query = searchQuery,
@@ -111,12 +115,95 @@ fun MeScreen(
             placeholderText = "Search in suggested..."
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // 3. Section Header
+        // --- CONTINUE WATCHING SHELF ---
+        if (continueWatchingList.isNotEmpty()) {
+            Row(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.History, null, tint = theme.primaryColor, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "CONTINUE WATCHING",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().height(140.dp)
+            ) {
+                items(continueWatchingList) { (video, history) ->
+                    val progress = if (history.duration > 0) history.position.toFloat() / history.duration.toFloat() else 0f
+
+                    Card(
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(130.dp)
+                            .clickable { viewModel.playMedia(video) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AsyncImage(
+                                model = video.uri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+
+                            // Play Icon Center
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.align(Alignment.Center).size(32.dp)
+                            )
+
+                            // Progress Bar Bottom
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(4.dp),
+                                color = theme.primaryColor,
+                                trackColor = Color.White.copy(alpha = 0.3f)
+                            )
+
+                            // Title Overlay
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .fillMaxWidth()
+                                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+                                    .padding(bottom = 8.dp, start = 8.dp, top = 20.dp, end = 8.dp)
+                            ) {
+                                Text(
+                                    text = video.title,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // 3. Suggested Section Header
         if (randomSongs.isNotEmpty()) {
             Row(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -496,6 +583,7 @@ fun MeScreen(
         }
     }
 }
+
 
 @Composable
 fun ThemeButton(

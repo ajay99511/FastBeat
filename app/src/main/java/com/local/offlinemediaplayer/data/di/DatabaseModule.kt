@@ -22,7 +22,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "mediaplayer_db"
-        ).build()
+        )
+            .fallbackToDestructiveMigration() // FIX: Prevents crash on schema updates
+            .build()
     }
 
     @Provides
