@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
@@ -9,9 +10,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,12 +26,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.Album
+import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
 fun AlbumListScreen(
     viewModel: MainViewModel,
-    onAlbumClick: (Long) -> Unit
+    onAlbumClick: (Long) -> Unit,
+    isSearchVisible: Boolean
 ) {
     val albums by viewModel.filteredAlbums.collectAsStateWithLifecycle()
     val searchQuery by viewModel.albumSearchQuery.collectAsStateWithLifecycle()
@@ -40,47 +41,19 @@ fun AlbumListScreen(
     // Colors
     val backgroundColor = Color(0xFF12121A) // Ink Dark
     val cardBg = Color(0xFF1E1E24)
-    val primaryAccent = Color(0xFFE11D48)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // 1. Search Bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .height(50.dp)
-                .clip(RoundedCornerShape(50))
-                .background(cardBg)
-        ) {
-            TextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateAlbumSearchQuery(it) },
-                placeholder = { Text("Search albums...", color = Color.Gray) },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.Gray) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.updateAlbumSearchQuery("") }) {
-                            Icon(Icons.Default.Close, null, tint = Color.Gray)
-                        }
-                    }
-                },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = primaryAccent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
-                singleLine = true,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        // 1. Collapsible Search Bar
+        CollapsibleSearchBox(
+            isVisible = isSearchVisible,
+            query = searchQuery,
+            onQueryChange = { viewModel.updateAlbumSearchQuery(it) },
+            placeholderText = "Search albums..."
+        )
 
         // 2. Count Text
         Text(
@@ -162,15 +135,13 @@ fun AlbumItemStyled(
                     contentScale = ContentScale.Crop
                 )
 
-                // Optional: Play Button Overlay (bottom right or center)
-                // Design choice: Matching the reference image where a big play button is visible
-                // We'll add a subtle play button that suggests interaction
+                // Play Button Overlay
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(48.dp)
                         .background(primaryAccent.copy(alpha = 0.9f), CircleShape)
-                        .clickable { onPlayClick() }, // Direct play action
+                        .clickable { onPlayClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

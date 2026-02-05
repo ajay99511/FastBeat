@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Divider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
@@ -32,7 +33,8 @@ fun AudioLibraryScreen(
     viewModel: MainViewModel,
     onNavigateToPlayer: () -> Unit,
     onNavigateToPlaylist: (String) -> Unit,
-    onNavigateToAlbum: (Long) -> Unit
+    onNavigateToAlbum: (Long) -> Unit,
+    isSearchVisible: Boolean
 ) {
     // 0 = Tracks, 1 = Albums, 2 = Playlists
     var selectedSubTab by remember { mutableIntStateOf(0) }
@@ -45,17 +47,16 @@ fun AudioLibraryScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
 
     // App Theme Colors
-    val backgroundColor = Color(0xFF12121A) // Ink Dark
-    val primaryAccent = Color(0xFFE11D48)   // Ember Red
-    val inactiveColor = Color.Gray
+    val primaryAccent = MaterialTheme.colorScheme.primary
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Box(modifier = Modifier.fillMaxSize().background(backgroundColor)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column {
             // Styled Tab Row
             ScrollableTabRow(
                 selectedTabIndex = selectedSubTab,
                 containerColor = Color.Transparent, // Transparent to show background
-                contentColor = Color.White,
+                contentColor = MaterialTheme.colorScheme.onBackground,
                 edgePadding = 0.dp,
                 indicator = { tabPositions ->
                     if (selectedSubTab < tabPositions.size) {
@@ -68,7 +69,7 @@ fun AudioLibraryScreen(
                     }
                 },
                 divider = {
-                    Divider(color = Color.White.copy(alpha = 0.1f))
+                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -103,14 +104,16 @@ fun AudioLibraryScreen(
                             onAddToPlaylist = { file ->
                                 songToAdd = file
                                 showAddToPlaylistDialog = true
-                            }
+                            },
+                            isSearchVisible = isSearchVisible
                         )
                     }
                     1 -> {
                         // ALBUMS VIEW
                         AlbumListScreen(
                             viewModel = viewModel,
-                            onAlbumClick = onNavigateToAlbum
+                            onAlbumClick = onNavigateToAlbum,
+                            isSearchVisible = isSearchVisible
                         )
                     }
                     2 -> {

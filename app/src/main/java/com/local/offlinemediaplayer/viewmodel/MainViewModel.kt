@@ -4,6 +4,7 @@ package com.local.offlinemediaplayer.viewmodel
 import android.app.Application
 import android.content.ComponentName
 import android.content.ContentUris
+import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.annotation.OptIn
@@ -68,8 +69,19 @@ class MainViewModel @Inject constructor(
     private val _currentTheme = MutableStateFlow(themes["orange"]!!)
     val currentTheme = _currentTheme.asStateFlow()
 
+    // Persistence for Dark Mode
+    private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    private val _isDarkTheme = MutableStateFlow(sharedPrefs.getBoolean("is_dark_mode", true))
+    val isDarkTheme = _isDarkTheme.asStateFlow()
+
     fun updateTheme(themeId: String) {
         _currentTheme.value = themes[themeId] ?: themes["orange"]!!
+    }
+
+    fun toggleThemeMode() {
+        val newMode = !_isDarkTheme.value
+        _isDarkTheme.value = newMode
+        sharedPrefs.edit().putBoolean("is_dark_mode", newMode).apply()
     }
 
     // Media Lists

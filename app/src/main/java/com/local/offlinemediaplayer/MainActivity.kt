@@ -23,9 +23,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val currentThemeConfig by viewModel.currentTheme.collectAsStateWithLifecycle()
+            val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
 
             OfflineMediaPlayerTheme(
-                currentThemeConfig = currentThemeConfig
+                currentThemeConfig = currentThemeConfig,
+                darkTheme = isDarkTheme
             ) {
                 MainScreen(viewModel = viewModel)
             }

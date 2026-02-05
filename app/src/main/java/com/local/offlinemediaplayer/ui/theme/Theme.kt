@@ -52,30 +52,44 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun OfflineMediaPlayerTheme(
-    currentThemeConfig: AppThemeConfig? = null, // Optional dynamic config
+    currentThemeConfig: AppThemeConfig? = null,
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Disable dynamic color to force our custom theme
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     // 1. Determine active config (default to fallback if null)
     val activeTheme = currentThemeConfig ?: DefaultTheme
 
-    // 2. Bridge Custom Color to Material3 ColorScheme
-    // We override 'primary' so standard components (Sliders, TextFields) pick it up automatically.
-    val colorScheme = darkColorScheme(
-        primary = activeTheme.primaryColor,
-        secondary = activeTheme.primaryColor,
-        tertiary = Pink80,
-        background = Color(0xFF0B0B0F),
-        surface = Color(0xFF1E1E24)
-    )
+    // 2. Build ColorScheme based on Dark/Light mode
+    val colorScheme = if (darkTheme) {
+        darkColorScheme(
+            primary = activeTheme.primaryColor,
+            secondary = activeTheme.primaryColor,
+            tertiary = Pink80,
+            background = Color(0xFF0B0B0F), // Deep Dark
+            surface = Color(0xFF1E1E24),
+            onBackground = Color.White,
+            onSurface = Color.White
+        )
+    } else {
+        lightColorScheme(
+            primary = activeTheme.primaryColor,
+            secondary = activeTheme.primaryColor,
+            tertiary = Pink40,
+            background = Color(0xFFF2F2F7), // Light Gray (iOS style)
+            surface = Color(0xFFFFFFFF),    // Pure White
+            onBackground = Color(0xFF1C1B1F),
+            onSurface = Color(0xFF1C1B1F)
+        )
+    }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Color(0xFF0B0B0F).toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            window.statusBarColor = colorScheme.background.toArgb()
+            // If light theme, status bar icons should be dark
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 

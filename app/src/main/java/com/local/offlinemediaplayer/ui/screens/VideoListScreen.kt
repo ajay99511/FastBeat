@@ -11,10 +11,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -23,14 +22,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import java.text.DecimalFormat
@@ -48,9 +52,16 @@ fun VideoListScreen(
     val videos = videoListOverride ?: videosState
     val primaryAccent = LocalAppTheme.current.primaryColor
 
-    // Default to Grid View (Large Cards)
+    // Default to Grid View
     var isGridView by remember { mutableStateOf(true) }
+    // Local Search State for this folder view
     var searchQuery by remember { mutableStateOf("") }
+    var isSearchVisible by remember { mutableStateOf(false) }
+
+    // Playlist states
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var selectedVideoForPlaylist by remember { mutableStateOf<MediaFile?>(null) }
 
     val filteredVideos = if (searchQuery.isEmpty()) {
         videos
@@ -66,7 +77,7 @@ fun VideoListScreen(
         // Custom Header logic for "Folder View"
         if (title != null && onBack != null) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // 1. Top Row: Back | Search | Toggle Icon
+                // 1. Top Row: Back | Title/Breadcrumbs | Actions
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -84,51 +95,46 @@ fun VideoListScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = primaryAccent)
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
-                    // Search Bar (Expanded)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF16161D))
+                    // Breadcrumbs / Title (Replaced extended search bar)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        TextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = {
-                                Text(
-                                    "Search in ${title}...",
-                                    color = Color(0xFF475569),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Outlined.Search, null, tint = Color(0xFF475569))
-                            },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(Icons.Default.Close, null, tint = Color.Gray)
-                                    }
-                                }
-                            },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = primaryAccent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxSize()
+                        Text(
+                            text = "Folders",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = primaryAccent
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    // Search Toggle Button
+                    IconButton(
+                        onClick = { isSearchVisible = !isSearchVisible },
+                        modifier = Modifier
+                            .background(if (isSearchVisible) Color(0xFF1E1E24) else Color.Transparent, CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search",
+                            tint = if (isSearchVisible) primaryAccent else Color(0xFF475569)
+                        )
+                    }
 
                     // View Toggle Button
                     IconButton(
@@ -144,32 +150,17 @@ fun VideoListScreen(
                     }
                 }
 
-                // 2. Breadcrumbs: "Folders > Movie"
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Folders",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = primaryAccent
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = Color.Gray,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
-                    )
-                }
-
                 Divider(color = Color(0xFF1E1E24), thickness = 1.dp)
             }
         }
+
+        // Collapsible Search Box
+        CollapsibleSearchBox(
+            isVisible = isSearchVisible,
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            placeholderText = "Search in $title..."
+        )
 
         if (filteredVideos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -191,15 +182,17 @@ fun VideoListScreen(
                         )
                     }
                     Text(
-                        "No videos found here",
+                        if (searchQuery.isNotEmpty()) "No results found" else "No videos found here",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color(0xFF475569)
                     )
-                    Button(
-                        onClick = { viewModel.scanMedia() },
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
-                    ) {
-                        Text("Rescan Library")
+                    if (searchQuery.isEmpty()) {
+                        Button(
+                            onClick = { viewModel.scanMedia() },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                        ) {
+                            Text("Rescan Library")
+                        }
                     }
                 }
             }
@@ -210,18 +203,56 @@ fun VideoListScreen(
             ) {
                 items(items = filteredVideos, key = { it.id }) { video ->
                     if (isGridView) {
-                        VideoCardItem(video, onVideoClick, primaryAccent)
+                        VideoCardItem(
+                            video,
+                            onVideoClick,
+                            primaryAccent,
+                            onAddToPlaylist = {
+                                selectedVideoForPlaylist = video
+                                showAddToPlaylistDialog = true
+                            }
+                        )
                     } else {
-                        VideoListItem(video, onVideoClick)
+                        VideoListItem(
+                            video,
+                            onVideoClick,
+                            onAddToPlaylist = {
+                                selectedVideoForPlaylist = video
+                                showAddToPlaylistDialog = true
+                            }
+                        )
                     }
                 }
             }
         }
     }
+
+    // Dialogs
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onCreate = { name -> viewModel.createPlaylist(name, isVideo = true) }
+        )
+    }
+
+    if (showAddToPlaylistDialog && selectedVideoForPlaylist != null) {
+        AddToPlaylistDialog(
+            song = selectedVideoForPlaylist!!,
+            viewModel = viewModel,
+            onDismiss = { showAddToPlaylistDialog = false },
+            onCreateNew = { showCreatePlaylistDialog = true }
+        )
+    }
 }
 
 @Composable
-private fun VideoListItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
+private fun VideoListItem(
+    video: MediaFile,
+    onVideoClick: (MediaFile) -> Unit,
+    onAddToPlaylist: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -258,11 +289,38 @@ private fun VideoListItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
                 color = Color.Gray
             )
         }
+
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                modifier = Modifier.background(Color(0xFF2B2930))
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Add to Playlist", color = Color.White) },
+                    onClick = {
+                        showMenu = false
+                        onAddToPlaylist()
+                    },
+                    leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit, accentColor: Color) {
+private fun VideoCardItem(
+    video: MediaFile,
+    onVideoClick: (MediaFile) -> Unit,
+    accentColor: Color,
+    onAddToPlaylist: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -335,12 +393,28 @@ private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit, a
                 }
             }
 
-            IconButton(onClick = { /* TODO: Video Options */ }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Options",
-                    tint = Color.Gray
-                )
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = Color.Gray
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(Color(0xFF2B2930))
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to Playlist", color = Color.White) },
+                        onClick = {
+                            showMenu = false
+                            onAddToPlaylist()
+                        },
+                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                    )
+                }
             }
         }
     }

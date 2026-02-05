@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.LibraryMusic
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,16 +27,17 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioListScreen(
     viewModel: MainViewModel,
     onAudioClick: (MediaFile) -> Unit,
-    onAddToPlaylist: (MediaFile) -> Unit
+    onAddToPlaylist: (MediaFile) -> Unit,
+    isSearchVisible: Boolean
 ) {
     // Observe Filtered List
     val audioList by viewModel.filteredAudioList.collectAsStateWithLifecycle()
@@ -55,41 +55,14 @@ fun AudioListScreen(
         contentPadding = PaddingValues(bottom = 100.dp), // Space for MiniPlayer
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. Search Bar
+        // 1. Collapsible Search Bar
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0xFF1E1E24))
-            ) {
-                TextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.updateSearchQuery(it) },
-                    placeholder = { Text("Search tracks...", color = Color.Gray) },
-                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.Gray) },
-                    trailingIcon = {
-                        if(searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                Icon(Icons.Default.Close, null, tint = Color.Gray)
-                            }
-                        }
-                    },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = primaryAccent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            CollapsibleSearchBox(
+                isVisible = isSearchVisible,
+                query = searchQuery,
+                onQueryChange = { viewModel.updateSearchQuery(it) },
+                placeholderText = "Search tracks..."
+            )
         }
 
         // 2. Play All & Shuffle Buttons
@@ -98,7 +71,7 @@ fun AudioListScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted top padding
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Play All (Filled Theme Color)

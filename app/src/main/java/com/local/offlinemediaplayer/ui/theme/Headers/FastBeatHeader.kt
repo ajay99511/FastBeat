@@ -1,108 +1,121 @@
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
+
+package com.local.offlinemediaplayer.ui.theme.Headers
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-//@file:Suppress("UnusedParameter")
-
-/**
- * Minimal, professional FastBeat header:
- * - No logo
- * - Brand name is always visible
- * - Search looks integrated but does nothing unless you pass onSearchClick
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FastBeatHeader(
-    modifier: Modifier = Modifier,
-    searchPlaceholderText: String = "Search",
-    onSearchClick: (() -> Unit)? = null, // keep null for "does nothing" right now
+    sectionTitle: String,
+    themeColor: Color,
+    onSearchClick: () -> Unit = {}
 ) {
-    TopAppBar(
-        modifier = modifier,
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0B0B0F)) // Deep dark background
+            .statusBarsPadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Left: Logo and Section
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Logo
                 Text(
-                    text = "FastBeat",
+                    text = "Fast",
                     style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.semantics { heading() }
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif,
+                        color = Color.White,
+                        letterSpacing = (-0.5).sp
+                    )
+                )
+                Text(
+                    text = "Beat",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif,
+                        color = themeColor,
+                        letterSpacing = (-0.5).sp
+                    )
                 )
 
-                FastBeatSearchPlaceholder(
-                    text = searchPlaceholderText,
-                    enabled = (onSearchClick != null),
-                    modifier = Modifier.weight(1f),
+                // Divider
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .width(1.dp)
+                        .height(16.dp)
+                        .background(Color.White.copy(alpha = 0.2f))
+                )
+
+                // Section Title
+                Text(
+                    text = sectionTitle.uppercase(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
                 )
             }
+
+            // Right: Actions
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onSearchClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E1E24))
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = "Search",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
-    )
-}
 
-@Composable
-private fun FastBeatSearchPlaceholder(
-    text: String,
-    enabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(50)
-    val containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
-    val placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Surface(
-        modifier = modifier
-            .height(48.dp)
-            .semantics {
-                // A consistent announcement for TalkBack.
-                // When you wire up real search navigation later, change this to "Search" and add a click action.
-                contentDescription = if (enabled) "Search" else "Search (unavailable)"
-                role = Role.Button
-            },
-        shape = shape,
-        color = containerColor,
-        contentColor = placeholderColor,
-        border = BorderStroke(1.dp, borderColor),
-        tonalElevation = 0.dp
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+        // Subtle Gradient Border at Bottom
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            themeColor.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    )
+                )
         )
     }
 }
-
-

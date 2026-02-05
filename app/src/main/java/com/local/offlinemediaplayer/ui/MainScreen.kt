@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,9 +49,7 @@ import com.local.offlinemediaplayer.ui.screens.MeScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
-import com.local.offlinemediaplayer.ui.theme.Headers.AudioHeader
-import com.local.offlinemediaplayer.ui.theme.Headers.ImageHeader
-import com.local.offlinemediaplayer.ui.theme.Headers.VideoHeader
+import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
@@ -146,6 +145,14 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentMedia by remember { mutableStateOf<MediaFile?>(null) }
 
+    // Global Search Visibility State (Controlled by Header)
+    var isSearchVisible by remember { mutableStateOf(false) }
+
+    // Reset search visibility when changing tabs
+    LaunchedEffect(selectedTab) {
+        isSearchVisible = false
+    }
+
     // Hoist Navigation State
     val audioNavController = rememberNavController()
     val videoNavController = rememberNavController()
@@ -160,33 +167,47 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     // UI Logic Variables
     val isVideoPlaying = currentMedia?.isVideo == true
     val isAudioDetailScreen = currentAudioRoute != "audio_library"
-    val isVideoRoot = currentVideoRoute == "video_folders" || currentVideoRoute == null
+    // Video root is either folders or list, we usually show header on root folders
+    val isVideoRoot = currentVideoRoute == "video_folders"
 
-    // Logic: Show Header if: NOT playing video AND ( (Tab=Video AND Root) OR (Tab=Audio AND Root) OR (Tab=Images) )
-    // Note: "Stats" tab has its own internal header structure
-    val showBars = !isVideoPlaying && (selectedTab != 1 || !isAudioDetailScreen)
+    // Theme Color
+    val themeColor = LocalAppTheme.current.primaryColor
+
+    // Show Header Logic
+    val showHeader = !isVideoPlaying && (
+            (selectedTab == 0 && isVideoRoot) || // Videos (Folders only)
+                    (selectedTab == 1 && !isAudioDetailScreen) || // Audio (Library only)
+                    selectedTab == 2 || // Images (Always)
+                    selectedTab == 3 // Stats (Always)
+            )
 
     Scaffold(
         // Custom Top Bar
         topBar = {
-            if (showBars) {
+            if (showHeader) {
                 // Crossfade animation for headers to match tab switch
                 AnimatedContent(
                     targetState = selectedTab,
                     transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
                     label = "HeaderTransition"
                 ) { targetTab ->
-                    when (targetTab) {
-                        0 -> if (isVideoRoot) VideoHeader()
-                        1 -> if (!isAudioDetailScreen) AudioHeader()
-                        2 -> ImageHeader()
-                        // 3 (Stats) handles its own header
+                    val sectionTitle = when(targetTab) {
+                        0 -> "Videos"
+                        1 -> "Music"
+                        2 -> "Gallery"
+                        3 -> "Stats"
+                        else -> "App"
                     }
+                    FastBeatHeader(
+                        sectionTitle = sectionTitle,
+                        themeColor = themeColor,
+                        onSearchClick = { isSearchVisible = !isSearchVisible }
+                    )
                 }
             }
         },
         bottomBar = {
-            if (showBars) {
+            if (!isVideoPlaying) {
                 // FastBeat Custom Navigation Bar
                 val navContainerColor = Color(0xFF0B0B0F)
                 val primaryColor = LocalAppTheme.current.primaryColor
@@ -196,7 +217,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
 
                 NavigationBar(
                     containerColor = navContainerColor,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    tonalElevation = 0.dp
                 ) {
                     // 0. Videos
                     NavigationBarItem(
@@ -298,16 +320,25 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                                 onVideoClick = { file ->
                                     currentMedia = file
                                     viewModel.playMedia(file)
-                                }
+                                },
+                                isSearchVisible = isSearchVisible // Pass visibility
                             )
-                            1 -> AudioNavigationHost(viewModel, audioNavController)
-                            2 -> ImageListScreen(viewModel)
+                            1 -> AudioNavigationHost(
+                                viewModel = viewModel,
+                                navController = audioNavController,
+                                isSearchVisible = isSearchVisible // Pass visibility
+                            )
+                            2 -> ImageListScreen(
+                                viewModel = viewModel,
+                                isSearchVisible = isSearchVisible // Pass visibility
+                            )
                             3 -> MeScreen(
                                 viewModel = viewModel,
                                 onPlayTrack = { file ->
                                     viewModel.playMedia(file)
                                     selectedTab = 1
-                                }
+                                },
+                                isSearchVisible = isSearchVisible // Pass visibility
                             )
                         }
                     }

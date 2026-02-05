@@ -13,7 +13,8 @@ import com.local.offlinemediaplayer.viewmodel.MainViewModel
 @Composable
 fun AudioNavigationHost(
     viewModel: MainViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    isSearchVisible: Boolean
 ) {
     NavHost(
         navController = navController,
@@ -36,7 +37,8 @@ fun AudioNavigationHost(
                 viewModel = viewModel,
                 onNavigateToPlayer = { navController.navigate("now_playing") },
                 onNavigateToPlaylist = { id -> navController.navigate("playlist_detail/$id") },
-                onNavigateToAlbum = { id -> navController.navigate("album_detail/$id") }
+                onNavigateToAlbum = { id -> navController.navigate("album_detail/$id") },
+                isSearchVisible = isSearchVisible
             )
         }
         composable("now_playing") {

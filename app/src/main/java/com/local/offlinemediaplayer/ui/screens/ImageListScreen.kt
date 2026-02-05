@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.activity.compose.BackHandler
@@ -14,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
@@ -23,7 +23,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,66 +30,87 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
-fun ImageListScreen(viewModel: MainViewModel) {
+fun ImageListScreen(
+    viewModel: MainViewModel,
+    isSearchVisible: Boolean
+) {
     val images by viewModel.imageList.collectAsStateWithLifecycle()
     var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Local search state for Images
+    var searchQuery by remember { mutableStateOf("") }
 
     // Handle Back Press to close viewer
     BackHandler(enabled = selectedImageIndex != null) {
         selectedImageIndex = null
     }
 
-    if (selectedImageIndex != null && images.isNotEmpty()) {
+    // Filter images
+    val filteredImages = if (searchQuery.isNotEmpty()) {
+        images.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    } else {
+        images
+    }
+
+    if (selectedImageIndex != null && filteredImages.isNotEmpty()) {
         // Full Screen Viewer
         ImageViewer(
-            images = images,
+            images = filteredImages,
             initialIndex = selectedImageIndex!!,
             onBack = { selectedImageIndex = null }
         )
     } else {
         // Grid View
-        if (images.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF12121A)), // Ink Dark
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(modifier = Modifier.fillMaxSize().background(Color(0xFF12121A))) {
+
+            // Collapsible Search Box
+            CollapsibleSearchBox(
+                isVisible = isSearchVisible,
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholderText = "Search images..."
+            )
+
+            if (filteredImages.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Image,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "No images found on device",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) "No images match search" else "No images found on device",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 100.dp),
-                contentPadding = PaddingValues(2.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF12121A))
-            ) {
-                itemsIndexed(images) { index, image ->
-                    ImageItem(image, onClick = { selectedImageIndex = index })
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 100.dp),
+                    contentPadding = PaddingValues(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    itemsIndexed(filteredImages) { index, image ->
+                        ImageItem(image, onClick = { selectedImageIndex = index })
+                    }
+                    // Bottom padding to avoid navigation bar overlap if any
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
-                // Bottom padding to avoid navigation bar overlap if any
-                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
     }

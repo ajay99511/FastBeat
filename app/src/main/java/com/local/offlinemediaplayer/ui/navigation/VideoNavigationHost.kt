@@ -19,7 +19,8 @@ import com.local.offlinemediaplayer.viewmodel.MainViewModel
 fun VideoNavigationHost(
     viewModel: MainViewModel,
     navController: NavHostController,
-    onVideoClick: (MediaFile) -> Unit
+    onVideoClick: (MediaFile) -> Unit,
+    isSearchVisible: Boolean
 ) {
     NavHost(
         navController = navController,
@@ -45,7 +46,8 @@ fun VideoNavigationHost(
                 },
                 onPlaylistClick = { playlistId ->
                     navController.navigate("video_playlist_detail/$playlistId")
-                }
+                },
+                isSearchVisible = isSearchVisible
             )
         }
 
@@ -53,6 +55,10 @@ fun VideoNavigationHost(
             val bucketId = backStackEntry.arguments?.getString("bucketId") ?: ""
             val allVideos by viewModel.videoList.collectAsState()
             val folderVideos = allVideos.filter { it.bucketId == bucketId }
+
+            // Video List has its own header with search toggle, but we can pass initial state if needed.
+            // Since VideoList hides the main FastBeat header, `isSearchVisible` from MainScreen
+            // won't toggle via the main header. We will handle local toggle in VideoListScreen.
 
             VideoListScreen(
                 viewModel = viewModel,
