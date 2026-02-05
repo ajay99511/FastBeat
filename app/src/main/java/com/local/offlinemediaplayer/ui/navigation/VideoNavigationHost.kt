@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
 import com.local.offlinemediaplayer.ui.screens.VideoListScreen
+import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -41,6 +42,9 @@ fun VideoNavigationHost(
                 viewModel = viewModel,
                 onFolderClick = { folderId ->
                     navController.navigate("video_list/$folderId")
+                },
+                onPlaylistClick = { playlistId ->
+                    navController.navigate("video_playlist_detail/$playlistId")
                 }
             )
         }
@@ -56,6 +60,17 @@ fun VideoNavigationHost(
                 videoListOverride = folderVideos,
                 title = folderVideos.firstOrNull()?.bucketName ?: "Videos",
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("video_playlist_detail/{playlistId}") { backStackEntry ->
+            val playlistId = backStackEntry.arguments?.getString("playlistId") ?: return@composable
+
+            VideoPlaylistDetailScreen(
+                playlistId = playlistId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = onVideoClick
             )
         }
     }

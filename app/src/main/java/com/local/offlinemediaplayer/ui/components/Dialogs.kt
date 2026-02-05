@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.components
 
 import androidx.compose.foundation.clickable
@@ -52,11 +53,17 @@ fun AddToPlaylistDialog(
     onDismiss: () -> Unit,
     onCreateNew: () -> Unit
 ) {
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    // Collect all playlists
+    val allPlaylists by viewModel.playlists.collectAsStateWithLifecycle()
+
+    // Filter based on the media type being added
+    val filteredPlaylists = remember(allPlaylists, song) {
+        allPlaylists.filter { it.isVideo == song.isVideo }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add to Playlist") },
+        title = { Text("Add to ${if(song.isVideo) "Video" else "Audio"} Playlist") },
         text = {
             LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                 item {
@@ -70,16 +77,24 @@ fun AddToPlaylistDialog(
                     }
                     Divider()
                 }
-                items(playlists) { playlist ->
-                    val isAdded = playlist.mediaIds.contains(song.id)
-                    ListItem(
-                        headlineContent = { Text(playlist.name) },
-                        trailingContent = { if (isAdded) Icon(Icons.Default.Check, null) },
-                        modifier = Modifier.clickable(enabled = !isAdded) {
-                            viewModel.addSongToPlaylist(playlist.id, song.id)
-                            onDismiss()
+                if (filteredPlaylists.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("No matching playlists found", style = MaterialTheme.typography.bodyMedium)
                         }
-                    )
+                    }
+                } else {
+                    items(filteredPlaylists) { playlist ->
+                        val isAdded = playlist.mediaIds.contains(song.id)
+                        ListItem(
+                            headlineContent = { Text(playlist.name) },
+                            trailingContent = { if (isAdded) Icon(Icons.Default.Check, null) },
+                            modifier = Modifier.clickable(enabled = !isAdded) {
+                                viewModel.addSongToPlaylist(playlist.id, song.id)
+                                onDismiss()
+                            }
+                        )
+                    }
                 }
             }
         },

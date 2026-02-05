@@ -333,13 +333,28 @@ fun VideoPlayerControls(
 
                 // Center Controls
                 Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    IconButton(onClick = { viewModel.playPrevious() }) { Icon(Icons.Default.SkipPrevious, "Prev", tint = Color.White, modifier = Modifier.size(36.dp)) }
+                    // Previous Video
+                    IconButton(
+                        onClick = { viewModel.playPrevious() },
+                        // Show visible but maybe dim if no prev
+                    ) {
+                        Icon(Icons.Default.SkipPrevious, "Prev", tint = Color.White, modifier = Modifier.size(36.dp))
+                    }
+
                     IconButton(onClick = { viewModel.rewind() }) { Icon(Icons.Default.Replay10, "Rewind", tint = Color.White, modifier = Modifier.size(36.dp)) }
+
                     Box(modifier = Modifier.size(72.dp).clip(CircleShape).background(Color.Transparent).border(2.dp, primaryAccent, CircleShape).clickable { viewModel.togglePlayPause() }, contentAlignment = Alignment.Center) {
                         Icon(imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = "Play", tint = primaryAccent, modifier = Modifier.size(40.dp))
                     }
+
                     IconButton(onClick = { viewModel.forward() }) { Icon(Icons.Default.Forward10, "Forward", tint = Color.White, modifier = Modifier.size(36.dp)) }
-                    IconButton(onClick = { viewModel.playNext() }) { Icon(Icons.Default.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(36.dp)) }
+
+                    // Next Video
+                    IconButton(
+                        onClick = { viewModel.playNext() }
+                    ) {
+                        Icon(Icons.Default.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(36.dp))
+                    }
                 }
 
                 // Bottom Controls

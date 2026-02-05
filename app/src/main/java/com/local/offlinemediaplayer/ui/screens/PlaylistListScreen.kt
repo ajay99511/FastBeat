@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
@@ -20,16 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.FeaturedPlayList
 import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.PlaylistAddCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,9 +44,15 @@ import com.local.offlinemediaplayer.viewmodel.MainViewModel
 fun PlaylistListScreen(
     viewModel: MainViewModel,
     onPlaylistClick: (String) -> Unit,
-    onCreateClick: () -> Unit
+    onCreateClick: () -> Unit,
+    isVideo: Boolean = false // Added flag to distinguish list source
 ) {
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    // Observe specific list based on flag
+    val playlists by if (isVideo) {
+        viewModel.videoPlaylists.collectAsStateWithLifecycle()
+    } else {
+        viewModel.audioPlaylists.collectAsStateWithLifecycle()
+    }
 
     // Colors
     val backgroundColor = Color(0xFF12121A) // Ink Dark
@@ -69,7 +72,7 @@ fun PlaylistListScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Playlists",
+                text = if (isVideo) "Video Playlists" else "Playlists",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = Color.White
             )
@@ -86,7 +89,7 @@ fun PlaylistListScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlaylistAddCircle,
+                        imageVector = Icons.Default.Add,
                         contentDescription = "New Playlist",
                         tint = primaryAccent,
                         modifier = Modifier.size(20.dp)
@@ -173,7 +176,7 @@ private fun PlaylistListItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.FeaturedPlayList,
+                    imageVector = Icons.Default.FormatListNumbered,
                     contentDescription = null,
                     tint = Color.Gray
                 )
@@ -192,7 +195,7 @@ private fun PlaylistListItem(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "$count songs",
+                text = "$count videos", // Changed text slightly for generic feel
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Gray
             )

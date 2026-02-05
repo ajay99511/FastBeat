@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
@@ -117,7 +118,8 @@ fun AudioLibraryScreen(
                         PlaylistListScreen(
                             viewModel = viewModel,
                             onPlaylistClick = onNavigateToPlaylist,
-                            onCreateClick = { showCreateDialog = true }
+                            onCreateClick = { showCreateDialog = true },
+                            isVideo = false // Explicitly Audio
                         )
                     }
                 }
@@ -137,7 +139,7 @@ fun AudioLibraryScreen(
     if (showCreateDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreateDialog = false },
-            onCreate = { name -> viewModel.createPlaylist(name) }
+            onCreate = { name -> viewModel.createPlaylist(name, isVideo = false) }
         )
     }
 
