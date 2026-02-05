@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("kotlin-kapt")
+    alias(libs.plugins.ksp)  // ✅ Changed from explicit version to alias
     id("com.google.dagger.hilt.android") version "2.58"
 }
 
@@ -19,7 +19,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Export schemas is true by default, but we disable it for simplicity here
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments += mapOf("room.schemaLocation" to "$projectDir/schemas")
@@ -36,13 +35,16 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
     }
@@ -66,8 +68,7 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.58")
     implementation(libs.androidx.compose.animation.core)
     implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.text)
-    kapt("com.google.dagger:hilt-compiler:2.58")
+    ksp("com.google.dagger:hilt-compiler:2.58")
 
     // Navigation for switching screens
     implementation("androidx.navigation:navigation-compose:2.7.7")
@@ -88,9 +89,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Room Database
-    implementation("androidx.room:room-runtime:2.7.0-alpha12")
-    implementation("androidx.room:room-ktx:2.7.0-alpha12")
-    kapt("androidx.room:room-compiler:2.7.0-alpha12")
+    implementation("androidx.room:room-runtime:2.7.0-alpha11")
+    implementation("androidx.room:room-ktx:2.7.0-alpha11")
+    ksp("androidx.room:room-compiler:2.7.0-alpha11")
 
     // Testing
     testImplementation(libs.junit)

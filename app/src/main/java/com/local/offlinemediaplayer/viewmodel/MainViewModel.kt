@@ -2,10 +2,13 @@
 package com.local.offlinemediaplayer.viewmodel
 
 import android.app.Application
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.ContentUris
 import android.content.Context
+import android.content.IntentSender
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.OptIn
 import androidx.compose.ui.graphics.Color
@@ -33,8 +36,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -215,6 +220,17 @@ class MainViewModel @Inject constructor(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var positionUpdateJob: Job? = null
 
+    // --- SELECTION & DELETION STATE ---
+    private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedMediaIds = _selectedMediaIds.asStateFlow()
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode = _isSelectionMode.asStateFlow()
+
+    // SharedFlow to trigger IntentSender request in UI
+    private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
+    val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
+
     init {
         initializeMediaController()
         loadPlaylists()
@@ -235,6 +251,91 @@ class MainViewModel @Inject constructor(
 
     fun updateSortOption(option: SortOption) {
         _sortOption.value = option
+    }
+
+    // --- Selection Logic ---
+    fun toggleSelectionMode(enable: Boolean) {
+        _isSelectionMode.value = enable
+        if (!enable) {
+            _selectedMediaIds.value = emptySet()
+        }
+    }
+
+    fun toggleSelection(id: Long) {
+        val current = _selectedMediaIds.value.toMutableSet()
+        if (current.contains(id)) {
+            current.remove(id)
+        } else {
+            current.add(id)
+        }
+        _selectedMediaIds.value = current
+
+        // Auto-exit selection mode if empty
+        if (current.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+    }
+
+    fun selectAll(ids: List<Long>) {
+        _selectedMediaIds.value = ids.toSet()
+    }
+
+    // --- Deletion Logic ---
+    fun deleteSelectedMedia() {
+        val idsToDelete = _selectedMediaIds.value.toList()
+        if (idsToDelete.isEmpty()) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val allMedia = _videoList.value + _audioList.value
+            val filesToDelete = allMedia.filter { idsToDelete.contains(it.id) }
+            val uris = filesToDelete.map { it.uri }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Android 11+ (API 30+): Batch Delete Request
+                val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
+                _deleteIntentEvent.emit(pendingIntent.intentSender)
+            } else {
+                // Android 10 (API 29) & Below
+                // For API 29, handle RecoverableSecurityException logic if needed in Activity
+                // For <29, delete directly
+                try {
+                    for (file in filesToDelete) {
+                        app.contentResolver.delete(file.uri, null, null)
+                    }
+                    // If successful without exception, manually remove from list
+                    onDeleteSuccess(idsToDelete)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // If this was API 29 RecoverableSecurityException, specific handling required
+                }
+            }
+        }
+    }
+
+    // Called when IntentSender returns RESULT_OK or direct delete works
+    fun onDeleteSuccess() {
+        val ids = _selectedMediaIds.value.toList()
+        onDeleteSuccess(ids)
+    }
+
+    private fun onDeleteSuccess(ids: List<Long>) {
+        viewModelScope.launch {
+            // Remove from lists
+            _videoList.value = _videoList.value.filter { !ids.contains(it.id) }
+            _audioList.value = _audioList.value.filter { !ids.contains(it.id) }
+
+            // Clean up playlists
+            val currentPlaylists = _playlists.value
+            val updatedPlaylists = currentPlaylists.map { playlist ->
+                playlist.copy(mediaIds = playlist.mediaIds.filter { !ids.contains(it) })
+            }
+            _playlists.value = updatedPlaylists
+            playlistRepository.savePlaylists(updatedPlaylists)
+
+            // Reset selection
+            _selectedMediaIds.value = emptySet()
+            _isSelectionMode.value = false
+        }
     }
 
     private fun initializeMediaController() {
@@ -637,9 +738,6 @@ class MainViewModel @Inject constructor(
 
         if (favPlaylist == null) {
             createPlaylist(favName, isVideo = false)
-            // Re-fetch to get the object with ID
-            // Since this is async, in a real app we might wait,
-            // but here we just added it to flow, so let's find it from current flow
             favPlaylist = _playlists.value.find { it.name == favName && !it.isVideo }
         }
 
@@ -678,9 +776,6 @@ class MainViewModel @Inject constructor(
             val allVideos = _videoList.value
             val startIndex = allVideos.indexOfFirst { it.id == media.id }
             if (startIndex >= 0) {
-                // Optional: If you want to autoplay next video in folder, treat the folder as a playlist
-                // setQueue(allVideos, startIndex, false)
-                // For now, let's keep single play but wrapped in queue logic for consistency
                 setQueue(listOf(media), 0, false)
             }
         } else if (media.isImage) {
@@ -781,7 +876,7 @@ class MainViewModel @Inject constructor(
         val newSpeed = if (nextIndex != -1) speeds[nextIndex] else speeds[0]
 
         _player.value?.setPlaybackSpeed(newSpeed)
-        _playbackSpeed.value = newSpeed // Listener updates too, but this is immediate for UI
+        _playbackSpeed.value = newSpeed
     }
 
     fun setPipMode(isPip: Boolean) {

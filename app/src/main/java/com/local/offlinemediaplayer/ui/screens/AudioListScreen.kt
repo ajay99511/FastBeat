@@ -1,9 +1,16 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
@@ -28,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
@@ -44,108 +53,160 @@ fun AudioListScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
 
-    // Sort Menu State
+    // Selection State
+    val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedIds by viewModel.selectedMediaIds.collectAsStateWithLifecycle()
+
+    // Deletion Flow
+    val intentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onDeleteSuccess()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
+    // Dialog State
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     // Colors from Theme
     val primaryAccent = LocalAppTheme.current.primaryColor
     val cardBg = Color(0xFF1E1E24)
 
+    // Back Handler for Selection Mode
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.toggleSelectionMode(false)
+    }
+
     LazyColumn(
         contentPadding = PaddingValues(bottom = 100.dp), // Space for MiniPlayer
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. Collapsible Search Bar
+        // 1. Collapsible Search Bar (Hide in selection mode)
         item {
             CollapsibleSearchBox(
-                isVisible = isSearchVisible,
+                isVisible = isSearchVisible && !isSelectionMode,
                 query = searchQuery,
                 onQueryChange = { viewModel.updateSearchQuery(it) },
                 placeholderText = "Search tracks..."
             )
         }
 
-        // 2. Play All & Shuffle Buttons
-        if (audioList.isNotEmpty()) {
+        // 2. Selection Header (Changes logic based on mode)
+        if (isSelectionMode) {
             item {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted top padding
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Play All (Filled Theme Color)
-                    Button(
-                        onClick = { viewModel.playAll(false) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, null, tint = Color.Black) // Black icon on bright accent
-                        Spacer(Modifier.width(8.dp))
-                        Text("Play All", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { viewModel.toggleSelectionMode(false) }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = Color.Gray)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${selectedIds.size} Selected",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
-
-                    // Shuffle (Outlined Dark)
-                    Button(
-                        onClick = { viewModel.playAll(true) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
-                        Spacer(Modifier.width(8.dp))
-                        Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
-
-            // 3. Count & Sort Row
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${audioList.size} SONGS",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.Gray,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-
-                    Box {
-                        Row(
-                            modifier = Modifier.clickable { showSortMenu = true },
-                            verticalAlignment = Alignment.CenterVertically
+        } else {
+            // 2. Play All & Shuffle Buttons
+            if (audioList.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted top padding
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Play All (Filled Theme Color)
+                        Button(
+                            onClick = { viewModel.playAll(false) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
+                            shape = RoundedCornerShape(50)
                         ) {
-                            Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Sort: ${getSortLabel(sortOption)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.Gray
-                            )
+                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black) // Black icon on bright accent
+                            Spacer(Modifier.width(8.dp))
+                            Text("Play All", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
 
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier.background(cardBg)
+                        // Shuffle (Outlined Dark)
+                        Button(
+                            onClick = { viewModel.playAll(true) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
+                            shape = RoundedCornerShape(50)
                         ) {
-                            SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
-                            SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
-                            SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
-                            SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
-                            SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
+                            Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
+                            Spacer(Modifier.width(8.dp))
+                            Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // 3. Count & Sort Row
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${audioList.size} SONGS",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+
+                        Box {
+                            Row(
+                                modifier = Modifier.clickable { showSortMenu = true },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "Sort: ${getSortLabel(sortOption)}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.Gray
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false },
+                                modifier = Modifier.background(cardBg)
+                            ) {
+                                SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
+                                SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
+                                SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
+                                SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
+                                SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
+                            }
                         }
                     }
                 }
@@ -196,27 +257,73 @@ fun AudioListScreen(
             }
         } else {
             items(items = audioList, key = { it.id }) { song ->
-                AudioListItemStyled(song, onAudioClick, onAddToPlaylist)
+                val isSelected = selectedIds.contains(song.id)
+                AudioListItemStyled(
+                    song = song,
+                    onClick = {
+                        if (isSelectionMode) viewModel.toggleSelection(song.id)
+                        else onAudioClick(song)
+                    },
+                    onLongClick = {
+                        viewModel.toggleSelectionMode(true)
+                        viewModel.toggleSelection(song.id)
+                    },
+                    onAddToPlaylist = onAddToPlaylist,
+                    isSelectionMode = isSelectionMode,
+                    isSelected = isSelected,
+                    onDelete = {
+                        viewModel.toggleSelectionMode(true)
+                        viewModel.selectAll(listOf(song.id))
+                        showDeleteConfirmDialog = true
+                    }
+                )
             }
         }
     }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirmDialog) {
+        DeleteConfirmationDialog(
+            count = selectedIds.size,
+            onConfirm = { viewModel.deleteSelectedMedia() },
+            onDismiss = { showDeleteConfirmDialog = false }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AudioListItemStyled(
     song: MediaFile,
-    onAudioClick: (MediaFile) -> Unit,
-    onAddToPlaylist: (MediaFile) -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onAddToPlaylist: (MediaFile) -> Unit,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onAudioClick(song) }
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSelectionMode) {
+            Icon(
+                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                modifier = Modifier.padding(end = 16.dp).size(24.dp)
+            )
+        }
+
         // Album Art
         Card(
             shape = RoundedCornerShape(8.dp),
@@ -254,23 +361,33 @@ private fun AudioListItemStyled(
         }
 
         // Action Menu
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
-            }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                modifier = Modifier.background(Color(0xFF2B2930))
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = Color.White) },
-                    onClick = {
-                        showMenu = false
-                        onAddToPlaylist(song)
-                    },
-                    leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
-                )
+        if (!isSelectionMode) {
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(Color(0xFF2B2930))
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to Playlist", color = Color.White) },
+                        onClick = {
+                            showMenu = false
+                            onAddToPlaylist(song)
+                        },
+                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                    )
+                }
             }
         }
     }

@@ -1,8 +1,15 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,11 +17,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.*
@@ -22,19 +34,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import java.text.DecimalFormat
@@ -52,6 +63,25 @@ fun VideoListScreen(
     val videos = videoListOverride ?: videosState
     val primaryAccent = LocalAppTheme.current.primaryColor
 
+    // Selection State
+    val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedIds by viewModel.selectedMediaIds.collectAsStateWithLifecycle()
+
+    // Deletion Flow Handling
+    val intentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onDeleteSuccess()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
     // Default to Grid View
     var isGridView by remember { mutableStateOf(true) }
     // Local Search State for this folder view
@@ -62,6 +92,14 @@ fun VideoListScreen(
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var selectedVideoForPlaylist by remember { mutableStateOf<MediaFile?>(null) }
+
+    // Delete Dialog
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    // Back Handler to exit selection mode
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.toggleSelectionMode(false)
+    }
 
     val filteredVideos = if (searchQuery.isEmpty()) {
         videos
@@ -77,7 +115,6 @@ fun VideoListScreen(
         // Custom Header logic for "Folder View"
         if (title != null && onBack != null) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // 1. Top Row: Back | Title/Breadcrumbs | Actions
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -85,68 +122,87 @@ fun VideoListScreen(
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Back Button (Circle BG)
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .background(Color(0xFF1E1E24), CircleShape)
-                            .size(40.dp)
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = primaryAccent)
-                    }
+                    if (isSelectionMode) {
+                        // SELECTION MODE HEADER
+                        IconButton(
+                            onClick = { viewModel.toggleSelectionMode(false) },
+                            modifier = Modifier.background(Color(0xFF1E1E24), CircleShape).size(40.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                    // Breadcrumbs / Title (Replaced extended search bar)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
                         Text(
-                            text = "Folders",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = primaryAccent
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = title,
+                            text = "${selectedIds.size} Selected",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            modifier = Modifier.weight(1f)
                         )
-                    }
 
-                    // Search Toggle Button
-                    IconButton(
-                        onClick = { isSearchVisible = !isSearchVisible },
-                        modifier = Modifier
-                            .background(if (isSearchVisible) Color(0xFF1E1E24) else Color.Transparent, CircleShape)
-                            .size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = "Search",
-                            tint = if (isSearchVisible) primaryAccent else Color(0xFF475569)
-                        )
-                    }
+                        IconButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            modifier = Modifier.background(Color(0xFF1E1E24), CircleShape).size(40.dp)
+                        ) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        }
+                    } else {
+                        // NORMAL HEADER
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.background(Color(0xFF1E1E24), CircleShape).size(40.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = primaryAccent)
+                        }
 
-                    // View Toggle Button
-                    IconButton(
-                        onClick = { isGridView = !isGridView },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
-                            contentDescription = "Change View",
-                            tint = Color(0xFF475569),
-                            modifier = Modifier.size(28.dp)
-                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Folders",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = primaryAccent
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { isSearchVisible = !isSearchVisible },
+                            modifier = Modifier.background(if (isSearchVisible) Color(0xFF1E1E24) else Color.Transparent, CircleShape).size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = "Search",
+                                tint = if (isSearchVisible) primaryAccent else Color(0xFF475569)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { isGridView = !isGridView },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                                contentDescription = "Change View",
+                                tint = Color(0xFF475569),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
                 }
 
@@ -156,7 +212,7 @@ fun VideoListScreen(
 
         // Collapsible Search Box
         CollapsibleSearchBox(
-            isVisible = isSearchVisible,
+            isVisible = isSearchVisible && !isSelectionMode,
             query = searchQuery,
             onQueryChange = { searchQuery = it },
             placeholderText = "Search in $title..."
@@ -202,23 +258,53 @@ fun VideoListScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(items = filteredVideos, key = { it.id }) { video ->
+                    val isSelected = selectedIds.contains(video.id)
+
                     if (isGridView) {
                         VideoCardItem(
-                            video,
-                            onVideoClick,
-                            primaryAccent,
+                            video = video,
+                            onVideoClick = {
+                                if (isSelectionMode) viewModel.toggleSelection(video.id)
+                                else onVideoClick(video)
+                            },
+                            onLongClick = {
+                                viewModel.toggleSelectionMode(true)
+                                viewModel.toggleSelection(video.id)
+                            },
+                            accentColor = primaryAccent,
                             onAddToPlaylist = {
                                 selectedVideoForPlaylist = video
                                 showAddToPlaylistDialog = true
+                            },
+                            isSelectionMode = isSelectionMode,
+                            isSelected = isSelected,
+                            onDelete = {
+                                viewModel.toggleSelectionMode(true)
+                                viewModel.selectAll(listOf(video.id))
+                                showDeleteConfirmDialog = true
                             }
                         )
                     } else {
                         VideoListItem(
-                            video,
-                            onVideoClick,
+                            video = video,
+                            onVideoClick = {
+                                if (isSelectionMode) viewModel.toggleSelection(video.id)
+                                else onVideoClick(video)
+                            },
+                            onLongClick = {
+                                viewModel.toggleSelectionMode(true)
+                                viewModel.toggleSelection(video.id)
+                            },
                             onAddToPlaylist = {
                                 selectedVideoForPlaylist = video
                                 showAddToPlaylistDialog = true
+                            },
+                            isSelectionMode = isSelectionMode,
+                            isSelected = isSelected,
+                            onDelete = {
+                                viewModel.toggleSelectionMode(true)
+                                viewModel.selectAll(listOf(video.id))
+                                showDeleteConfirmDialog = true
                             }
                         )
                     }
@@ -228,6 +314,14 @@ fun VideoListScreen(
     }
 
     // Dialogs
+    if (showDeleteConfirmDialog) {
+        DeleteConfirmationDialog(
+            count = selectedIds.size,
+            onConfirm = { viewModel.deleteSelectedMedia() },
+            onDismiss = { showDeleteConfirmDialog = false }
+        )
+    }
+
     if (showCreatePlaylistDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreatePlaylistDialog = false },
@@ -245,20 +339,40 @@ fun VideoListScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun VideoListItem(
     video: MediaFile,
-    onVideoClick: (MediaFile) -> Unit,
-    onAddToPlaylist: () -> Unit
+    onVideoClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onVideoClick(video) },
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
+            .combinedClickable(
+                onClick = onVideoClick,
+                onLongClick = onLongClick
+            )
+            .padding(vertical = 4.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSelectionMode) {
+            Icon(
+                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                modifier = Modifier.padding(end = 16.dp).size(24.dp)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .width(80.dp)
@@ -290,41 +404,62 @@ private fun VideoListItem(
             )
         }
 
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
-            }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                modifier = Modifier.background(Color(0xFF2B2930))
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = Color.White) },
-                    onClick = {
-                        showMenu = false
-                        onAddToPlaylist()
-                    },
-                    leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
-                )
+        if (!isSelectionMode) {
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(Color(0xFF2B2930))
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Add to Playlist", color = Color.White) },
+                        onClick = {
+                            showMenu = false
+                            onAddToPlaylist()
+                        },
+                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun VideoCardItem(
     video: MediaFile,
-    onVideoClick: (MediaFile) -> Unit,
+    onVideoClick: () -> Unit,
+    onLongClick: () -> Unit,
     accentColor: Color,
-    onAddToPlaylist: () -> Unit
+    onAddToPlaylist: () -> Unit,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onVideoClick(video) }
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) accentColor.copy(alpha = 0.1f) else Color.Transparent)
+            .combinedClickable(
+                onClick = onVideoClick,
+                onLongClick = onLongClick
+            )
+            .padding(4.dp)
     ) {
         Box(
             modifier = Modifier
@@ -340,19 +475,34 @@ private fun VideoCardItem(
                 contentScale = ContentScale.Crop
             )
 
-            Surface(
-                color = Color.Black.copy(alpha = 0.8f),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = formatDuration(video.duration),
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+            // Selection Overlay
+            if (isSelectionMode) {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                        contentDescription = null,
+                        tint = if (isSelected) accentColor else Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            } else {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = formatDuration(video.duration),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
 
@@ -393,27 +543,37 @@ private fun VideoCardItem(
                 }
             }
 
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
-                        tint = Color.Gray
-                    )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier.background(Color(0xFF2B2930))
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Add to Playlist", color = Color.White) },
-                        onClick = {
-                            showMenu = false
-                            onAddToPlaylist()
-                        },
-                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
-                    )
+            if (!isSelectionMode) {
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = Color.Gray
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF2B2930))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add to Playlist", color = Color.White) },
+                            onClick = {
+                                showMenu = false
+                                onAddToPlaylist()
+                            },
+                            leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                        )
+                    }
                 }
             }
         }
