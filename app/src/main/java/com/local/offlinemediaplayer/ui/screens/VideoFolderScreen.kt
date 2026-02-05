@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
@@ -6,13 +7,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,10 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.VideoFolder
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -38,6 +37,7 @@ fun VideoFolderScreen(
 ) {
     val folders by viewModel.videoFolders.collectAsStateWithLifecycle()
     val searchQuery by viewModel.folderSearchQuery.collectAsStateWithLifecycle()
+    val primaryAccent = LocalAppTheme.current.primaryColor
 
     val filteredFolders = if (searchQuery.isEmpty()) {
         folders
@@ -46,9 +46,7 @@ fun VideoFolderScreen(
     }
 
     val backgroundColor = Color(0xFF0B0B0F)
-    val cardBg = Color(0xFF16161D) // Slightly lighter than bg
     val searchBarBg = Color(0xFF16161D)
-    val neonCyan = Color(0xFF00E5FF)
 
     Column(
         modifier = Modifier
@@ -75,7 +73,7 @@ fun VideoFolderScreen(
                     placeholder = {
                         Text(
                             "Search folders...",
-                            color = Color(0xFF475569), // Slate gray
+                            color = Color(0xFF475569),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     },
@@ -98,7 +96,7 @@ fun VideoFolderScreen(
                         unfocusedContainerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = neonCyan,
+                        cursorColor = primaryAccent,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
@@ -109,7 +107,6 @@ fun VideoFolderScreen(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Grid Icon (Static for now as per design)
             Icon(
                 imageVector = Icons.Default.GridView,
                 contentDescription = "View",
@@ -123,7 +120,7 @@ fun VideoFolderScreen(
             text = "Folders",
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = neonCyan
+                color = primaryAccent
             ),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
@@ -138,11 +135,11 @@ fun VideoFolderScreen(
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp), // More vertical space for text below card
+                verticalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filteredFolders) { folder ->
-                    FolderItem(folder, onFolderClick, neonCyan)
+                    FolderItem(folder, onFolderClick, primaryAccent)
                 }
             }
         }
@@ -164,20 +161,18 @@ fun FolderItem(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1.4f) // Landscape-ish aspect ratio
+                .aspectRatio(1.4f)
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color(0xFF1E1E24))
         ) {
-            // Background Image (Blurred/Darkened)
             AsyncImage(
                 model = folder.thumbnailUri,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                alpha = 0.4f // Darken
+                alpha = 0.4f
             )
 
-            // Gradient Overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -188,23 +183,17 @@ fun FolderItem(
                     )
             )
 
-            // Center Folder Icon
             Icon(
-                imageVector = Icons.Default.FolderOpen, // Or Outlined.Folder
+                imageVector = Icons.Default.FolderOpen,
                 contentDescription = null,
                 tint = accentColor,
-                modifier = Modifier
-                    .size(48.dp)
-                    .align(Alignment.Center)
+                modifier = Modifier.size(48.dp).align(Alignment.Center)
             )
 
-            // Item Count Badge (Bottom Right)
             Surface(
                 color = Color.Black.copy(alpha = 0.7f),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp)
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp)
             ) {
                 Text(
                     text = "${folder.videoCount} items",
@@ -217,7 +206,6 @@ fun FolderItem(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Title
         Text(
             text = folder.name,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -225,11 +213,10 @@ fun FolderItem(
             maxLines = 1
         )
 
-        // Subtitle
         Text(
             text = "${folder.videoCount} videos",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF0D9488) // Teal-ish gray
+            color = accentColor.copy(alpha = 0.8f) // Using accent for consistency
         )
     }
 }

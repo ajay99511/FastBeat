@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
@@ -17,7 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
 
@@ -45,8 +47,8 @@ fun AudioListScreen(
     // Sort Menu State
     var showSortMenu by remember { mutableStateOf(false) }
 
-    // Colors
-    val primaryAccent = Color(0xFFE11D48)
+    // Colors from Theme
+    val primaryAccent = LocalAppTheme.current.primaryColor
     val cardBg = Color(0xFF1E1E24)
 
     LazyColumn(
@@ -91,85 +93,87 @@ fun AudioListScreen(
         }
 
         // 2. Play All & Shuffle Buttons
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Play All (Filled Red)
-                Button(
-                    onClick = { viewModel.playAll(false) },
+        if (audioList.isNotEmpty()) {
+            item {
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                    shape = RoundedCornerShape(50)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(Icons.Default.PlayArrow, null, tint = Color.White)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Play All", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-
-                // Shuffle (Outlined Dark)
-                Button(
-                    onClick = { viewModel.playAll(true) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Icon(Icons.Outlined.Shuffle, null, tint = Color.White)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // 3. Count & Sort Row
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${audioList.size} SONGS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.Gray,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-
-                Box {
-                    Row(
-                        modifier = Modifier.clickable { showSortMenu = true },
-                        verticalAlignment = Alignment.CenterVertically
+                    // Play All (Filled Theme Color)
+                    Button(
+                        onClick = { viewModel.playAll(false) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
+                        shape = RoundedCornerShape(50)
                     ) {
-                        Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "Sort: ${getSortLabel(sortOption)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.Gray
-                        )
+                        Icon(Icons.Default.PlayArrow, null, tint = Color.Black) // Black icon on bright accent
+                        Spacer(Modifier.width(8.dp))
+                        Text("Play All", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
 
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false },
-                        modifier = Modifier.background(cardBg)
+                    // Shuffle (Outlined Dark)
+                    Button(
+                        onClick = { viewModel.playAll(true) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
+                        shape = RoundedCornerShape(50)
                     ) {
-                        SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
-                        SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
-                        SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
-                        SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
-                        SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
+                        Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
+                        Spacer(Modifier.width(8.dp))
+                        Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // 3. Count & Sort Row
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${audioList.size} SONGS",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.Gray,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+
+                    Box {
+                        Row(
+                            modifier = Modifier.clickable { showSortMenu = true },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Sort: ${getSortLabel(sortOption)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.Gray
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            modifier = Modifier.background(cardBg)
+                        ) {
+                            SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
+                            SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
+                            SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
+                            SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
+                            SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
+                        }
                     }
                 }
             }
@@ -178,11 +182,43 @@ fun AudioListScreen(
         // 4. List Items
         if (audioList.isEmpty()) {
             item {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (searchQuery.isNotEmpty()) "No results found" else "No songs found",
-                        color = Color.Gray
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(Color(0xFF1E1E24), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LibraryMusic,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = Color(0xFF475569)
+                            )
+                        }
+                        Text(
+                            if (searchQuery.isNotEmpty()) "No results found" else "No music found",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF475569)
+                        )
+                        if (searchQuery.isEmpty()) {
+                            Button(
+                                onClick = { viewModel.scanMedia() },
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                            ) {
+                                Text("Rescan Library")
+                            }
+                        }
+                    }
                 }
             }
         } else {

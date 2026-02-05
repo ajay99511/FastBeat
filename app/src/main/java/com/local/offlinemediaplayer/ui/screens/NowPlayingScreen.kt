@@ -1,6 +1,6 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -18,21 +18,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -47,14 +43,15 @@ fun NowPlayingScreen(
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsStateWithLifecycle()
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
 
-    // Colors & Gradients
-    val yellowAccent = Color(0xFFFFD600)
-    val darkBackground = Color(0xFF181818) // Slightly lighter than pure black
+    // Colors from Theme
+    val primaryAccent = LocalAppTheme.current.primaryColor
+    val secondaryAccent = Color(0xFF8B51E6)
+
     val playButtonGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF42E8E0), Color(0xFF8B51E6))
+        colors = listOf(primaryAccent, secondaryAccent)
     )
     val progressBarGradient = Brush.horizontalGradient(
-        colors = listOf(Color(0xFFFFD600), Color(0xFFE44CD8), Color(0xFF42E8E0))
+        colors = listOf(primaryAccent, Color(0xFFE44CD8), Color(0xFF42E8E0))
     )
 
     if (currentTrack == null) {
@@ -90,7 +87,7 @@ fun NowPlayingScreen(
                 ) {
                     Text(
                         text = "NOW PLAYING",
-                        color = yellowAccent,
+                        color = primaryAccent,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -120,7 +117,7 @@ fun NowPlayingScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Album Art with Badge
+            // Album Art
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -133,33 +130,7 @@ fun NowPlayingScreen(
                     modifier = Modifier.fillMaxSize().background(Color.DarkGray),
                     contentScale = ContentScale.Crop
                 )
-
-                // "AI Vibe Check" Badge
-                Surface(
-                    color = Color(0xFF2E2B38).copy(alpha = 0.9f),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = Color(0xFFD0BCFF),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "AI Vibe Check",
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-                }
+                // Removed fake "AI" badge for cleaner look
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -192,10 +163,9 @@ fun NowPlayingScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(20.dp), // Touch target height
+                    .height(20.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Background Track
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -203,7 +173,6 @@ fun NowPlayingScreen(
                         .background(Color(0xFF2C2C2C), RoundedCornerShape(2.dp))
                 )
 
-                // Active Gradient Track
                 val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Box(
@@ -216,7 +185,6 @@ fun NowPlayingScreen(
                     Spacer(modifier = Modifier.weight((1f - progress).coerceAtLeast(0.001f)))
                 }
 
-                // Invisible Slider for Interaction
                 Slider(
                     value = if (duration > 0) currentPosition.toFloat() else 0f,
                     onValueChange = { viewModel.seekTo(it.toLong()) },
@@ -230,7 +198,6 @@ fun NowPlayingScreen(
                 )
             }
 
-            // Time Labels
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -255,7 +222,6 @@ fun NowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shuffle
                 IconButton(onClick = { viewModel.toggleShuffle() }) {
                     Icon(
                         imageVector = Icons.Outlined.Shuffle,
@@ -265,7 +231,6 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Prev
                 IconButton(onClick = { viewModel.playPrevious() }) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
@@ -279,12 +244,12 @@ fun NowPlayingScreen(
                 Box(
                     modifier = Modifier
                         .size(72.dp)
-                        .shadow(16.dp, CircleShape, spotColor = Color(0xFF42E8E0))
+                        .shadow(16.dp, CircleShape, spotColor = primaryAccent)
                         .clip(CircleShape)
                         .background(playButtonGradient)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = null // Ripple handled manually or disabled for custom feel
+                            indication = null
                         ) { viewModel.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -296,7 +261,6 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Next
                 IconButton(onClick = { viewModel.playNext() }) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
@@ -306,7 +270,6 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Repeat
                 IconButton(onClick = { viewModel.toggleRepeat() }) {
                     val icon = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat
                     val tint = if (repeatMode == Player.REPEAT_MODE_OFF) Color.Gray else Color.White

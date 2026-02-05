@@ -1,23 +1,33 @@
+
 package com.local.offlinemediaplayer
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.activity.viewModels // Use activity viewModels for shared state
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.ui.MainScreen
+import com.local.offlinemediaplayer.ui.theme.OfflineMediaPlayerTheme
+import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                MainScreen()
+            val currentThemeConfig by viewModel.currentTheme.collectAsStateWithLifecycle()
+
+            OfflineMediaPlayerTheme(
+                currentThemeConfig = currentThemeConfig
+            ) {
+                MainScreen(viewModel = viewModel)
             }
         }
     }

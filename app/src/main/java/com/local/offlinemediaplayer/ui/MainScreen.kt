@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui
 
 import android.Manifest
@@ -8,13 +9,23 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -33,13 +44,14 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.navigation.AudioNavigationHost
 import com.local.offlinemediaplayer.ui.navigation.VideoNavigationHost
 import com.local.offlinemediaplayer.ui.screens.ImageListScreen
+import com.local.offlinemediaplayer.ui.screens.MeScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
-import com.local.offlinemediaplayer.ui.theme.Headers.AppHeader
 import com.local.offlinemediaplayer.ui.theme.Headers.AudioHeader
 import com.local.offlinemediaplayer.ui.theme.Headers.ImageHeader
 import com.local.offlinemediaplayer.ui.theme.Headers.VideoHeader
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -108,8 +120,10 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                     permissionLauncher.launch(permissions.toTypedArray())
                 },
                 onOpenSettings = {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
+                    val intent = Settings.ACTION_APPLICATION_DETAILS_SETTINGS.let { action ->
+                        Intent(action).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
                     }
                     context.startActivity(intent)
                 }
@@ -125,8 +139,10 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MediaPlayerAppContent(viewModel: MainViewModel) {
+    // 0 = Videos, 1 = Music, 2 = Images, 3 = Stats
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentMedia by remember { mutableStateOf<MediaFile?>(null) }
 
@@ -144,53 +160,47 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     // UI Logic Variables
     val isVideoPlaying = currentMedia?.isVideo == true
     val isAudioDetailScreen = currentAudioRoute != "audio_library"
-    // Hide header if we are deep in video nav (e.g., viewing a list inside a folder), though design suggests header might be for the whole tab.
-    // Let's keep the header for the main landing page of the video tab.
     val isVideoRoot = currentVideoRoute == "video_folders" || currentVideoRoute == null
 
-    // Logic:
-    // Show Header if: NOT playing video AND ( (Tab=Video AND VideoRoot) OR (Tab=Audio AND AudioRoot) OR (Tab=Images) )
-
+    // Logic: Show Header if: NOT playing video AND ( (Tab=Video AND Root) OR (Tab=Audio AND Root) OR (Tab=Images) )
+    // Note: "Stats" tab has its own internal header structure
     val showBars = !isVideoPlaying && (selectedTab != 1 || !isAudioDetailScreen)
 
     Scaffold(
         // Custom Top Bar
         topBar = {
             if (showBars) {
-                if (selectedTab == 0) {
-                    // Video Tab Header
-                    if (isVideoRoot) {
-                        VideoHeader()
+                // Crossfade animation for headers to match tab switch
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+                    label = "HeaderTransition"
+                ) { targetTab ->
+                    when (targetTab) {
+                        0 -> if (isVideoRoot) VideoHeader()
+                        1 -> if (!isAudioDetailScreen) AudioHeader()
+                        2 -> ImageHeader()
+                        // 3 (Stats) handles its own header
                     }
-                } else if (selectedTab == 1) {
-                    // Audio Tab Header (Standard)
-                    if (!isAudioDetailScreen) AudioHeader()
-                } else {
-                    // Images Tab Header (Compact)
-                    ImageHeader()
                 }
             }
         },
         bottomBar = {
             if (showBars) {
                 // FastBeat Custom Navigation Bar
-                val navContainerColor = Color(0xFF0B0B0F) // Deep Dark
-                val activeIndicatorColor = Color(0xFFFF1F48).copy(alpha = 0.15f) // Neon Red Glow
-                val activeIconColor = Color(0xFFFF1F48)
+                val navContainerColor = Color(0xFF0B0B0F)
+                val primaryColor = LocalAppTheme.current.primaryColor
+                val activeIndicatorColor = primaryColor.copy(alpha = 0.15f)
+                val activeIconColor = primaryColor
                 val inactiveIconColor = Color.Gray
 
                 NavigationBar(
                     containerColor = navContainerColor,
                     contentColor = Color.White
                 ) {
-                    // 1. Videos
+                    // 0. Videos
                     NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 0) Icons.Filled.PlayArrow else Icons.Outlined.PlayArrow,
-                                contentDescription = "Videos"
-                            )
-                        },
+                        icon = { Icon(if (selectedTab == 0) Icons.Filled.PlayArrow else Icons.Outlined.PlayArrow, "Videos") },
                         label = { Text("Videos", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
@@ -203,14 +213,9 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                         )
                     )
 
-                    // 2. Music
+                    // 1. Music
                     NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 1) Icons.Filled.MusicNote else Icons.Outlined.MusicNote,
-                                contentDescription = "Music"
-                            )
-                        },
+                        icon = { Icon(if (selectedTab == 1) Icons.Filled.MusicNote else Icons.Outlined.MusicNote, "Music") },
                         label = { Text("Music", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
@@ -223,17 +228,27 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                         )
                     )
 
-                    // 3. Images
+                    // 2. Images
                     NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 2) Icons.Filled.Image else Icons.Outlined.Image,
-                                contentDescription = "Images"
-                            )
-                        },
+                        icon = { Icon(if (selectedTab == 2) Icons.Filled.Image else Icons.Outlined.Image, "Images") },
                         label = { Text("Images", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = activeIconColor,
+                            selectedTextColor = activeIconColor,
+                            indicatorColor = activeIndicatorColor,
+                            unselectedIconColor = inactiveIconColor,
+                            unselectedTextColor = inactiveIconColor
+                        )
+                    )
+
+                    // 3. Stats
+                    NavigationBarItem(
+                        icon = { Icon(if (selectedTab == 3) Icons.Filled.Analytics else Icons.Outlined.Analytics, "Stats") },
+                        label = { Text("Stats", fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) },
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = activeIconColor,
                             selectedTextColor = activeIconColor,
@@ -247,30 +262,54 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (currentMedia != null && currentMedia!!.isVideo) {
-                VideoPlayerScreen(viewModel = viewModel, onBack = {
-                    currentMedia = null
-                    viewModel.player.value?.pause()
-                })
-            } else {
-                when (selectedTab) {
-                    0 -> {
-                        // Video Tab with Navigation
-                        VideoNavigationHost(
-                            viewModel = viewModel,
-                            navController = videoNavController,
-                            onVideoClick = { file ->
-                                currentMedia = file
-                                viewModel.playMedia(file)
-                            }
-                        )
+            // Animate transition between Main Content and Fullscreen Video Player
+            AnimatedContent(
+                targetState = currentMedia != null && currentMedia!!.isVideo,
+                transitionSpec = {
+                    if (targetState) {
+                        // Opening Video: Scale up and Fade In
+                        scaleIn(initialScale = 0.9f, animationSpec = tween(300)) + fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                    } else {
+                        // Closing Video: Fade Out (revealing content behind)
+                        fadeIn(tween(300)) togetherWith scaleOut(targetScale = 0.9f, animationSpec = tween(300)) + fadeOut(tween(300))
                     }
-                    1 -> {
-                        // Audio Tab with Navigation
-                        AudioNavigationHost(viewModel, audioNavController)
-                    }
-                    2 -> {
-                        ImageListScreen(viewModel)
+                },
+                label = "VideoPlayerTransition"
+            ) { isVideoMode ->
+                if (isVideoMode) {
+                    VideoPlayerScreen(viewModel = viewModel, onBack = {
+                        currentMedia = null
+                        viewModel.player.value?.pause()
+                    })
+                } else {
+                    // Animate transition between Tabs
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            // Standard Fade Through for Bottom Tabs
+                            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                        },
+                        label = "TabTransition"
+                    ) { targetTab ->
+                        when (targetTab) {
+                            0 -> VideoNavigationHost(
+                                viewModel = viewModel,
+                                navController = videoNavController,
+                                onVideoClick = { file ->
+                                    currentMedia = file
+                                    viewModel.playMedia(file)
+                                }
+                            )
+                            1 -> AudioNavigationHost(viewModel, audioNavController)
+                            2 -> ImageListScreen(viewModel)
+                            3 -> MeScreen(
+                                viewModel = viewModel,
+                                onPlayTrack = { file ->
+                                    viewModel.playMedia(file)
+                                    selectedTab = 1
+                                }
+                            )
+                        }
                     }
                 }
             }

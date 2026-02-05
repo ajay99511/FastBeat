@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.viewmodel
 
 import android.app.Application
@@ -6,6 +7,7 @@ import android.content.ContentUris
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.annotation.OptIn
+import androidx.compose.ui.graphics.Color
 import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,6 +25,7 @@ import com.local.offlinemediaplayer.model.Playlist
 import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import com.local.offlinemediaplayer.service.PlaybackService
+import com.local.offlinemediaplayer.ui.theme.AppThemeConfig
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,6 +57,20 @@ class MainViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val mediaDao: MediaDao
 ) : AndroidViewModel(app) {
+
+    // --- THEMING STATE ---
+    private val themes = mapOf(
+        "blue" to AppThemeConfig("blue", Color(0xFF00E5FF), "DIGITAL WAVES", "Quick Mix"),
+        "green" to AppThemeConfig("green", Color(0xFF22C55E), "ECO FREQUENCY", "Fresh Finds"),
+        "orange" to AppThemeConfig("orange", Color(0xFFFF5500), "AMBER HORIZON", "Jump Back In")
+    )
+
+    private val _currentTheme = MutableStateFlow(themes["orange"]!!)
+    val currentTheme = _currentTheme.asStateFlow()
+
+    fun updateTheme(themeId: String) {
+        _currentTheme.value = themes[themeId] ?: themes["orange"]!!
+    }
 
     // Media Lists
     private val _videoList = MutableStateFlow<List<MediaFile>>(emptyList())

@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.theme.Headers
 
 import androidx.compose.foundation.background
@@ -37,7 +38,7 @@ fun AppHeader() {
             Text(
                 text = "FAST",
                 style = TextStyle(
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Black,
                     fontSize = 32.sp,
                     color = Color.White,
@@ -47,13 +48,13 @@ fun AppHeader() {
             Text(
                 text = "BEAT",
                 style = TextStyle(
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Black,
                     fontSize = 32.sp,
                     color = neonRed,
                     letterSpacing = 1.sp,
                     shadow = Shadow(
-                        color = neonRed.copy(alpha = 0.7f),
+                        color = neonRed.copy(alpha = 0.5f),
                         blurRadius = 35f,
                         offset = Offset(0f, 0f)
                     )
@@ -73,22 +74,6 @@ fun AppHeader() {
                         colors = listOf(
                             Color.Transparent,
                             neonRed,
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
-        // Secondary faint glow below the line
-        Box(
-            modifier = Modifier
-                .width(80.dp)
-                .height(4.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            neonRed.copy(alpha = 0.3f),
                             Color.Transparent
                         )
                     )

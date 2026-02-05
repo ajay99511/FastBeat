@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.screens
 
 import androidx.compose.foundation.background
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,10 +28,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import java.text.DecimalFormat
 
@@ -44,8 +46,9 @@ fun VideoListScreen(
 ) {
     val videosState by viewModel.videoList.collectAsStateWithLifecycle()
     val videos = videoListOverride ?: videosState
+    val primaryAccent = LocalAppTheme.current.primaryColor
 
-    // Default to Grid View (Large Cards) as per request "view like the current one"
+    // Default to Grid View (Large Cards)
     var isGridView by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -56,7 +59,6 @@ fun VideoListScreen(
     }
 
     val backgroundColor = Color(0xFF0B0B0F)
-    val neonCyan = Color(0xFF00E5FF)
 
     Column(
         modifier = Modifier.fillMaxSize().background(backgroundColor)
@@ -79,7 +81,7 @@ fun VideoListScreen(
                             .background(Color(0xFF1E1E24), CircleShape)
                             .size(40.dp)
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = neonCyan)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = primaryAccent)
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
@@ -117,7 +119,7 @@ fun VideoListScreen(
                                 unfocusedContainerColor = Color.Transparent,
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = neonCyan,
+                                cursorColor = primaryAccent,
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
                             ),
@@ -128,7 +130,7 @@ fun VideoListScreen(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // View Toggle Button (4 Cubes)
+                    // View Toggle Button
                     IconButton(
                         onClick = { isGridView = !isGridView },
                         modifier = Modifier.size(40.dp)
@@ -150,7 +152,7 @@ fun VideoListScreen(
                     Text(
                         text = "Folders",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = neonCyan
+                        color = primaryAccent
                     )
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
@@ -173,19 +175,32 @@ fun VideoListScreen(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .background(Color(0xFF1E1E24), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.VideoLibrary,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = Color(0xFF475569)
+                        )
+                    }
                     Text(
-                        "No videos found",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "No videos found here",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF475569)
                     )
+                    Button(
+                        onClick = { viewModel.scanMedia() },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                    ) {
+                        Text("Rescan Library")
+                    }
                 }
             }
         } else {
@@ -195,7 +210,7 @@ fun VideoListScreen(
             ) {
                 items(items = filteredVideos, key = { it.id }) { video ->
                     if (isGridView) {
-                        VideoCardItem(video, onVideoClick)
+                        VideoCardItem(video, onVideoClick, primaryAccent)
                     } else {
                         VideoListItem(video, onVideoClick)
                     }
@@ -205,7 +220,6 @@ fun VideoListScreen(
     }
 }
 
-// Compact List View (Original)
 @Composable
 private fun VideoListItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
     Row(
@@ -214,7 +228,6 @@ private fun VideoListItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
             .clickable { onVideoClick(video) },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Thumbnail
         Box(
             modifier = Modifier
                 .width(80.dp)
@@ -232,7 +245,6 @@ private fun VideoListItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Text
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = video.title,
@@ -249,19 +261,17 @@ private fun VideoListItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
     }
 }
 
-// Large Card View (Like Screenshot)
 @Composable
-private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
+private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit, accentColor: Color) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onVideoClick(video) }
     ) {
-        // Thumbnail Container
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 9f) // Standard video ratio
+                .aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF1E1E24))
         ) {
@@ -272,7 +282,6 @@ private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
                 contentScale = ContentScale.Crop
             )
 
-            // Duration Badge (Bottom Right)
             Surface(
                 color = Color.Black.copy(alpha = 0.8f),
                 shape = RoundedCornerShape(4.dp),
@@ -291,12 +300,10 @@ private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Metadata Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Title & Meta
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = video.title,
@@ -309,17 +316,15 @@ private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Resolution Badge (if available)
                     if (video.resolution.isNotEmpty()) {
                         Text(
                             text = video.resolution,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF00E5FF) // Neon Cyan
+                            color = accentColor
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
 
-                    // Size
                     if (video.size > 0) {
                         Text(
                             text = formatSize(video.size),
@@ -330,7 +335,6 @@ private fun VideoCardItem(video: MediaFile, onVideoClick: (MediaFile) -> Unit) {
                 }
             }
 
-            // Menu Dots
             IconButton(onClick = { /* TODO: Video Options */ }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,

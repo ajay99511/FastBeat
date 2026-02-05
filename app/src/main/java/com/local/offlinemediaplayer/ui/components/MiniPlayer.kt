@@ -1,3 +1,4 @@
+
 package com.local.offlinemediaplayer.ui.components
 
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -36,25 +38,26 @@ fun MiniPlayer(
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
 
-    // Gradient brush matching the Play button and Progress bar (Cyan -> Purple -> Pink)
+    val primaryAccent = LocalAppTheme.current.primaryColor
+
+    // Gradient brush matching theme
     val gradientBrush = Brush.horizontalGradient(
         colors = listOf(
-            Color(0xFF2BE4DC), // Cyan
-            Color(0xFF9656CE), // Purple
-            Color(0xFFE44CD8)  // Pink
+            primaryAccent,
+            Color(0xFF9656CE),
+            Color(0xFFE44CD8)
         )
     )
 
-    // Only show if there's a current track
     currentTrack?.let { track ->
         val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
 
         Surface(
             modifier = modifier
                 .fillMaxWidth()
-                .height(80.dp) // Fixed height to match design
+                .height(80.dp)
                 .clickable(onClick = onTap),
-            color = Color(0xFF181818), // Deep dark grey background
+            color = Color(0xFF181818),
             tonalElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -63,7 +66,7 @@ fun MiniPlayer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(2.dp)
-                        .background(Color.White.copy(alpha = 0.1f)) // Faint track
+                        .background(Color.White.copy(alpha = 0.1f))
                 ) {
                     Box(
                         modifier = Modifier
@@ -80,7 +83,6 @@ fun MiniPlayer(
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Album Art (Rounded Square)
                     Card(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.size(48.dp),
@@ -90,16 +92,13 @@ fun MiniPlayer(
                         AsyncImage(
                             model = track.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
                             contentDescription = track.title,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.DarkGray),
+                            modifier = Modifier.fillMaxSize().background(Color.DarkGray),
                             contentScale = ContentScale.Crop
                         )
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    // Track Title & Artist
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.Center
@@ -116,7 +115,7 @@ fun MiniPlayer(
                         Text(
                             text = track.artist ?: "Unknown Artist",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray, // Grey artist text
+                            color = Color.Gray,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -124,7 +123,6 @@ fun MiniPlayer(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Controls
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -146,7 +144,6 @@ fun MiniPlayer(
                             )
                         }
 
-                        // Next Button (Simple Grey Outline style)
                         IconButton(
                             onClick = { viewModel.playNext() },
                             enabled = viewModel.hasNext()

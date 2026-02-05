@@ -1,5 +1,8 @@
+
 package com.local.offlinemediaplayer.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,7 +22,19 @@ fun VideoNavigationHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = "video_folders"
+        startDestination = "video_folders",
+        enterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(300))
+        },
+        exitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(300))
+        },
+        popEnterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(300))
+        },
+        popExitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(300))
+        }
     ) {
         composable("video_folders") {
             VideoFolderScreen(
@@ -32,26 +47,9 @@ fun VideoNavigationHost(
 
         composable("video_list/{bucketId}") { backStackEntry ->
             val bucketId = backStackEntry.arguments?.getString("bucketId") ?: ""
-            // Filter videos by bucketId inside VideoListScreen or pass filtered list
-            // We'll expose a filtered list way or just filter here
-
-            // Note: VideoListScreen currently observes `videoList`.
-            // We should ideally update VideoListScreen to accept a list parameter,
-            // but for minimal changes, let's filter in the ViewModel or pass a specific list here.
-
-            // Let's assume we modify VideoListScreen to take a list, OR we filter here:
             val allVideos by viewModel.videoList.collectAsState()
             val folderVideos = allVideos.filter { it.bucketId == bucketId }
 
-            // We'll modify VideoListScreen slightly to allow passing a list,
-            // OR use a modified version.
-            // Since VideoListScreen uses `viewModel.videoList` internally in the provided code,
-            // we should refactor it or create a variation.
-            // For now, I will wrap it to override the list if the component supports it,
-            // but looking at previous file, it takes `viewModel` and observes `viewModel.videoList`.
-            // We will need to update VideoListScreen to optionally take a list parameter.
-
-            // Assuming VideoListScreen is updated to accept `videos` param (see update below).
             VideoListScreen(
                 viewModel = viewModel,
                 onVideoClick = onVideoClick,

@@ -1,6 +1,6 @@
+
 package com.local.offlinemediaplayer.ui.theme.Headers
 
-import android.media.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,15 +36,16 @@ fun ImageHeader() {
                 text = "FAST",
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.SansSerif,
                     letterSpacing = 2.sp,
                     color = Color.White
                 )
-//                style=MaterialTheme.typography.titleLarge
             )
             Text(
                 text = "BEAT",
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.SansSerif,
                     letterSpacing = 2.sp,
                     color = neonCyan
                 )
@@ -72,16 +74,13 @@ fun ImageHeader() {
                 text = "IMAGE VIEWER",
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.SansSerif,
                     letterSpacing = 3.sp,
                     color = neonCyan
                 )
             )
 
             Spacer(modifier = Modifier.width(12.dp))
-//            val darkBg = Color(0xFF0B0B0F)
-//            val accentRed = Color(0xFF8B1E1E)
-//            val accentYellow = Color(0xFFB59F3B)
-//            val neonCyan = Color(0xFF00E5FF)
 
             // Right Line
             Box(
