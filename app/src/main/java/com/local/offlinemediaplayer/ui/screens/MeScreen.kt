@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +44,9 @@ fun MeScreen(
     val currentTheme by viewModel.currentTheme.collectAsStateWithLifecycle()
     val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
     val audioList by viewModel.audioList.collectAsStateWithLifecycle()
+
+    // Realtime Analytics
+    val analytics by viewModel.realtimeAnalytics.collectAsStateWithLifecycle()
 
     // Continue Watching Data
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
@@ -200,7 +204,149 @@ fun MeScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // 3. Suggested Section Header
+        // 3. Analytics Dashboard (Real-time)
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Speed, null, tint = theme.primaryColor, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "LISTENING ACTIVITY",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Row 1: Today & Streak
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                AnalyticsCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.Today,
+                    iconColor = theme.primaryColor,
+                    label = "Today",
+                    value = "${analytics.todayPlaytimeMinutes}m",
+                    subtext = "Active Listening"
+                )
+
+                AnalyticsCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.LocalFireDepartment,
+                    iconColor = Color(0xFFFF5500), // Fire Orange
+                    label = "Streak",
+                    value = "${analytics.streakDays} Day${if(analytics.streakDays != 1) "s" else ""}",
+                    subtext = "Consecutive"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Row 2: Last Week & Average
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                AnalyticsCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.DateRange,
+                    iconColor = Color(0xFF22C55E), // Green
+                    label = "Last 7 Days",
+                    value = "${analytics.weekPlaytimeMinutes}m",
+                    subtext = "Total Playtime"
+                )
+
+                AnalyticsCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.ShowChart,
+                    iconColor = Color(0xFF00E5FF), // Blue
+                    label = "Daily Avg",
+                    value = "${analytics.avgDailyMinutes}m",
+                    subtext = "Last 30 Days"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Favorites Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val currentFav = analytics.currentFavorite
+                    // Current Favorite (Last 30 days)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.FavoriteBorder, null, tint = theme.primaryColor, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("Current Obsession", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = currentFav?.title ?: "Keep Listening...",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (currentFav != null) {
+                                Text(
+                                    text = currentFav.artist ?: "Unknown",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    )
+
+                    val allTimeFav = analytics.allTimeFavorite
+                    // All Time Favorite
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("All Time #1", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = allTimeFav?.title ?: "Keep Listening...",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (allTimeFav != null) {
+                                Text(
+                                    text = allTimeFav.artist ?: "Unknown",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 4. Suggested Section Header
         if (randomSongs.isNotEmpty()) {
             Row(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -220,7 +366,7 @@ fun MeScreen(
                 )
             }
 
-            // 4. Active Stream Card
+            // 5. Active Stream Card
             if (searchQuery.isEmpty()) {
                 Card(
                     modifier = Modifier
@@ -289,7 +435,7 @@ fun MeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 5. Play Actions
+                // 6. Play Actions
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -326,7 +472,7 @@ fun MeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 6. Divider with Gradient
+                // Divider with Gradient
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 24.dp)
@@ -435,150 +581,48 @@ fun MeScreen(
                     }
                 }
             }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No music found on device.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
         }
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 8. Analytics Dashboard
-        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Speed, null, tint = theme.primaryColor, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Listening Activity",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                AnalyticsCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Schedule,
-                    iconColor = theme.primaryColor,
-                    label = "Total Time",
-                    value = "124h",
-                    subtext = "Video & Music"
-                )
-
-                AnalyticsCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.MusicNote,
-                    iconColor = Color(0xFF9656CE),
-                    label = "Top Genre",
-                    value = "Synth",
-                    subtext = "450 Tracks"
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp),
-                border = null
+        // 8. Dark Mode Switch
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f), CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "A+",
-                            color = theme.primaryColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isDarkTheme) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
+                        contentDescription = null,
+                        tint = theme.primaryColor
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Vibe Score", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                        Text("Based on offline activity", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                    }
-
-                    Column(modifier = Modifier.width(100.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Intensity", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                            Text("High", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { 0.85f },
-                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
-                            color = theme.primaryColor,
-                            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 9. Dark Mode Switch
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (isDarkTheme) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
-                            contentDescription = null,
-                            tint = theme.primaryColor
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = if (isDarkTheme) "Dark Mode" else "Light Mode",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    Switch(
-                        checked = isDarkTheme,
-                        onCheckedChange = { viewModel.toggleThemeMode() },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = theme.primaryColor,
-                            checkedTrackColor = theme.primaryColor.copy(alpha = 0.3f),
-                            uncheckedThumbColor = Color.Gray,
-                            uncheckedTrackColor = Color.Transparent
-                        )
+                    Text(
+                        text = if (isDarkTheme) "Dark Mode" else "Light Mode",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+
+                Switch(
+                    checked = isDarkTheme,
+                    onCheckedChange = { viewModel.toggleThemeMode() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = theme.primaryColor,
+                        checkedTrackColor = theme.primaryColor.copy(alpha = 0.3f),
+                        uncheckedThumbColor = Color.Gray,
+                        uncheckedTrackColor = Color.Transparent
+                    )
+                )
             }
         }
     }

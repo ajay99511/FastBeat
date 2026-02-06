@@ -33,6 +33,36 @@ interface MediaDao {
     @Query("SELECT * FROM media_analytics WHERE mediaId = :mediaId")
     suspend fun getAnalytics(mediaId: Long): MediaAnalytics?
 
+    @Query("SELECT mediaId FROM media_analytics ORDER BY playCount DESC LIMIT 1")
+    suspend fun getOverallFavoriteMediaId(): Long?
+
+    // --- Advanced Analytics (New) ---
+
+    // Playtime
+    @Query("INSERT OR IGNORE INTO daily_playtime (date, totalPlaytimeMs) VALUES (:date, 0)")
+    suspend fun initDailyPlaytime(date: Long)
+
+    @Query("UPDATE daily_playtime SET totalPlaytimeMs = totalPlaytimeMs + :durationMs WHERE date = :date")
+    suspend fun addToDailyPlaytime(date: Long, durationMs: Long)
+
+    @Query("SELECT totalPlaytimeMs FROM daily_playtime WHERE date = :date")
+    fun getPlaytimeForDay(date: Long): Flow<Long?>
+
+    @Query("SELECT SUM(totalPlaytimeMs) FROM daily_playtime WHERE date >= :startDate AND date <= :endDate")
+    fun getPlaytimeRange(startDate: Long, endDate: Long): Flow<Long?>
+
+    // Get all dates with activity to calculate streak in code
+    @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
+    fun getActiveDays(): Flow<List<Long>>
+
+    // Play Events
+    @Insert
+    suspend fun logPlayEvent(event: PlayEvent)
+
+    // Most played in range (Current Favorite)
+    @Query("SELECT mediaId FROM play_events WHERE timestamp >= :sinceTimestamp GROUP BY mediaId ORDER BY COUNT(*) DESC LIMIT 1")
+    suspend fun getMostPlayedMediaIdSince(sinceTimestamp: Long): Long?
+
     // --- Playlists ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylist(playlist: PlaylistEntity)

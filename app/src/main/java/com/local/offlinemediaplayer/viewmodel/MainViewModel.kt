@@ -22,6 +22,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.local.offlinemediaplayer.data.db.BookmarkEntity
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.data.db.PlayEvent
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.data.db.QueueItemEntity
 import com.local.offlinemediaplayer.model.Album
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -51,6 +53,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 import javax.inject.Inject
 
 enum class SortOption {
@@ -60,6 +63,16 @@ enum class SortOption {
 enum class ResizeMode {
     FIT, FILL, ZOOM
 }
+
+// Data class for UI consumption
+data class RealtimeAnalytics(
+    val todayPlaytimeMinutes: Int = 0,
+    val weekPlaytimeMinutes: Int = 0,
+    val avgDailyMinutes: Int = 0,
+    val streakDays: Int = 0,
+    val currentFavorite: MediaFile? = null,
+    val allTimeFavorite: MediaFile? = null
+)
 
 @OptIn(UnstableApi::class)
 @HiltViewModel
@@ -112,6 +125,17 @@ class MainViewModel @Inject constructor(
 
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums = _albums.asStateFlow()
+
+    // --- REALTIME ANALYTICS STATE ---
+    private val _analyticsUpdateTrigger = MutableStateFlow(0L) // Used to force refresh logic
+
+    val realtimeAnalytics = combine(
+        _analyticsUpdateTrigger,
+        _audioList,
+        _videoList
+    ) { _, audio, videos ->
+        calculateAnalytics(audio + videos)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RealtimeAnalytics())
 
     // --- MOVIES TAB STATE (Videos > 1 Hour) ---
     private val _movieSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
@@ -297,6 +321,9 @@ class MainViewModel @Inject constructor(
             playlistRepository.migrateLegacyData()
             // Fix: Call ensureDefaultPlaylists directly via repo to check actual DB state
             playlistRepository.ensureDefaultPlaylists()
+
+            // Trigger analytics refresh on start
+            _analyticsUpdateTrigger.value = System.currentTimeMillis()
         }
     }
 
@@ -466,8 +493,15 @@ class MainViewModel @Inject constructor(
     private fun recordPlay(mediaId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
+            // Standard Analytics
             mediaDao.initAnalytics(mediaId, now)
             mediaDao.incrementPlayCount(mediaId, now)
+
+            // Log for "Recent Favorites"
+            mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
+
+            // Trigger analytics refresh
+            _analyticsUpdateTrigger.emit(now)
         }
     }
 
@@ -496,18 +530,46 @@ class MainViewModel @Inject constructor(
         stopPositionUpdates()
         positionUpdateJob = viewModelScope.launch {
             var saveCounter = 0
+            val today = getNormalizedToday()
+
+            // Initialize today's row if missing
+            mediaDao.initDailyPlaytime(today)
+
+            // Accumulator for playtime logic
+            var accumulatedPlaytime = 0L
+            val updateInterval = 500L
+
             while (isActive) {
                 _player.value?.let { player ->
                     val pos = player.currentPosition
                     _currentPosition.value = pos
                     _duration.value = player.duration.coerceAtLeast(0L)
-                    if (saveCounter++ % 10 == 0) {
+
+                    // ACCUMULATE PLAYTIME
+                    if (_isPlaying.value) {
+                        accumulatedPlaytime += updateInterval
+                    }
+
+                    // Flush to DB every 30 seconds (60 ticks)
+                    if (saveCounter % 60 == 0) {
+                        if (accumulatedPlaytime > 0) {
+                            mediaDao.addToDailyPlaytime(getNormalizedToday(), accumulatedPlaytime)
+                            accumulatedPlaytime = 0
+                            // Notify UI to refresh stats
+                            _analyticsUpdateTrigger.emit(System.currentTimeMillis())
+                        }
+                    }
+
+                    // Save playback position periodically
+                    if (saveCounter % 10 == 0) {
                         _currentTrack.value?.let { track ->
                             savePlaybackState(track.id, pos, track.duration, track.isVideo)
                         }
                     }
+
+                    saveCounter++
                 }
-                delay(500)
+                delay(updateInterval)
             }
         }
     }
@@ -534,6 +596,68 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // --- Analytics Logic ---
+    private fun getNormalizedToday(): Long {
+        val c = Calendar.getInstance()
+        c.set(Calendar.HOUR_OF_DAY, 0)
+        c.set(Calendar.MINUTE, 0)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+        return c.timeInMillis
+    }
+
+    private suspend fun calculateAnalytics(allMedia: List<MediaFile>): RealtimeAnalytics {
+        return withContext(Dispatchers.IO) {
+            val today = getNormalizedToday()
+            val weekStart = today - (6 * 24 * 60 * 60 * 1000) // Last 7 days including today
+            val monthStart = today - (29 * 24 * 60 * 60 * 1000) // Last 30 days
+
+            // 1. Playtime Metrics
+            val todayMs = mediaDao.getPlaytimeForDay(today).firstOrNull() ?: 0L
+            val weekMs = mediaDao.getPlaytimeRange(weekStart, today).firstOrNull() ?: 0L
+            val monthMs = mediaDao.getPlaytimeRange(monthStart, today).firstOrNull() ?: 0L
+
+            val avgDailyMs = monthMs / 30
+
+            // 2. Streak Calculation
+            val activeDays = mediaDao.getActiveDays().firstOrNull() ?: emptyList()
+            var currentStreak = 0
+            if (activeDays.isNotEmpty()) {
+                val todayCheck = activeDays.first()
+                // If the most recent active day is today or yesterday, streak is alive
+                if (todayCheck == today || todayCheck == (today - 86400000)) {
+                    currentStreak = 1
+                    var checkDate = todayCheck
+                    for (i in 1 until activeDays.size) {
+                        val prevDate = activeDays[i]
+                        if (checkDate - prevDate == 86400000L) { // Difference of exactly one day
+                            currentStreak++
+                            checkDate = prevDate
+                        } else {
+                            break
+                        }
+                    }
+                }
+            }
+
+            // 3. Favorites
+            val overallFavId = mediaDao.getOverallFavoriteMediaId()
+            val recentFavId = mediaDao.getMostPlayedMediaIdSince(monthStart)
+
+            val overallFav = allMedia.find { it.id == overallFavId }
+            val recentFav = allMedia.find { it.id == recentFavId }
+
+            RealtimeAnalytics(
+                todayPlaytimeMinutes = (todayMs / 60000).toInt(),
+                weekPlaytimeMinutes = (weekMs / 60000).toInt(),
+                avgDailyMinutes = (avgDailyMs / 60000).toInt(),
+                streakDays = currentStreak,
+                currentFavorite = recentFav,
+                allTimeFavorite = overallFav
+            )
+        }
+    }
+
     // --- Media Loading ---
     fun scanMedia() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -546,6 +670,9 @@ class MainViewModel @Inject constructor(
 
             // RESTORE QUEUE AFTER LOADING
             restoreQueue(audio + videos)
+
+            // Initial Analytics Calc
+            _analyticsUpdateTrigger.emit(System.currentTimeMillis())
         }
     }
 

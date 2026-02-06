@@ -24,6 +24,24 @@ data class MediaAnalytics(
     val lastPlayed: Long = 0
 )
 
+// NEW: Tracks total listening time per day (date is normalized to midnight)
+@Entity(tableName = "daily_playtime")
+data class DailyPlaytime(
+    @PrimaryKey val date: Long,
+    val totalPlaytimeMs: Long
+)
+
+// NEW: Log individual plays to calculate "Recent Favorites"
+@Entity(
+    tableName = "play_events",
+    indices = [Index(value = ["mediaId"]), Index(value = ["timestamp"])]
+)
+data class PlayEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val mediaId: Long,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "playlists")
 data class PlaylistEntity(
     @PrimaryKey val id: String,
