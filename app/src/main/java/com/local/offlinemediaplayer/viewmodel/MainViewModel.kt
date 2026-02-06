@@ -55,6 +55,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import javax.inject.Inject
+import kotlin.math.min
+import kotlin.math.max
 
 enum class SortOption {
     TITLE_ASC, TITLE_DESC, DURATION_ASC, DURATION_DESC, DATE_ADDED_DESC
@@ -84,6 +86,11 @@ class MainViewModel @Inject constructor(
 
     // --- STATE PRESERVATION ---
     private var savedAudioState: AudioPlayerState? = null
+
+    // --- ANALYTICS INTERNAL STATE ---
+    // Tracks accumulated listening time for the CURRENT track to determine if it counts as a "play"
+    private var currentTrackPlaytimeAccumulator = 0L
+    private var hasLoggedCurrentTrack = false
 
     // --- THEMING STATE ---
     private val themes = mapOf(
@@ -485,7 +492,7 @@ class MainViewModel @Inject constructor(
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 updateCurrentTrackFromPlayer(controller)
-                mediaItem?.mediaId?.toLongOrNull()?.let { id -> recordPlay(id) }
+                // Logic moved to heartbeat to ensure duration threshold
             }
         })
     }
@@ -518,6 +525,10 @@ class MainViewModel @Inject constructor(
             _currentTrack.value = track
             _currentIndex.value = controller.currentMediaItemIndex
 
+            // Reset Analytics Accumulator for the new track
+            currentTrackPlaytimeAccumulator = 0L
+            hasLoggedCurrentTrack = false
+
             // Fix: Only persist queue index if NOT video.
             // This prevents video playback from overwriting the last played music position in the persisted queue.
             if (track != null && !track.isVideo) {
@@ -543,11 +554,29 @@ class MainViewModel @Inject constructor(
                 _player.value?.let { player ->
                     val pos = player.currentPosition
                     _currentPosition.value = pos
-                    _duration.value = player.duration.coerceAtLeast(0L)
+                    val dur = player.duration.coerceAtLeast(0L)
+                    _duration.value = dur
 
                     // ACCUMULATE PLAYTIME
                     if (_isPlaying.value) {
+                        // 1. Total Daily Playtime (Existing)
                         accumulatedPlaytime += updateInterval
+
+                        // 2. Track Play Count Threshold Logic (New)
+                        // Ensures we only count a "Play" if user listened for 30s or 50% of track (if short)
+                        if (!hasLoggedCurrentTrack) {
+                            currentTrackPlaytimeAccumulator += updateInterval
+
+                            val threshold = if (dur > 0) min(30000L, dur / 2) else 30000L
+                            val safeThreshold = max(5000L, threshold) // Minimum 5s even for very short clips
+
+                            if (currentTrackPlaytimeAccumulator >= safeThreshold) {
+                                _currentTrack.value?.let { track ->
+                                    recordPlay(track.id)
+                                    hasLoggedCurrentTrack = true
+                                }
+                            }
+                        }
                     }
 
                     // Flush to DB every 30 seconds (60 ticks)
