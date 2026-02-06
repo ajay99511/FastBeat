@@ -1,4 +1,3 @@
-
 package com.local.offlinemediaplayer.ui.screens
 
 import android.app.Activity
@@ -22,10 +21,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -88,6 +87,7 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var accumulatedDragY by remember { mutableFloatStateOf(0f) }
 
     var isControlsVisible by remember { mutableStateOf(true) }
+    var showBookmarksDialog by remember { mutableStateOf(false) }
 
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
@@ -111,7 +111,13 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     }
 
     BackHandler {
-        if (isLocked) { } else { onBack() }
+        if (showBookmarksDialog) {
+            showBookmarksDialog = false
+        } else if (isLocked) {
+            // Do nothing
+        } else {
+            onBack()
+        }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -127,8 +133,8 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(isControlsVisible, player?.isPlaying) {
-        if (isControlsVisible && player?.isPlaying == true) {
+    LaunchedEffect(isControlsVisible, player?.isPlaying, showBookmarksDialog) {
+        if (isControlsVisible && player?.isPlaying == true && !showBookmarksDialog) {
             delay(3000)
             isControlsVisible = false
         }
@@ -139,7 +145,7 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             .fillMaxSize()
             .background(Color.Black)
             .pointerInput(Unit) {
-                if (isLocked) return@pointerInput
+                if (isLocked || showBookmarksDialog) return@pointerInput
                 detectTapGestures(
                     onTap = { isControlsVisible = !isControlsVisible },
                     onDoubleTap = { offset ->
@@ -148,7 +154,7 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 )
             }
             .pointerInput(Unit) {
-                if (isLocked) return@pointerInput
+                if (isLocked || showBookmarksDialog) return@pointerInput
                 detectDragGestures(
                     onDragStart = { offset ->
                         accumulatedDragX = 0f
@@ -254,8 +260,116 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     } else {
                         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                     }
+                },
+                onShowBookmarks = {
+                    player?.pause()
+                    showBookmarksDialog = true
                 }
             )
+        }
+
+        // Bookmarks Overlay
+        if (showBookmarksDialog) {
+            BookmarksDialog(
+                viewModel = viewModel,
+                currentPosition = currentPosition,
+                onDismiss = { showBookmarksDialog = false },
+                onSeek = { pos ->
+                    viewModel.seekTo(pos)
+                    showBookmarksDialog = false
+                    player?.play()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun BookmarksDialog(
+    viewModel: MainViewModel,
+    currentPosition: Long,
+    onDismiss: () -> Unit,
+    onSeek: (Long) -> Unit
+) {
+    val bookmarks by viewModel.currentBookmarks.collectAsStateWithLifecycle()
+    var newLabel by remember { mutableStateOf("") }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(350.dp)
+                .background(Color(0xFF1E1E24))
+                .clickable(enabled = false) {} // Prevent click through
+                .padding(16.dp)
+        ) {
+            Text(
+                "Bookmarks / Chapters",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Add Bookmark Input
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = newLabel,
+                    onValueChange = { newLabel = it },
+                    placeholder = { Text("Chapter Name", color = Color.Gray) },
+                    modifier = Modifier.weight(1f),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        val label = if (newLabel.isBlank()) "Chapter at ${formatTime(currentPosition)}" else newLabel
+                        viewModel.addBookmark(currentPosition, label)
+                        newLabel = ""
+                    }
+                ) {
+                    Icon(Icons.Default.Add, null)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider(color = Color.Gray.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(bookmarks) { bookmark ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .clickable { onSeek(bookmark.timestamp) }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(bookmark.label, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(formatTime(bookmark.timestamp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                        }
+                        IconButton(onClick = { viewModel.deleteBookmark(bookmark.id) }) {
+                            Icon(Icons.Default.Delete, null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -290,7 +404,8 @@ fun VideoPlayerControls(
     isVisible: Boolean,
     onBack: () -> Unit,
     onPip: () -> Unit,
-    onRotate: () -> Unit
+    onRotate: () -> Unit,
+    onShowBookmarks: () -> Unit
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -328,6 +443,7 @@ fun VideoPlayerControls(
                         Text(text = "${currentTrack?.resolution ?: "Unknown"} • ${formatSize(currentTrack?.size ?: 0)}", color = primaryAccent, style = MaterialTheme.typography.labelSmall)
                     }
                     IconButton(onClick = onPip) { Icon(Icons.Default.PictureInPictureAlt, "PiP", tint = Color.White) }
+                    IconButton(onClick = onShowBookmarks) { Icon(Icons.Default.Bookmarks, "Bookmarks", tint = Color.White) }
                     IconButton(onClick = { }) { Icon(Icons.Default.Settings, "Settings", tint = Color.White) }
                 }
 

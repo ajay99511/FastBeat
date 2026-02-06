@@ -1,4 +1,3 @@
-
 package com.local.offlinemediaplayer.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -47,6 +46,7 @@ fun VideoNavigationHost(
                 onPlaylistClick = { playlistId ->
                     navController.navigate("video_playlist_detail/$playlistId")
                 },
+                onVideoClick = onVideoClick,
                 isSearchVisible = isSearchVisible
             )
         }

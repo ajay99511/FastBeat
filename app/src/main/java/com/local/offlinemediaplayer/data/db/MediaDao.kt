@@ -40,8 +40,9 @@ interface MediaDao {
     @Query("DELETE FROM playlists WHERE id = :id")
     suspend fun deletePlaylist(id: String)
 
+    @Transaction
     @Query("SELECT * FROM playlists ORDER BY createdAt DESC")
-    fun getAllPlaylists(): Flow<List<PlaylistEntity>>
+    fun getAllPlaylistsWithRefs(): Flow<List<PlaylistWithRefs>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addMediaToPlaylist(crossRef: PlaylistMediaCrossRef)
@@ -54,4 +55,37 @@ interface MediaDao {
 
     @Query("SELECT mediaId FROM playlist_media_cross_ref WHERE playlistId = :playlistId ORDER BY addedAt ASC")
     suspend fun getMediaIdsForPlaylist(playlistId: String): List<Long>
+
+    // New methods for Playlist management
+    @Query("SELECT COUNT(*) FROM playlists WHERE name = :name AND isVideo = :isVideo")
+    suspend fun getPlaylistCount(name: String, isVideo: Boolean): Int
+
+    @Query("UPDATE playlists SET name = :newName WHERE id = :id")
+    suspend fun updatePlaylistName(id: String, newName: String)
+
+    // --- Bookmarks ---
+    @Query("SELECT * FROM bookmarks WHERE mediaId = :mediaId ORDER BY timestamp ASC")
+    fun getBookmarks(mediaId: Long): Flow<List<BookmarkEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addBookmark(bookmark: BookmarkEntity)
+
+    @Query("DELETE FROM bookmarks WHERE id = :id")
+    suspend fun deleteBookmark(id: Long)
+
+    // --- Persistent Queue ---
+    @Query("SELECT * FROM current_queue ORDER BY sortOrder ASC")
+    suspend fun getSavedQueue(): List<QueueItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertQueueItems(items: List<QueueItemEntity>)
+
+    @Query("DELETE FROM current_queue")
+    suspend fun clearQueue()
+
+    @Transaction
+    suspend fun replaceQueue(items: List<QueueItemEntity>) {
+        clearQueue()
+        insertQueueItems(items)
+    }
 }

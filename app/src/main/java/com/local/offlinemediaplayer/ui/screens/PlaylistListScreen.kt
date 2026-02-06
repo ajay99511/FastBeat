@@ -1,8 +1,9 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,13 +36,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -45,7 +54,9 @@ fun PlaylistListScreen(
     viewModel: MainViewModel,
     onPlaylistClick: (String) -> Unit,
     onCreateClick: () -> Unit,
-    isVideo: Boolean = false // Added flag to distinguish list source
+    isVideo: Boolean = false, // Added flag to distinguish list source
+    onRename: ((String, String) -> Unit)? = null,
+    onDelete: ((String) -> Unit)? = null
 ) {
     // Observe specific list based on flag
     val playlists by if (isVideo) {
@@ -57,6 +68,10 @@ fun PlaylistListScreen(
     // Colors
     val backgroundColor = Color(0xFF12121A) // Ink Dark
     val primaryAccent = Color(0xFFE11D48)
+
+    // State for actions
+    var playlistToRename by remember { mutableStateOf<Pair<String, String>?>(null) } // id, currentName
+    var playlistToDelete by remember { mutableStateOf<String?>(null) } // id
 
     Column(
         modifier = Modifier
@@ -140,73 +155,138 @@ fun PlaylistListScreen(
             LazyColumn(
                 contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp) // Space for MiniPlayer
             ) {
-                items(playlists) { playlist ->
+                items(playlists, key = { it.id }) { playlist ->
                     PlaylistListItem(
                         name = playlist.name,
                         count = playlist.mediaIds.size,
-                        onClick = { onPlaylistClick(playlist.id) }
+                        onClick = { onPlaylistClick(playlist.id) },
+                        onRename = if (onRename != null) { { playlistToRename = playlist.id to playlist.name } } else null,
+                        onDelete = if (onDelete != null) { { playlistToDelete = playlist.id } } else null
                     )
                 }
             }
         }
     }
+
+    // Dialogs
+    if (playlistToRename != null && onRename != null) {
+        RenamePlaylistDialog(
+            currentName = playlistToRename!!.second,
+            onDismiss = { playlistToRename = null },
+            onRename = { newName ->
+                onRename(playlistToRename!!.first, newName)
+                playlistToRename = null
+            }
+        )
+    }
+
+    if (playlistToDelete != null && onDelete != null) {
+        DeleteConfirmationDialog(
+            count = 1, // Playlist itself
+            onConfirm = {
+                onDelete(playlistToDelete!!)
+                playlistToDelete = null
+            },
+            onDismiss = { playlistToDelete = null }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistListItem(
     name: String,
     count: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onRename: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Icon / Placeholder
-        Card(
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.size(56.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930))
+    var showMenu by remember { mutableStateOf(false) }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = if (onRename != null || onDelete != null) {
+                        { showMenu = true }
+                    } else null
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            // Icon / Placeholder
+            Card(
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.size(56.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930))
             ) {
-                Icon(
-                    imageVector = Icons.Default.FormatListNumbered,
-                    contentDescription = null,
-                    tint = Color.Gray
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FormatListNumbered,
+                        contentDescription = null,
+                        tint = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "$count videos", // Changed text slightly for generic feel
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+
+            // Chevron
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color.DarkGray
+            )
+        }
+
+        // Dropdown Menu for Context Actions
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+            modifier = Modifier.background(Color(0xFF1E1E24))
+        ) {
+            if (onRename != null) {
+                DropdownMenuItem(
+                    text = { Text("Rename", color = Color.White) },
+                    onClick = {
+                        showMenu = false
+                        onRename()
+                    },
+                    leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = Color.White) }
+                )
+            }
+            if (onDelete != null) {
+                DropdownMenuItem(
+                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        showMenu = false
+                        onDelete()
+                    },
+                    leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) }
                 )
             }
         }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        // Info
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "$count videos", // Changed text slightly for generic feel
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
-        }
-
-        // Chevron
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = Color.DarkGray
-        )
     }
 
     // Divider

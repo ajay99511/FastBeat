@@ -1,4 +1,3 @@
-
 package com.local.offlinemediaplayer.ui
 
 import android.Manifest
@@ -334,9 +333,14 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                             )
                             3 -> MeScreen(
                                 viewModel = viewModel,
-                                onPlayTrack = { file ->
+                                onPlayMedia = { file ->
                                     viewModel.playMedia(file)
-                                    selectedTab = 1
+                                    if (file.isVideo) {
+                                        currentMedia = file
+                                    } else {
+                                        selectedTab = 1 // Switch to Music tab
+                                        currentMedia = null
+                                    }
                                 },
                                 isSearchVisible = isSearchVisible // Pass visibility
                             )

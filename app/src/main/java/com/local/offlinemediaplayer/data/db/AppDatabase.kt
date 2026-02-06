@@ -8,9 +8,11 @@ import androidx.room.RoomDatabase
         PlaybackHistory::class,
         MediaAnalytics::class,
         PlaylistEntity::class,
-        PlaylistMediaCrossRef::class
+        PlaylistMediaCrossRef::class,
+        BookmarkEntity::class,
+        QueueItemEntity::class
     ],
-    version = 2, // Bumped version
+    version = 3, // Bumped version to 3
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

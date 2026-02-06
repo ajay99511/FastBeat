@@ -14,11 +14,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,25 +32,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.SortOption
 
 @Composable
 fun VideoFolderScreen(
     viewModel: MainViewModel,
     onFolderClick: (String) -> Unit,
     onPlaylistClick: (String) -> Unit,
+    onVideoClick: (MediaFile) -> Unit,
     isSearchVisible: Boolean
 ) {
-    // 0 = Folders, 1 = Playlists
-    var selectedTab by remember { mutableIntStateOf(0) }
+    // 0 = Folders, 1 = Movies, 2 = Playlists
+    // Use rememberSaveable to persist selection when navigating back from details
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
 
     // View Mode State: True = Grid, False = List
-    var isGridView by remember { mutableStateOf(true) }
+    var isGridView by rememberSaveable { mutableStateOf(true) }
+
+    // Movies Tab Specific State
+    var isMoviesGridView by rememberSaveable { mutableStateOf(true) }
 
     val folders by viewModel.videoFolders.collectAsStateWithLifecycle()
     val searchQuery by viewModel.folderSearchQuery.collectAsStateWithLifecycle()
@@ -64,7 +73,7 @@ fun VideoFolderScreen(
             isVisible = isSearchVisible,
             query = searchQuery,
             onQueryChange = { viewModel.updateFolderSearchQuery(it) },
-            placeholderText = "Search ${if (selectedTab == 0) "folders" else "playlists"}..."
+            placeholderText = "Search ${if (selectedTab == 0) "folders" else if (selectedTab == 1) "movies" else "playlists"}..."
         )
 
         // 2. Tabs + View Toggle (Combined Row to eliminate extra spacing)
@@ -94,7 +103,7 @@ fun VideoFolderScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val tabs = listOf("FOLDERS", "PLAYLISTS")
+                    val tabs = listOf("FOLDERS", "MOVIES", "PLAYLISTS")
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
@@ -130,51 +139,65 @@ fun VideoFolderScreen(
 
         // 3. Content
         Box(modifier = Modifier.weight(1f)) {
-            if (selectedTab == 0) {
-                // FOLDERS VIEW
-                val filteredFolders = if (searchQuery.isEmpty()) {
-                    folders
-                } else {
-                    folders.filter { it.name.contains(searchQuery, ignoreCase = true) }
-                }
-
-                if (filteredFolders.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No folders found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            when (selectedTab) {
+                0 -> {
+                    // FOLDERS VIEW
+                    val filteredFolders = if (searchQuery.isEmpty()) {
+                        folders
+                    } else {
+                        folders.filter { it.name.contains(searchQuery, ignoreCase = true) }
                     }
-                } else {
-                    if (isGridView) {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            contentPadding = PaddingValues(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(24.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(filteredFolders) { folder ->
-                                FolderItem(folder, onFolderClick, primaryAccent)
-                            }
+
+                    if (filteredFolders.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No folders found", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(filteredFolders) { folder ->
-                                FolderListItem(folder, onFolderClick, primaryAccent)
+                        if (isGridView) {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                contentPadding = PaddingValues(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(24.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(filteredFolders) { folder ->
+                                    FolderItem(folder, onFolderClick, primaryAccent)
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(filteredFolders) { folder ->
+                                    FolderListItem(folder, onFolderClick, primaryAccent)
+                                }
                             }
                         }
                     }
                 }
-            } else {
-                // PLAYLISTS LIST
-                PlaylistListScreen(
-                    viewModel = viewModel,
-                    onPlaylistClick = onPlaylistClick,
-                    onCreateClick = { showCreateDialog = true },
-                    isVideo = true // Show video playlists
-                )
+                1 -> {
+                    // MOVIES VIEW (Videos > 1h)
+                    MoviesListContent(
+                        viewModel = viewModel,
+                        onVideoClick = onVideoClick,
+                        isGridView = isMoviesGridView,
+                        onToggleView = { isMoviesGridView = !isMoviesGridView }
+                    )
+                }
+                2 -> {
+                    // PLAYLISTS LIST
+                    PlaylistListScreen(
+                        viewModel = viewModel,
+                        onPlaylistClick = onPlaylistClick,
+                        onCreateClick = { showCreateDialog = true },
+                        isVideo = true, // Show video playlists
+                        onRename = { id, newName -> viewModel.renamePlaylist(id, newName) },
+                        onDelete = { id -> viewModel.deletePlaylist(id) }
+                    )
+                }
             }
         }
     }
@@ -184,6 +207,146 @@ fun VideoFolderScreen(
             onDismiss = { showCreateDialog = false },
             onCreate = { name -> viewModel.createPlaylist(name, isVideo = true) }
         )
+    }
+}
+
+@Composable
+private fun MoviesListContent(
+    viewModel: MainViewModel,
+    onVideoClick: (MediaFile) -> Unit,
+    isGridView: Boolean,
+    onToggleView: () -> Unit
+) {
+    val movies by viewModel.sortedMovies.collectAsStateWithLifecycle()
+    val sortOption by viewModel.movieSortOption.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.folderSearchQuery.collectAsStateWithLifecycle() // Reuse existing search query
+
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    val filteredMovies = if (searchQuery.isEmpty()) {
+        movies
+    } else {
+        movies.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Header Row (Count + Sort + View)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "${filteredMovies.size} MOVIES (>1h)",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.Gray,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Sort Menu
+                Box {
+                    IconButton(onClick = { showSortMenu = true }) {
+                        Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.Gray)
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                        modifier = Modifier.background(Color(0xFF1E1E24))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Latest Added", color = Color.White) },
+                            onClick = {
+                                viewModel.updateMovieSortOption(SortOption.DATE_ADDED_DESC)
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Longest", color = Color.White) },
+                            onClick = {
+                                viewModel.updateMovieSortOption(SortOption.DURATION_DESC)
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Shortest", color = Color.White) },
+                            onClick = {
+                                viewModel.updateMovieSortOption(SortOption.DURATION_ASC)
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("A-Z", color = Color.White) },
+                            onClick = {
+                                viewModel.updateMovieSortOption(SortOption.TITLE_ASC)
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Z-A", color = Color.White) },
+                            onClick = {
+                                viewModel.updateMovieSortOption(SortOption.TITLE_DESC)
+                                showSortMenu = false
+                            }
+                        )
+                    }
+                }
+
+                // View Toggle
+                IconButton(onClick = onToggleView) {
+                    Icon(
+                        imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                        contentDescription = "Change View",
+                        tint = Color.Gray
+                    )
+                }
+            }
+        }
+
+        if (filteredMovies.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = if(searchQuery.isNotEmpty()) "No movies found matching search" else "No videos longer than 1h found",
+                    color = Color.Gray
+                )
+            }
+        } else {
+            val primaryAccent = LocalAppTheme.current.primaryColor
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(filteredMovies) { movie ->
+                    if (isGridView) {
+                        // Reusing VideoCardItem from VideoListScreen (made public)
+                        VideoCardItem(
+                            video = movie,
+                            onVideoClick = { onVideoClick(movie) },
+                            onLongClick = {}, // No selection mode in Movies tab for simplicity
+                            accentColor = primaryAccent,
+                            onAddToPlaylist = {}, // Simplification
+                            isSelectionMode = false,
+                            isSelected = false,
+                            onDelete = {}
+                        )
+                    } else {
+                        // Reusing VideoListItem from VideoListScreen (made public)
+                        VideoListItem(
+                            video = movie,
+                            onVideoClick = { onVideoClick(movie) },
+                            onLongClick = {},
+                            onAddToPlaylist = {},
+                            isSelectionMode = false,
+                            isSelected = false,
+                            onDelete = {}
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

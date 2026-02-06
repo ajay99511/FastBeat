@@ -20,8 +20,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.local.offlinemediaplayer.data.db.BookmarkEntity
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
+import com.local.offlinemediaplayer.data.db.QueueItemEntity
 import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
@@ -41,6 +43,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -71,16 +75,19 @@ class MainViewModel @Inject constructor(
         "orange" to AppThemeConfig("orange", Color(0xFFFF5500), "AMBER HORIZON", "Jump Back In")
     )
 
-    private val _currentTheme = MutableStateFlow(themes["orange"]!!)
-    val currentTheme = _currentTheme.asStateFlow()
-
-    // Persistence for Dark Mode
+    // Persistence
     private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
     private val _isDarkTheme = MutableStateFlow(sharedPrefs.getBoolean("is_dark_mode", true))
     val isDarkTheme = _isDarkTheme.asStateFlow()
 
+    // Initialize theme from SharedPreferences
+    private val savedThemeId = sharedPrefs.getString("current_theme_id", "orange") ?: "orange"
+    private val _currentTheme = MutableStateFlow(themes[savedThemeId] ?: themes["orange"]!!)
+    val currentTheme = _currentTheme.asStateFlow()
+
     fun updateTheme(themeId: String) {
         _currentTheme.value = themes[themeId] ?: themes["orange"]!!
+        sharedPrefs.edit().putString("current_theme_id", themeId).apply()
     }
 
     fun toggleThemeMode() {
@@ -102,15 +109,40 @@ class MainViewModel @Inject constructor(
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums = _albums.asStateFlow()
 
+    // --- MOVIES TAB STATE (Videos > 1 Hour) ---
+    private val _movieSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
+    val movieSortOption = _movieSortOption.asStateFlow()
+
+    val moviesList = _videoList.map { list ->
+        list.filter { it.duration >= 3600000 } // 1 Hour = 3,600,000 ms
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val sortedMovies = combine(moviesList, _movieSortOption) { list, sort ->
+        when(sort) {
+            SortOption.TITLE_ASC -> list.sortedBy { it.title }
+            SortOption.TITLE_DESC -> list.sortedByDescending { it.title }
+            SortOption.DURATION_ASC -> list.sortedBy { it.duration }
+            SortOption.DURATION_DESC -> list.sortedByDescending { it.duration }
+            SortOption.DATE_ADDED_DESC -> list.sortedByDescending { it.id } // Proxy for latest
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun updateMovieSortOption(option: SortOption) {
+        _movieSortOption.value = option
+    }
+
+    // --- QUEUE STATE ---
+    private val _currentQueue = MutableStateFlow<List<MediaFile>>(emptyList())
+    val currentQueue = _currentQueue.asStateFlow()
+
+    private val _currentIndex = MutableStateFlow<Int?>(null)
+    val currentIndex = _currentIndex.asStateFlow()
+
     // --- CONTINUE WATCHING FLOW ---
     val continueWatchingList = combine(_videoList, mediaDao.getContinueWatching()) { videos, historyItems ->
         historyItems.mapNotNull { history ->
             val video = videos.find { it.id == history.mediaId }
             if (video != null) {
-                // Return a pair or a wrapper. Since we can't easily modify MediaFile,
-                // we'll return the MediaFile but utilize the currentPosition in the UI from the history map logic if needed,
-                // or creates a transient state wrapper.
-                // For simplicity here, we map to a Pair<MediaFile, PlaybackHistory>
                 video to history
             } else null
         }
@@ -132,18 +164,16 @@ class MainViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
-    // Playlist State (Now observing Flow from Room)
+    // Playlist State
     val playlists = playlistRepository.playlistsFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    // Derived: Audio Only Playlists
     val audioPlaylists = playlists.map { list -> list.filter { !it.isVideo } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Derived: Video Only Playlists
     val videoPlaylists = playlists.map { list -> list.filter { it.isVideo } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -154,30 +184,26 @@ class MainViewModel @Inject constructor(
     private val _albumSearchQuery = MutableStateFlow("")
     val albumSearchQuery = _albumSearchQuery.asStateFlow()
 
-    // Video Folder Search
     private val _folderSearchQuery = MutableStateFlow("")
     val folderSearchQuery = _folderSearchQuery.asStateFlow()
 
     private val _sortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
     val sortOption = _sortOption.asStateFlow()
 
-    // Computed Flow for Filtered/Sorted Audio
     val filteredAudioList = combine(_audioList, _searchQuery, _sortOption) { list, query, sort ->
         var result = list
-        // Filter
         if (query.isNotEmpty()) {
             result = result.filter {
                 it.title.contains(query, ignoreCase = true) ||
                         (it.artist?.contains(query, ignoreCase = true) == true)
             }
         }
-        // Sort
         when(sort) {
             SortOption.TITLE_ASC -> result.sortedBy { it.title }
             SortOption.TITLE_DESC -> result.sortedByDescending { it.title }
             SortOption.DURATION_ASC -> result.sortedBy { it.duration }
             SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
-            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id } // ID is a proxy for date added
+            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -185,7 +211,6 @@ class MainViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
-    // Computed Flow for Filtered Albums
     val filteredAlbums = combine(_albums, _albumSearchQuery) { list, query ->
         if (query.isEmpty()) list
         else list.filter {
@@ -211,7 +236,6 @@ class MainViewModel @Inject constructor(
     private val _isShuffleEnabled = MutableStateFlow(false)
     val isShuffleEnabled = _isShuffleEnabled.asStateFlow()
 
-    // Repeat Mode
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeatMode = _repeatMode.asStateFlow()
 
@@ -221,7 +245,6 @@ class MainViewModel @Inject constructor(
     private val _duration = MutableStateFlow(0L)
     val duration = _duration.asStateFlow()
 
-    // --- NEW VIDEO PLAYER STATES ---
     private val _isPlayerLocked = MutableStateFlow(false)
     val isPlayerLocked = _isPlayerLocked.asStateFlow()
 
@@ -237,6 +260,23 @@ class MainViewModel @Inject constructor(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var positionUpdateJob: Job? = null
 
+    // --- BOOKMARKS FLOW ---
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val currentBookmarks = _currentTrack.flatMapLatest { track ->
+        if (track != null) {
+            mediaDao.getBookmarks(track.id)
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // --- FAVORITES FLOW (Is Current Track Liked?) ---
+    val isCurrentTrackFavorite = combine(_currentTrack, playlists) { track, allPlaylists ->
+        if (track == null) return@combine false
+        val favPlaylist = allPlaylists.find { it.name == "Favorites" && !it.isVideo }
+        favPlaylist != null && favPlaylist.mediaIds.contains(track.id)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // --- SELECTION & DELETION STATE ---
     private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedMediaIds = _selectedMediaIds.asStateFlow()
@@ -244,62 +284,38 @@ class MainViewModel @Inject constructor(
     private val _isSelectionMode = MutableStateFlow(false)
     val isSelectionMode = _isSelectionMode.asStateFlow()
 
-    // SharedFlow to trigger IntentSender request in UI
     private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
     val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
 
     init {
         initializeMediaController()
-        // Trigger migration on launch
         viewModelScope.launch(Dispatchers.IO) {
             playlistRepository.migrateLegacyData()
-            ensureDefaultPlaylists()
+            // Fix: Call ensureDefaultPlaylists directly via repo to check actual DB state
+            playlistRepository.ensureDefaultPlaylists()
         }
     }
 
     // --- Actions for UI ---
-    fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun updateAlbumSearchQuery(query: String) {
-        _albumSearchQuery.value = query
-    }
-
-    fun updateFolderSearchQuery(query: String) {
-        _folderSearchQuery.value = query
-    }
-
-    fun updateSortOption(option: SortOption) {
-        _sortOption.value = option
-    }
+    fun updateSearchQuery(query: String) { _searchQuery.value = query }
+    fun updateAlbumSearchQuery(query: String) { _albumSearchQuery.value = query }
+    fun updateFolderSearchQuery(query: String) { _folderSearchQuery.value = query }
+    fun updateSortOption(option: SortOption) { _sortOption.value = option }
 
     // --- Selection Logic ---
     fun toggleSelectionMode(enable: Boolean) {
         _isSelectionMode.value = enable
-        if (!enable) {
-            _selectedMediaIds.value = emptySet()
-        }
+        if (!enable) _selectedMediaIds.value = emptySet()
     }
 
     fun toggleSelection(id: Long) {
         val current = _selectedMediaIds.value.toMutableSet()
-        if (current.contains(id)) {
-            current.remove(id)
-        } else {
-            current.add(id)
-        }
+        if (current.contains(id)) current.remove(id) else current.add(id)
         _selectedMediaIds.value = current
-
-        // Auto-exit selection mode if empty
-        if (current.isEmpty()) {
-            _isSelectionMode.value = false
-        }
+        if (current.isEmpty()) _isSelectionMode.value = false
     }
 
-    fun selectAll(ids: List<Long>) {
-        _selectedMediaIds.value = ids.toSet()
-    }
+    fun selectAll(ids: List<Long>) { _selectedMediaIds.value = ids.toSet() }
 
     // --- Deletion Logic ---
     fun deleteSelectedMedia() {
@@ -312,23 +328,17 @@ class MainViewModel @Inject constructor(
             val uris = filesToDelete.map { it.uri }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                // Android 11+ (API 30+): Batch Delete Request
                 val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
                 _deleteIntentEvent.emit(pendingIntent.intentSender)
             } else {
                 try {
-                    for (file in filesToDelete) {
-                        app.contentResolver.delete(file.uri, null, null)
-                    }
+                    for (file in filesToDelete) app.contentResolver.delete(file.uri, null, null)
                     onDeleteSuccess(idsToDelete)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                } catch (e: Exception) { e.printStackTrace() }
             }
         }
     }
 
-    // Called when IntentSender returns RESULT_OK or direct delete works
     fun onDeleteSuccess() {
         val ids = _selectedMediaIds.value.toList()
         onDeleteSuccess(ids)
@@ -336,28 +346,65 @@ class MainViewModel @Inject constructor(
 
     private fun onDeleteSuccess(ids: List<Long>) {
         viewModelScope.launch {
-            // Remove from lists locally
             _videoList.value = _videoList.value.filter { !ids.contains(it.id) }
             _audioList.value = _audioList.value.filter { !ids.contains(it.id) }
-
-            // Clean up playlists - Room should handle this via Repository if implemented,
-            // but for now we rely on user manually removing or lazy handling.
-            // With foreign keys in Room, cleaning up cross-refs is cleaner if mediaId was a foreign key,
-            // but mediaId is not a table in Room, it's external.
-            // We'll iterate playlists and remove.
             val currentPlaylists = playlists.value
             currentPlaylists.forEach { pl ->
                 if (pl.mediaIds.any { ids.contains(it) }) {
                     playlistRepository.updatePlaylistTracks(pl.id, pl.mediaIds.filter { !ids.contains(it) })
                 }
             }
-
-            // Reset selection
             _selectedMediaIds.value = emptySet()
             _isSelectionMode.value = false
         }
     }
 
+    // --- Bookmark Management ---
+    fun addBookmark(timestamp: Long, label: String) {
+        val track = _currentTrack.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            mediaDao.addBookmark(
+                BookmarkEntity(
+                    mediaId = track.id,
+                    timestamp = timestamp,
+                    label = label
+                )
+            )
+        }
+    }
+
+    fun deleteBookmark(id: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mediaDao.deleteBookmark(id)
+        }
+    }
+
+    // --- Favorite Management ---
+    fun toggleFavorite() {
+        val track = _currentTrack.value ?: return
+        val isFav = isCurrentTrackFavorite.value
+
+        viewModelScope.launch(Dispatchers.IO) {
+            // Find Favorites playlist, or create if missing
+            var favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo }
+            if (favPlaylist == null) {
+                playlistRepository.createPlaylist("Favorites", false)
+                // Small delay to ensure DB insertion propagates to Flow before we fetch again
+                delay(100)
+                favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo }
+            }
+
+            if (favPlaylist != null) {
+                if (isFav) {
+                    playlistRepository.removeSongFromPlaylist(favPlaylist.id, track.id)
+                } else {
+                    playlistRepository.addSongToPlaylist(favPlaylist.id, track.id)
+                }
+            }
+        }
+    }
+
+    // --- Player Initialization ---
     private fun initializeMediaController() {
         val sessionToken = SessionToken(app, ComponentName(app, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(app, sessionToken).buildAsync()
@@ -367,7 +414,6 @@ class MainViewModel @Inject constructor(
                 _player.value = controller
                 setupPlayerListener(controller)
 
-                // Initialize state from controller if it's already running
                 if (controller != null) {
                     _isPlaying.value = controller.isPlaying
                     _isShuffleEnabled.value = controller.shuffleModeEnabled
@@ -408,15 +454,11 @@ class MainViewModel @Inject constructor(
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 updateCurrentTrackFromPlayer(controller)
-                // When track changes, track a play count for the new track
-                mediaItem?.mediaId?.toLongOrNull()?.let { id ->
-                    recordPlay(id)
-                }
+                mediaItem?.mediaId?.toLongOrNull()?.let { id -> recordPlay(id) }
             }
         })
     }
 
-    // Record analytics safely in background
     private fun recordPlay(mediaId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
@@ -429,16 +471,17 @@ class MainViewModel @Inject constructor(
         val currentMediaItem = controller.currentMediaItem
         if (currentMediaItem == null) {
             _currentTrack.value = null
+            _currentIndex.value = null
             return
         }
-
-        val idString = currentMediaItem.mediaId
-        val id = idString.toLongOrNull()
-
+        val id = currentMediaItem.mediaId.toLongOrNull()
         if (id != null) {
-            val track = _audioList.value.find { it.id == id }
-                ?: _videoList.value.find { it.id == id }
+            val track = _audioList.value.find { it.id == id } ?: _videoList.value.find { it.id == id }
             _currentTrack.value = track
+            _currentIndex.value = controller.currentMediaItemIndex
+
+            // Fix: Persist current index to disk so app remembers song on restart
+            persistQueueIndex(controller.currentMediaItemIndex)
         }
     }
 
@@ -451,8 +494,6 @@ class MainViewModel @Inject constructor(
                     val pos = player.currentPosition
                     _currentPosition.value = pos
                     _duration.value = player.duration.coerceAtLeast(0L)
-
-                    // Save playback state every ~5 seconds (10 * 500ms)
                     if (saveCounter++ % 10 == 0) {
                         _currentTrack.value?.let { track ->
                             savePlaybackState(track.id, pos, track.duration, track.isVideo)
@@ -465,7 +506,6 @@ class MainViewModel @Inject constructor(
     }
 
     private fun stopPositionUpdates() {
-        // One final save on pause/stop
         _currentTrack.value?.let { track ->
             savePlaybackState(track.id, _currentPosition.value, track.duration, track.isVideo)
         }
@@ -488,16 +528,79 @@ class MainViewModel @Inject constructor(
     }
 
     // --- Media Loading ---
-
     fun scanMedia() {
         viewModelScope.launch(Dispatchers.IO) {
-            _videoList.value = queryMedia(isVideo = true)
-            _audioList.value = queryMedia(isVideo = false)
+            val videos = queryMedia(isVideo = true)
+            val audio = queryMedia(isVideo = false)
+            _videoList.value = videos
+            _audioList.value = audio
             _imageList.value = queryImages()
             _albums.value = queryAlbums()
+
+            // RESTORE QUEUE AFTER LOADING
+            restoreQueue(audio + videos)
         }
     }
 
+    // --- Persistent Queue Logic ---
+    private suspend fun restoreQueue(allMedia: List<MediaFile>) {
+        val savedQueueItems = mediaDao.getSavedQueue()
+        if (savedQueueItems.isNotEmpty()) {
+            val restoredQueue = savedQueueItems.mapNotNull { item ->
+                allMedia.find { it.id == item.mediaId }
+            }
+            if (restoredQueue.isNotEmpty()) {
+                _currentQueue.value = restoredQueue
+
+                // Restore Index from Prefs
+                val savedIndex = sharedPrefs.getInt("last_queue_index", 0)
+                val safeIndex = savedIndex.coerceIn(0, restoredQueue.size - 1)
+                _currentIndex.value = safeIndex
+
+                // Restore UI state
+                val track = restoredQueue[safeIndex]
+                _currentTrack.value = track
+
+                // Fetch last playback position to resume
+                var startPos = 0L
+                val history = mediaDao.getHistory(track.id)
+                if (history != null) {
+                    // Resume unless track was basically finished (e.g. > 99%)
+                    if (history.duration == 0L || history.position < (history.duration * 0.99)) {
+                        startPos = history.position
+                    }
+                }
+
+                // Set to player
+                withContext(Dispatchers.Main) {
+                    _player.value?.let { controller ->
+                        if (controller.mediaItemCount == 0) {
+                            val items = restoredQueue.map { it.toMediaItem() }
+                            // Restore queue at correct index and position
+                            controller.setMediaItems(items, safeIndex, startPos)
+                            controller.prepare()
+                            // Don't call play() on restore
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun persistQueue(queue: List<MediaFile>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val entities = queue.mapIndexed { index, media ->
+                QueueItemEntity(media.id, index)
+            }
+            mediaDao.replaceQueue(entities)
+        }
+    }
+
+    private fun persistQueueIndex(index: Int) {
+        sharedPrefs.edit().putInt("last_queue_index", index).apply()
+    }
+
+    // --- Query Methods (Unchanged) ---
     private fun queryMedia(isVideo: Boolean): List<MediaFile> {
         val mediaList = mutableListOf<MediaFile>()
         val collection = if (android.os.Build.VERSION.SDK_INT >= 29) {
@@ -528,7 +631,6 @@ class MainViewModel @Inject constructor(
                 MediaStore.Audio.Media.ALBUM_ID
             )
         }
-
         val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0" else null
 
         try {
@@ -584,72 +686,33 @@ class MainViewModel @Inject constructor(
                     mediaList.add(MediaFile(id, contentUri, name, artist, duration, isVideo, false, albumArtUri, albumId, bucketId, bucketName, size, resolution))
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
         return mediaList
     }
 
     private fun queryImages(): List<MediaFile> {
         val imageList = mutableListOf<MediaFile>()
-        val collection = if (android.os.Build.VERSION.SDK_INT >= 29) {
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        }
-
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DISPLAY_NAME
-        )
-
+        val collection = if (android.os.Build.VERSION.SDK_INT >= 29) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME)
         try {
             app.contentResolver.query(collection, projection, null, null, "${MediaStore.Images.Media.DATE_ADDED} DESC")?.use { cursor ->
                 val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
                     val name = cursor.getString(nameColumn) ?: "Unknown Image"
                     val contentUri = ContentUris.withAppendedId(collection, id)
-
-                    imageList.add(
-                        MediaFile(
-                            id = id,
-                            uri = contentUri,
-                            title = name,
-                            artist = null,
-                            duration = 0,
-                            isVideo = false,
-                            isImage = true,
-                            albumArtUri = null,
-                            albumId = -1
-                        )
-                    )
+                    imageList.add(MediaFile(id = id, uri = contentUri, title = name, artist = null, duration = 0, isVideo = false, isImage = true, albumArtUri = null, albumId = -1))
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
         return imageList
     }
 
     private fun queryAlbums(): List<Album> {
         val albumList = mutableListOf<Album>()
-        val collection = if (android.os.Build.VERSION.SDK_INT >= 29) {
-            MediaStore.Audio.Albums.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        } else {
-            MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI
-        }
-
-        val projection = arrayOf(
-            MediaStore.Audio.Albums._ID,
-            MediaStore.Audio.Albums.ALBUM,
-            MediaStore.Audio.Albums.ARTIST,
-            MediaStore.Audio.Albums.NUMBER_OF_SONGS,
-            MediaStore.Audio.Albums.FIRST_YEAR
-        )
-
+        val collection = if (android.os.Build.VERSION.SDK_INT >= 29) MediaStore.Audio.Albums.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.Audio.Albums._ID, MediaStore.Audio.Albums.ALBUM, MediaStore.Audio.Albums.ARTIST, MediaStore.Audio.Albums.NUMBER_OF_SONGS, MediaStore.Audio.Albums.FIRST_YEAR)
         try {
             app.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
                 val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums._ID)
@@ -657,130 +720,88 @@ class MainViewModel @Inject constructor(
                 val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.ARTIST)
                 val countColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.NUMBER_OF_SONGS)
                 val yearColumn = cursor.getColumnIndex(MediaStore.Audio.Albums.FIRST_YEAR)
-
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
                     val name = cursor.getString(albumColumn) ?: "Unknown Album"
                     val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
                     val count = cursor.getInt(countColumn)
-
                     val year = if (yearColumn != -1) cursor.getInt(yearColumn) else null
                     val finalYear = if (year != null && year > 1900) year else null
-
                     val sArtworkUri = "content://media/external/audio/albumart".toUri()
                     val albumArtUri = ContentUris.withAppendedId(sArtworkUri, id)
-
                     albumList.add(Album(id, name, artist, count, finalYear, albumArtUri))
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
         return albumList
     }
 
-    // --- Playlist Management ---
-
-    private suspend fun ensureDefaultPlaylists() {
-        val currentPlaylists = playlists.value
-        // Ensure default audio playlist "Favorites" exists
-        if (currentPlaylists.none { it.name == "Favorites" && !it.isVideo }) {
-            playlistRepository.createPlaylist("Favorites", isVideo = false)
-        }
-        // Ensure default video playlist "Love" exists
-        if (currentPlaylists.none { it.name == "Love" && it.isVideo }) {
-            playlistRepository.createPlaylist("Love", isVideo = true)
-        }
-    }
-
+    // --- Playlist Management (Updated for Duplicate check) ---
     fun createPlaylist(name: String, isVideo: Boolean = false) {
+        val currentPlaylists = playlists.value
+        // Check for duplicates
+        if (currentPlaylists.any { it.name.equals(name, ignoreCase = true) && it.isVideo == isVideo }) {
+            // Duplicate exists
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) { playlistRepository.createPlaylist(name, isVideo) }
+    }
+
+    fun renamePlaylist(id: String, newName: String) {
+        val currentPlaylists = playlists.value
+        val playlist = currentPlaylists.find { it.id == id } ?: return
+
+        // Check duplicate excluding self
+        if (currentPlaylists.any { it.name.equals(newName, ignoreCase = true) && it.isVideo == playlist.isVideo && it.id != id }) {
+            return
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
-            playlistRepository.createPlaylist(name, isVideo)
+            playlistRepository.renamePlaylist(id, newName)
         }
     }
 
-    fun deletePlaylist(playlistId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            playlistRepository.deletePlaylist(playlistId)
-        }
-    }
-
-    fun addSongToPlaylist(playlistId: String, mediaId: Long) {
-        viewModelScope.launch(Dispatchers.IO) {
-            playlistRepository.addSongToPlaylist(playlistId, mediaId)
-        }
-    }
-
-    fun removeSongFromPlaylist(playlistId: String, mediaId: Long) {
-        viewModelScope.launch(Dispatchers.IO) {
-            playlistRepository.removeSongFromPlaylist(playlistId, mediaId)
-        }
-    }
-
+    fun deletePlaylist(playlistId: String) = viewModelScope.launch(Dispatchers.IO) { playlistRepository.deletePlaylist(playlistId) }
+    fun addSongToPlaylist(playlistId: String, mediaId: Long) = viewModelScope.launch(Dispatchers.IO) { playlistRepository.addSongToPlaylist(playlistId, mediaId) }
+    fun removeSongFromPlaylist(playlistId: String, mediaId: Long) = viewModelScope.launch(Dispatchers.IO) { playlistRepository.removeSongFromPlaylist(playlistId, mediaId) }
     fun toggleAlbumInFavorites(albumSongs: List<MediaFile>) {
         val favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo } ?: return
-
         val allInFav = albumSongs.all { favPlaylist.mediaIds.contains(it.id) }
         val newMediaIds = favPlaylist.mediaIds.toMutableList()
-
-        if (allInFav) {
-            albumSongs.forEach { newMediaIds.remove(it.id) }
-        } else {
-            albumSongs.forEach {
-                if (!newMediaIds.contains(it.id)) newMediaIds.add(it.id)
-            }
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            playlistRepository.updatePlaylistTracks(favPlaylist.id, newMediaIds)
-        }
+        if (allInFav) albumSongs.forEach { newMediaIds.remove(it.id) } else albumSongs.forEach { if (!newMediaIds.contains(it.id)) newMediaIds.add(it.id) }
+        viewModelScope.launch(Dispatchers.IO) { playlistRepository.updatePlaylistTracks(favPlaylist.id, newMediaIds) }
     }
 
     // --- Playback Logic ---
-
     fun playMedia(media: MediaFile) {
         if (media.isVideo) {
-            // Reset player state for new video
             _isPlayerLocked.value = false
             _playbackSpeed.value = 1.0f
             _resizeMode.value = ResizeMode.FIT
-            // Seek if there is history
             viewModelScope.launch(Dispatchers.IO) {
                 val history = mediaDao.getHistory(media.id)
                 val startPos = if (history != null && history.position < (history.duration * 0.95)) history.position else 0L
                 withContext(Dispatchers.Main) {
                     val allVideos = _videoList.value
                     val startIndex = allVideos.indexOfFirst { it.id == media.id }
-                    if (startIndex >= 0) {
-                        setQueue(listOf(media), 0, false, startPos)
-                    }
+                    if (startIndex >= 0) setQueue(listOf(media), 0, false, startPos)
                 }
             }
-        } else if (media.isImage) {
-            // No-op for now
-        } else {
-            // Audio playback - set up queue
+        } else if (!media.isImage) {
             val currentVisibleList = filteredAudioList.value.takeIf { it.isNotEmpty() } ?: _audioList.value
             val startIndex = currentVisibleList.indexOfFirst { it.id == media.id }
-            if (startIndex >= 0) {
-                setQueue(currentVisibleList, startIndex, false)
-            }
+            if (startIndex >= 0) setQueue(currentVisibleList, startIndex, false)
         }
     }
 
     fun playMediaFromList(media: MediaFile, list: List<MediaFile>) {
         val startIndex = list.indexOfFirst { it.id == media.id }
-        if (startIndex >= 0) {
-            setQueue(list, startIndex, false)
-        }
+        if (startIndex >= 0) setQueue(list, startIndex, false)
     }
 
     fun playPlaylist(playlist: Playlist, shuffle: Boolean) {
         val allMedia = if (playlist.isVideo) _videoList.value else _audioList.value
-        val playlistMedia = playlist.mediaIds.mapNotNull { id ->
-            allMedia.find { it.id == id }
-        }
-
+        val playlistMedia = playlist.mediaIds.mapNotNull { id -> allMedia.find { it.id == id } }
         if (playlistMedia.isNotEmpty()) {
             val startIndex = if (shuffle) (playlistMedia.indices).random() else 0
             if (playlist.isVideo) {
@@ -808,7 +829,13 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // UPDATED setQueue to delegate to MediaController
     fun setQueue(mediaList: List<MediaFile>, startIndex: Int, shuffle: Boolean = false, startPosition: Long = 0L) {
+        // Update Local State
+        _currentQueue.value = mediaList
+        _isShuffleEnabled.value = shuffle
+
+        // Pass entire queue to Controller
         _player.value?.let { controller ->
             val mediaItems = mediaList.map { it.toMediaItem() }
             controller.setMediaItems(mediaItems, startIndex, startPosition)
@@ -816,6 +843,16 @@ class MainViewModel @Inject constructor(
             controller.prepare()
             controller.play()
         }
+
+        // Persist
+        persistQueue(mediaList)
+        persistQueueIndex(startIndex)
+    }
+
+    private fun playMediaItem(media: MediaFile, startPosition: Long = 0L) {
+        // Deprecated internal usage - redirect to setQueue or handle single item
+        // Keeping logic for single item play if needed, but standardizing on queue
+        setQueue(listOf(media), 0, false, startPosition)
     }
 
     private fun MediaFile.toMediaItem(): MediaItem {
@@ -824,7 +861,6 @@ class MainViewModel @Inject constructor(
             .setArtist(artist)
             .setArtworkUri(albumArtUri)
             .build()
-
         return MediaItem.Builder()
             .setUri(uri)
             .setMediaId(id.toString())
@@ -832,36 +868,29 @@ class MainViewModel @Inject constructor(
             .build()
     }
 
-    // --- Video Player Specific Actions ---
-
-    fun toggleLock() {
-        _isPlayerLocked.value = !_isPlayerLocked.value
-    }
-
+    // --- Video Specific ---
+    fun toggleLock() { _isPlayerLocked.value = !_isPlayerLocked.value }
     fun toggleResizeMode() {
         val modes = ResizeMode.values()
-        val nextIndex = (_resizeMode.value.ordinal + 1) % modes.size
-        _resizeMode.value = modes[nextIndex]
+        _resizeMode.value = modes[(_resizeMode.value.ordinal + 1) % modes.size]
     }
-
     fun cyclePlaybackSpeed() {
         val speeds = listOf(0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
         val current = _playbackSpeed.value
         val nextIndex = speeds.indexOfFirst { it > current }
         val newSpeed = if (nextIndex != -1) speeds[nextIndex] else speeds[0]
-
         _player.value?.setPlaybackSpeed(newSpeed)
         _playbackSpeed.value = newSpeed
     }
-
-    fun setPipMode(isPip: Boolean) {
-        _isInPipMode.value = isPip
-    }
+    fun setPipMode(isPip: Boolean) { _isInPipMode.value = isPip }
 
     // --- Controls ---
-
     fun playNext() {
-        _player.value?.let { if (it.hasNextMediaItem()) it.seekToNext() }
+        _player.value?.let {
+            if (it.hasNextMediaItem()) {
+                it.seekToNext()
+            }
+        }
     }
 
     fun playPrevious() {
@@ -874,16 +903,14 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun togglePlayPause() {
-        _player.value?.let { if (it.isPlaying) it.pause() else it.play() }
-    }
-
+    fun togglePlayPause() { _player.value?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun toggleShuffle() {
         _player.value?.let {
-            it.shuffleModeEnabled = !it.shuffleModeEnabled
+            val newMode = !it.shuffleModeEnabled
+            it.shuffleModeEnabled = newMode
+            _isShuffleEnabled.value = newMode
         }
     }
-
     fun toggleRepeat() {
         _player.value?.let {
             val newMode = when (it.repeatMode) {
@@ -894,28 +921,15 @@ class MainViewModel @Inject constructor(
             it.repeatMode = newMode
         }
     }
-
     fun seekTo(positionMs: Long) {
         _player.value?.seekTo(positionMs)
         _currentPosition.value = positionMs
     }
-
-    fun rewind() {
-        _player.value?.let {
-            it.seekTo((it.currentPosition - 10000).coerceAtLeast(0))
-        }
-    }
-
-    fun forward() {
-        _player.value?.let {
-            it.seekTo((it.currentPosition + 10000).coerceAtMost(it.duration))
-        }
-    }
-
+    fun rewind() { _player.value?.let { it.seekTo((it.currentPosition - 10000).coerceAtLeast(0)) } }
+    fun forward() { _player.value?.let { it.seekTo((it.currentPosition + 10000).coerceAtMost(it.duration)) } }
     fun hasNext(): Boolean {
         return _player.value?.hasNextMediaItem() ?: false
     }
-
     fun hasPrevious(): Boolean {
         return _player.value?.hasPreviousMediaItem() ?: false
     }

@@ -35,15 +35,16 @@ class PlaylistRepository @Inject constructor(
     )
 
     // Observe playlists from DB and map to Domain Model
-    val playlistsFlow: Flow<List<Playlist>> = mediaDao.getAllPlaylists().map { entities ->
-        entities.map { entity ->
-            val mediaIds = mediaDao.getMediaIdsForPlaylist(entity.id)
+    // We use getAllPlaylistsWithRefs() so Room triggers an update whenever the playlist_media_cross_ref table changes
+    val playlistsFlow: Flow<List<Playlist>> = mediaDao.getAllPlaylistsWithRefs().map { playlistWithRefs ->
+        playlistWithRefs.map { item ->
+            val sortedRefs = item.refs.sortedBy { it.addedAt }
             Playlist(
-                id = entity.id,
-                name = entity.name,
-                mediaIds = mediaIds,
-                createdAt = entity.createdAt,
-                isVideo = entity.isVideo
+                id = item.playlist.id,
+                name = item.playlist.name,
+                mediaIds = sortedRefs.map { it.mediaId },
+                createdAt = item.playlist.createdAt,
+                isVideo = item.playlist.isVideo
             )
         }
     }
@@ -99,7 +100,18 @@ class PlaylistRepository @Inject constructor(
         }
     }
 
+    suspend fun ensureDefaultPlaylists() {
+        // Double check is performed inside createPlaylist to avoid duplicates
+        createPlaylist("Favorites", false)
+        createPlaylist("Love", true)
+    }
+
     suspend fun createPlaylist(name: String, isVideo: Boolean) {
+        // Prevent duplicates: Check if a playlist with same name/type exists
+        if (mediaDao.getPlaylistCount(name, isVideo) > 0) {
+            return
+        }
+
         val newId = java.util.UUID.randomUUID().toString()
         mediaDao.insertPlaylist(
             PlaylistEntity(
@@ -113,6 +125,10 @@ class PlaylistRepository @Inject constructor(
 
     suspend fun deletePlaylist(id: String) {
         mediaDao.deletePlaylist(id)
+    }
+
+    suspend fun renamePlaylist(id: String, newName: String) {
+        mediaDao.updatePlaylistName(id, newName)
     }
 
     suspend fun addSongToPlaylist(playlistId: String, mediaId: Long) {

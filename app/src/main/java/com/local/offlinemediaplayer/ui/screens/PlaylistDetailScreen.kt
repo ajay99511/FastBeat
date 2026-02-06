@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.PlaylistRemove
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
@@ -53,6 +54,10 @@ fun PlaylistDetailScreen(
 
     // Colors
     val primaryAccent = Color(0xFFE11D48) // FastBeat Red
+
+    // UI States
+    var showMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // 1. Background (Blurred/Darkened first song art or Gradient)
@@ -108,17 +113,40 @@ fun PlaylistDetailScreen(
                     onClick = onBack,
                     modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBackIosNew, "Back", tint = Color.White)
+                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                 }
 
-                IconButton(
-                    onClick = {
-                        viewModel.deletePlaylist(playlistId)
-                        onBack()
-                    },
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
-                ) {
-                    Icon(Icons.Outlined.PlaylistRemove, "Delete", tint = Color(0xFFFF8A80))
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.MoreVert, "Options", tint = Color.White)
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF2B2930))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename", color = Color.White) },
+                            onClick = {
+                                showMenu = false
+                                showRenameDialog = true
+                            },
+                            leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = Color(0xFFFF8A80)) },
+                            onClick = {
+                                showMenu = false
+                                viewModel.deletePlaylist(playlistId)
+                                onBack()
+                            },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = Color(0xFFFF8A80)) }
+                        )
+                    }
                 }
             }
 
@@ -265,6 +293,16 @@ fun PlaylistDetailScreen(
                 }
             }
         }
+    }
+
+    if (showRenameDialog) {
+        RenamePlaylistDialog(
+            currentName = playlist.name,
+            onDismiss = { showRenameDialog = false },
+            onRename = { newName ->
+                viewModel.renamePlaylist(playlistId, newName)
+            }
+        )
     }
 }
 

@@ -341,7 +341,7 @@ fun VideoListScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun VideoListItem(
+fun VideoListItem(
     video: MediaFile,
     onVideoClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -438,7 +438,7 @@ private fun VideoListItem(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun VideoCardItem(
+fun VideoCardItem(
     video: MediaFile,
     onVideoClick: () -> Unit,
     onLongClick: () -> Unit,

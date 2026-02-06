@@ -1,4 +1,3 @@
-
 package com.local.offlinemediaplayer.ui.components
 
 import androidx.compose.foundation.clickable
@@ -36,11 +35,41 @@ fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
-                        onCreate(name)
+                        onCreate(name.trim())
                         onDismiss()
                     }
                 }
             ) { Text("Create") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+    var name by remember { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Playlist") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("New Name") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank() && name != currentName) {
+                        onRename(name.trim())
+                        onDismiss()
+                    }
+                }
+            ) { Text("Rename") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

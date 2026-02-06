@@ -7,15 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,7 +36,8 @@ fun AudioLibraryScreen(
     isSearchVisible: Boolean
 ) {
     // 0 = Tracks, 1 = Albums, 2 = Playlists
-    var selectedSubTab by remember { mutableIntStateOf(0) }
+    // Use rememberSaveable to persist selection when navigating back from details
+    var selectedSubTab by rememberSaveable { mutableIntStateOf(0) }
 
     // Add to Playlist Dialog State
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }

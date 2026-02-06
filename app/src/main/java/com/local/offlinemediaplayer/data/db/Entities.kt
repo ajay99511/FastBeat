@@ -1,9 +1,11 @@
 package com.local.offlinemediaplayer.data.db
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.Relation
 
 @Entity(tableName = "playback_history")
 data class PlaybackHistory(
@@ -47,4 +49,31 @@ data class PlaylistMediaCrossRef(
     val playlistId: String,
     val mediaId: Long,
     val addedAt: Long = System.currentTimeMillis() // Used for ordering
+)
+
+// Helper class for Room Relations to observe changes in both tables
+data class PlaylistWithRefs(
+    @Embedded val playlist: PlaylistEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "playlistId"
+    )
+    val refs: List<PlaylistMediaCrossRef>
+)
+
+// NEW: For timestamp bookmarks
+@Entity(tableName = "bookmarks")
+data class BookmarkEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val mediaId: Long,
+    val timestamp: Long,
+    val label: String,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+// NEW: For persistent "Now Playing" queue
+@Entity(tableName = "current_queue")
+data class QueueItemEntity(
+    @PrimaryKey val mediaId: Long,
+    val sortOrder: Int
 )

@@ -36,7 +36,7 @@ import com.local.offlinemediaplayer.viewmodel.MainViewModel
 @Composable
 fun MeScreen(
     viewModel: MainViewModel,
-    onPlayTrack: (MediaFile) -> Unit,
+    onPlayMedia: (MediaFile) -> Unit,
     isSearchVisible: Boolean
 ) {
     val theme = LocalAppTheme.current
@@ -144,7 +144,7 @@ fun MeScreen(
                         modifier = Modifier
                             .width(180.dp)
                             .height(130.dp)
-                            .clickable { viewModel.playMedia(video) },
+                            .clickable { onPlayMedia(video) },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
@@ -359,7 +359,7 @@ fun MeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable { onPlayTrack(song) }
+                                .clickable { onPlayMedia(song) }
                                 .padding(vertical = 8.dp, horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
