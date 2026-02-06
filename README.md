@@ -97,5 +97,4 @@ Contributions are welcome! Please follow these steps:
 ---
 
 ## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
