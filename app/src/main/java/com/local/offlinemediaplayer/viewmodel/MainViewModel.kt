@@ -25,6 +25,7 @@ import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.data.db.QueueItemEntity
 import com.local.offlinemediaplayer.model.Album
+import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
 import com.local.offlinemediaplayer.model.VideoFolder
@@ -67,6 +68,9 @@ class MainViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val mediaDao: MediaDao
 ) : AndroidViewModel(app) {
+
+    // --- STATE PRESERVATION ---
+    private var savedAudioState: AudioPlayerState? = null
 
     // --- THEMING STATE ---
     private val themes = mapOf(
@@ -480,8 +484,11 @@ class MainViewModel @Inject constructor(
             _currentTrack.value = track
             _currentIndex.value = controller.currentMediaItemIndex
 
-            // Fix: Persist current index to disk so app remembers song on restart
-            persistQueueIndex(controller.currentMediaItemIndex)
+            // Fix: Only persist queue index if NOT video.
+            // This prevents video playback from overwriting the last played music position in the persisted queue.
+            if (track != null && !track.isVideo) {
+                persistQueueIndex(controller.currentMediaItemIndex)
+            }
         }
     }
 
@@ -736,12 +743,10 @@ class MainViewModel @Inject constructor(
         return albumList
     }
 
-    // --- Playlist Management (Updated for Duplicate check) ---
+    // --- Playlist Management ---
     fun createPlaylist(name: String, isVideo: Boolean = false) {
         val currentPlaylists = playlists.value
-        // Check for duplicates
         if (currentPlaylists.any { it.name.equals(name, ignoreCase = true) && it.isVideo == isVideo }) {
-            // Duplicate exists
             return
         }
         viewModelScope.launch(Dispatchers.IO) { playlistRepository.createPlaylist(name, isVideo) }
@@ -751,7 +756,6 @@ class MainViewModel @Inject constructor(
         val currentPlaylists = playlists.value
         val playlist = currentPlaylists.find { it.id == id } ?: return
 
-        // Check duplicate excluding self
         if (currentPlaylists.any { it.name.equals(newName, ignoreCase = true) && it.isVideo == playlist.isVideo && it.id != id }) {
             return
         }
@@ -775,22 +779,93 @@ class MainViewModel @Inject constructor(
     // --- Playback Logic ---
     fun playMedia(media: MediaFile) {
         if (media.isVideo) {
-            _isPlayerLocked.value = false
-            _playbackSpeed.value = 1.0f
-            _resizeMode.value = ResizeMode.FIT
-            viewModelScope.launch(Dispatchers.IO) {
-                val history = mediaDao.getHistory(media.id)
-                val startPos = if (history != null && history.position < (history.duration * 0.95)) history.position else 0L
-                withContext(Dispatchers.Main) {
-                    val allVideos = _videoList.value
-                    val startIndex = allVideos.indexOfFirst { it.id == media.id }
-                    if (startIndex >= 0) setQueue(listOf(media), 0, false, startPos)
-                }
-            }
+            playVideo(media) // Redirect to new video handler
         } else if (!media.isImage) {
             val currentVisibleList = filteredAudioList.value.takeIf { it.isNotEmpty() } ?: _audioList.value
             val startIndex = currentVisibleList.indexOfFirst { it.id == media.id }
             if (startIndex >= 0) setQueue(currentVisibleList, startIndex, false)
+        }
+    }
+
+    private fun playVideo(media: MediaFile) {
+        // Snapshot Audio State if we are interrupting an active audio session
+        val current = _currentTrack.value
+        if (_currentQueue.value.isNotEmpty() && current?.isVideo != true) {
+            savedAudioState = AudioPlayerState(
+                queue = _currentQueue.value,
+                currentIndex = _currentIndex.value ?: 0,
+                position = _currentPosition.value,
+                isPlaying = _isPlaying.value,
+                isShuffleEnabled = _isShuffleEnabled.value,
+                repeatMode = _repeatMode.value
+            )
+        }
+
+        _isPlayerLocked.value = false
+        _playbackSpeed.value = 1.0f
+        _resizeMode.value = ResizeMode.FIT
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val history = mediaDao.getHistory(media.id)
+            val startPos = if (history != null && history.position < (history.duration * 0.95)) history.position else 0L
+            withContext(Dispatchers.Main) {
+                val allVideos = _videoList.value
+                val startIndex = allVideos.indexOfFirst { it.id == media.id }
+                // Use existing queue logic but this will trigger updateCurrentTrackFromPlayer
+                // which we modified to NOT persist queue index for videos.
+                if (startIndex >= 0) setQueue(listOf(media), 0, false, startPos)
+            }
+        }
+    }
+
+    /**
+     * Call this when the Video Player screen is closed.
+     * It saves the video position and restores the previous music session.
+     */
+    fun closeVideo() {
+        val current = _currentTrack.value
+        if (current?.isVideo == true) {
+            // Save video position to history for "Continue Watching"
+            savePlaybackState(current.id, _currentPosition.value, _duration.value, true)
+
+            // Restore the audio session
+            restoreAudioSession()
+        }
+    }
+
+    private fun restoreAudioSession() {
+        val state = savedAudioState
+        if (state != null) {
+            // Restore internal StateFlows
+            _currentQueue.value = state.queue
+            _currentIndex.value = state.currentIndex
+            _isShuffleEnabled.value = state.isShuffleEnabled
+            _repeatMode.value = state.repeatMode
+
+            // Restore Player State
+            _player.value?.let { controller ->
+                val items = state.queue.map { it.toMediaItem() }
+                controller.setMediaItems(items, state.currentIndex, state.position)
+                controller.shuffleModeEnabled = state.isShuffleEnabled
+                controller.repeatMode = state.repeatMode
+                controller.prepare()
+                // Conditionally play/pause based on saved state (or pause to avoid sudden blasting)
+                if (state.isPlaying) controller.play() else controller.pause()
+            }
+
+            // Immediately update the UI track so the miniplayer reappears correctly
+            if (state.queue.isNotEmpty() && state.currentIndex < state.queue.size) {
+                _currentTrack.value = state.queue[state.currentIndex]
+            }
+
+            // Clear the saved state after restoration
+            savedAudioState = null
+        } else {
+            // No state to restore (e.g. video played without prior music), just stop
+            _player.value?.stop()
+            _player.value?.clearMediaItems()
+            _currentTrack.value = null
+            _currentQueue.value = emptyList()
         }
     }
 
@@ -847,12 +922,6 @@ class MainViewModel @Inject constructor(
         // Persist
         persistQueue(mediaList)
         persistQueueIndex(startIndex)
-    }
-
-    private fun playMediaItem(media: MediaFile, startPosition: Long = 0L) {
-        // Deprecated internal usage - redirect to setQueue or handle single item
-        // Keeping logic for single item play if needed, but standardizing on queue
-        setQueue(listOf(media), 0, false, startPosition)
     }
 
     private fun MediaFile.toMediaItem(): MediaItem {

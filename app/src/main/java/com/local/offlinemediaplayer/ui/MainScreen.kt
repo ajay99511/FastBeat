@@ -300,7 +300,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                 if (isVideoMode) {
                     VideoPlayerScreen(viewModel = viewModel, onBack = {
                         currentMedia = null
-                        viewModel.player.value?.pause()
+                        // CALL NEW FUNCTION TO RESTORE STATE
+                        viewModel.closeVideo()
                     })
                 } else {
                     // Animate transition between Tabs
