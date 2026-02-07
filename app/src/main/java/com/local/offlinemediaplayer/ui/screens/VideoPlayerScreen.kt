@@ -55,6 +55,7 @@ import androidx.media3.ui.PlayerView
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.ResizeMode
+import com.local.offlinemediaplayer.viewmodel.TrackInfo
 import kotlinx.coroutines.delay
 import java.util.Formatter
 import java.util.Locale
@@ -88,6 +89,8 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
     var isControlsVisible by remember { mutableStateOf(true) }
     var showBookmarksDialog by remember { mutableStateOf(false) }
+    var showAudioTrackDialog by remember { mutableStateOf(false) }
+    var showSubtitleTrackDialog by remember { mutableStateOf(false) }
 
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
@@ -264,7 +267,9 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 onShowBookmarks = {
                     player?.pause()
                     showBookmarksDialog = true
-                }
+                },
+                onShowAudioTracks = { showAudioTrackDialog = true },
+                onShowSubtitleTracks = { showSubtitleTrackDialog = true }
             )
         }
 
@@ -279,6 +284,41 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     showBookmarksDialog = false
                     player?.play()
                 }
+            )
+        }
+
+        // Audio Track Selection Dialog
+        if (showAudioTrackDialog) {
+            TrackSelectionDialog(
+                title = "Audio Tracks",
+                tracks = viewModel.getAudioTracks(),
+                showOffOption = false,
+                isOffSelected = false,
+                onTrackSelected = { groupIndex, trackIndex ->
+                    viewModel.selectAudioTrack(groupIndex, trackIndex)
+                    showAudioTrackDialog = false
+                },
+                onOffSelected = { },
+                onDismiss = { showAudioTrackDialog = false }
+            )
+        }
+
+        // Subtitle Track Selection Dialog
+        if (showSubtitleTrackDialog) {
+            TrackSelectionDialog(
+                title = "Subtitles",
+                tracks = viewModel.getSubtitleTracks(),
+                showOffOption = true,
+                isOffSelected = viewModel.areSubtitlesDisabled(),
+                onTrackSelected = { groupIndex, trackIndex ->
+                    viewModel.selectSubtitleTrack(groupIndex, trackIndex)
+                    showSubtitleTrackDialog = false
+                },
+                onOffSelected = {
+                    viewModel.disableSubtitles()
+                    showSubtitleTrackDialog = false
+                },
+                onDismiss = { showSubtitleTrackDialog = false }
             )
         }
     }
@@ -405,7 +445,9 @@ fun VideoPlayerControls(
     onBack: () -> Unit,
     onPip: () -> Unit,
     onRotate: () -> Unit,
-    onShowBookmarks: () -> Unit
+    onShowBookmarks: () -> Unit,
+    onShowAudioTracks: () -> Unit,
+    onShowSubtitleTracks: () -> Unit
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -444,7 +486,8 @@ fun VideoPlayerControls(
                     }
                     IconButton(onClick = onPip) { Icon(Icons.Default.PictureInPictureAlt, "PiP", tint = Color.White) }
                     IconButton(onClick = onShowBookmarks) { Icon(Icons.Default.Bookmarks, "Bookmarks", tint = Color.White) }
-                    IconButton(onClick = { }) { Icon(Icons.Default.Settings, "Settings", tint = Color.White) }
+                    IconButton(onClick = onShowSubtitleTracks) { Icon(Icons.Default.Subtitles, "Subtitles", tint = Color.White) }
+                    IconButton(onClick = onShowAudioTracks) { Icon(Icons.Default.Audiotrack, "Audio", tint = Color.White) }
                 }
 
                 // Center Controls
@@ -558,4 +601,149 @@ private fun formatSize(bytes: Long): String {
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
     val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
     return java.text.DecimalFormat("#,##0.#").format(bytes / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
+}
+
+/**
+ * Track Selection Dialog - slides in from the right side like Bookmarks panel.
+ * Used for audio and subtitle track selection.
+ */
+@Composable
+fun TrackSelectionDialog(
+    title: String,
+    tracks: List<TrackInfo>,
+    showOffOption: Boolean,
+    isOffSelected: Boolean,
+    onTrackSelected: (groupIndex: Int, trackIndex: Int) -> Unit,
+    onOffSelected: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val primaryAccent = LocalAppTheme.current.primaryColor
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(onClick = onDismiss)
+    ) {
+        // Right side panel
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(280.dp)
+                .fillMaxHeight()
+                .background(
+                    Color(0xFF1C1C1E),
+                    shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+                )
+                .clickable(enabled = false) { } // Prevent clicks from closing dialog
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (title == "Subtitles") Icons.Default.Subtitles else Icons.Default.Audiotrack,
+                        contentDescription = title,
+                        tint = primaryAccent,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Track list
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // "Off" option for subtitles
+                    if (showOffOption) {
+                        item {
+                            TrackItem(
+                                name = "Off",
+                                isSelected = isOffSelected,
+                                primaryAccent = primaryAccent,
+                                onClick = onOffSelected
+                            )
+                        }
+                    }
+
+                    // Available tracks
+                    if (tracks.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (title == "Subtitles") "No subtitles available" else "No audio tracks available",
+                                color = Color.White.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        }
+                    } else {
+                        items(tracks) { track ->
+                            TrackItem(
+                                name = track.name,
+                                isSelected = track.isSelected && !isOffSelected,
+                                primaryAccent = primaryAccent,
+                                onClick = { onTrackSelected(track.groupIndex, track.trackIndex) }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Close button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Close", color = primaryAccent)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackItem(
+    name: String,
+    isSelected: Boolean,
+    primaryAccent: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) primaryAccent.copy(alpha = 0.2f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+            contentDescription = null,
+            tint = if (isSelected) primaryAccent else Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = name,
+            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }

@@ -77,6 +77,15 @@ data class RealtimeAnalytics(
     val allTimeFavorite: MediaFile? = null
 )
 
+// Data class for audio/subtitle track info
+data class TrackInfo(
+    val groupIndex: Int,
+    val trackIndex: Int,
+    val name: String,
+    val language: String?,
+    val isSelected: Boolean
+)
+
 @OptIn(UnstableApi::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -1227,6 +1236,125 @@ class MainViewModel @Inject constructor(
         _playbackSpeed.value = newSpeed
     }
     fun setPipMode(isPip: Boolean) { _isInPipMode.value = isPip }
+
+    // --- Track Selection (Audio & Subtitles) ---
+    
+    /**
+     * Get available audio tracks for the current video.
+     */
+    fun getAudioTracks(): List<TrackInfo> {
+        val player = _player.value ?: return emptyList()
+        val tracks = player.currentTracks
+        val result = mutableListOf<TrackInfo>()
+        
+        for (groupIndex in 0 until tracks.groups.size) {
+            val group = tracks.groups[groupIndex]
+            if (group.type == androidx.media3.common.C.TRACK_TYPE_AUDIO) {
+                for (trackIndex in 0 until group.length) {
+                    val format = group.getTrackFormat(trackIndex)
+                    val isSelected = group.isTrackSelected(trackIndex)
+                    val language = format.language?.let { java.util.Locale(it).displayLanguage } ?: "Unknown"
+                    val label = format.label ?: "Track ${trackIndex + 1}"
+                    val name = if (format.label != null) "$label ($language)" else language
+                    
+                    result.add(TrackInfo(
+                        groupIndex = groupIndex,
+                        trackIndex = trackIndex,
+                        name = name,
+                        language = format.language,
+                        isSelected = isSelected
+                    ))
+                }
+            }
+        }
+        return result
+    }
+    
+    /**
+     * Get available subtitle tracks for the current video.
+     */
+    fun getSubtitleTracks(): List<TrackInfo> {
+        val player = _player.value ?: return emptyList()
+        val tracks = player.currentTracks
+        val result = mutableListOf<TrackInfo>()
+        
+        for (groupIndex in 0 until tracks.groups.size) {
+            val group = tracks.groups[groupIndex]
+            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                for (trackIndex in 0 until group.length) {
+                    val format = group.getTrackFormat(trackIndex)
+                    val isSelected = group.isTrackSelected(trackIndex)
+                    val language = format.language?.let { java.util.Locale(it).displayLanguage } ?: "Unknown"
+                    val label = format.label ?: "Subtitle ${trackIndex + 1}"
+                    val name = if (format.label != null) "$label ($language)" else language
+                    
+                    result.add(TrackInfo(
+                        groupIndex = groupIndex,
+                        trackIndex = trackIndex,
+                        name = name,
+                        language = format.language,
+                        isSelected = isSelected
+                    ))
+                }
+            }
+        }
+        return result
+    }
+    
+    /**
+     * Select a specific audio track.
+     */
+    fun selectAudioTrack(groupIndex: Int, trackIndex: Int) {
+        val player = _player.value ?: return
+        val tracks = player.currentTracks
+        if (groupIndex >= tracks.groups.size) return
+        
+        val group = tracks.groups[groupIndex]
+        val override = androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
+        
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setOverrideForType(override)
+            .build()
+    }
+    
+    /**
+     * Select a specific subtitle track.
+     */
+    fun selectSubtitleTrack(groupIndex: Int, trackIndex: Int) {
+        val player = _player.value ?: return
+        val tracks = player.currentTracks
+        if (groupIndex >= tracks.groups.size) return
+        
+        val group = tracks.groups[groupIndex]
+        val override = androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
+        
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setOverrideForType(override)
+            .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+            .build()
+    }
+    
+    /**
+     * Disable all subtitle tracks.
+     */
+    fun disableSubtitles() {
+        val player = _player.value ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+            .build()
+    }
+    
+    /**
+     * Check if subtitles are currently disabled.
+     */
+    fun areSubtitlesDisabled(): Boolean {
+        val player = _player.value ?: return true
+        return player.trackSelectionParameters.disabledTrackTypes
+            .contains(androidx.media3.common.C.TRACK_TYPE_TEXT)
+    }
 
     // --- Controls ---
     fun playNext() {
