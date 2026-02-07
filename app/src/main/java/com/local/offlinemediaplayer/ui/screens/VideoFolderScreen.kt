@@ -1,6 +1,6 @@
-
 package com.local.offlinemediaplayer.ui.screens
 
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,12 +11,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.ViewList
-import androidx.compose.material.icons.outlined.Search
+//import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -63,6 +64,9 @@ fun VideoFolderScreen(
     val folders by viewModel.videoFolders.collectAsStateWithLifecycle()
     val searchQuery by viewModel.folderSearchQuery.collectAsStateWithLifecycle()
     val primaryAccent = LocalAppTheme.current.primaryColor
+
+    // Refresh State
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -129,7 +133,7 @@ fun VideoFolderScreen(
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
                     Icon(
-                        imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                        imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
                         contentDescription = "Change View",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(24.dp)
@@ -139,7 +143,9 @@ fun VideoFolderScreen(
         }
 
         // 3. Content
-        Box(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.scanMedia() },
             modifier = Modifier.weight(1f)
         ) {
             when (selectedTab) {

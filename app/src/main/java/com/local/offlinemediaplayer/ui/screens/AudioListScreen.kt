@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,12 +84,19 @@ fun AudioListScreen(
     val primaryAccent = LocalAppTheme.current.primaryColor
     val cardBg = Color(0xFF1E1E24)
 
+    // Refresh State
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+
     // Back Handler for Selection Mode
     BackHandler(enabled = isSelectionMode) {
         viewModel.toggleSelectionMode(false)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.scanMedia() },
+        modifier = Modifier.fillMaxSize()
+    ) {
         LazyColumn(
             contentPadding = PaddingValues(bottom = 100.dp), // Space for MiniPlayer
             modifier = Modifier.fillMaxSize()

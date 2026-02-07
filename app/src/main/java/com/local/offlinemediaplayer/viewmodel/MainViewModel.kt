@@ -300,27 +300,7 @@ class MainViewModel @Inject constructor(
     private val _isInPipMode = MutableStateFlow(false)
     val isInPipMode = _isInPipMode.asStateFlow()
 
-    // --- VIDEO MINI-PLAYER STATE ---
-    private val _isVideoMiniMode = MutableStateFlow(false)
-    val isVideoMiniMode = _isVideoMiniMode.asStateFlow()
 
-    // Derived flow for current video track (only when video is playing)
-    val currentVideoTrack = _currentTrack.map { if (it?.isVideo == true) it else null }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    fun minimizeVideo() {
-        _isVideoMiniMode.value = true
-    }
-
-    fun expandVideo() {
-        _isVideoMiniMode.value = false
-    }
-
-    fun closeVideoMiniPlayer() {
-        _isVideoMiniMode.value = false
-        _player.value?.stop()
-        _currentTrack.value = null
-    }
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var positionUpdateJob: Job? = null

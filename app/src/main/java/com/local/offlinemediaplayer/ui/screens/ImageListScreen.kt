@@ -1,6 +1,7 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -33,6 +34,7 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageListScreen(
     viewModel: MainViewModel,
@@ -40,6 +42,9 @@ fun ImageListScreen(
 ) {
     val images by viewModel.imageList.collectAsStateWithLifecycle()
     var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Refresh State
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     // Local search state for Images
     var searchQuery by remember { mutableStateOf("") }
@@ -75,41 +80,47 @@ fun ImageListScreen(
                 placeholderText = "Search images..."
             )
 
-            if (filteredImages.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.scanMedia() },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (filteredImages.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Image,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "No images match search" else "No images found on device",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Image,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "No images match search" else "No images found on device",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 100.dp),
-                    contentPadding = PaddingValues(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    itemsIndexed(filteredImages) { index, image ->
-                        ImageItem(image, onClick = { selectedImageIndex = index })
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 100.dp),
+                        contentPadding = PaddingValues(2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        itemsIndexed(filteredImages) { index, image ->
+                            ImageItem(image, onClick = { selectedImageIndex = index })
+                        }
+                        // Bottom padding to avoid navigation bar overlap if any
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
-                    // Bottom padding to avoid navigation bar overlap if any
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             }
         }

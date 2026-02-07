@@ -48,13 +48,13 @@ import com.local.offlinemediaplayer.ui.screens.MeScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
 import com.local.offlinemediaplayer.ui.screens.AccessibilityGuideScreen
-import com.local.offlinemediaplayer.ui.components.VideoMiniPlayer
+
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
 import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
-import androidx.compose.ui.Alignment
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+//import androidx.compose.ui.Alignment
+//import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
@@ -170,12 +170,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     val currentAudioRoute = audioNavBackStackEntry?.destination?.route
     val currentVideoRoute = videoNavBackStackEntry?.destination?.route
 
-    // Video Mini-Player State
-    val isVideoMiniMode by viewModel.isVideoMiniMode.collectAsStateWithLifecycle()
-    val currentVideoTrack by viewModel.currentVideoTrack.collectAsStateWithLifecycle()
-
-    // UI Logic Variables - video is "playing fullscreen" only if video is set AND not in mini-mode
-    val isVideoPlayingFullscreen = currentMedia?.isVideo == true && !isVideoMiniMode
+    // UI Logic Variables - video is "playing fullscreen" if video is set
+    val isVideoPlayingFullscreen = currentMedia?.isVideo == true
     val isAudioDetailScreen = currentAudioRoute != "audio_library"
     // Video root is either folders or list, we usually show header on root folders
     val isVideoRoot = currentVideoRoute == "video_folders"
@@ -322,8 +318,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
             ) { isVideoMode ->
                 if (isVideoMode) {
                     VideoPlayerScreen(viewModel = viewModel, onBack = {
-                        // Minimize to mini-player instead of closing
-                        viewModel.minimizeVideo()
+                        viewModel.closeVideo()
+                        currentMedia = null
                     })
                 } else if (showAccessibilityGuide) {
                     // Accessibility Guide Screen (overlay on Stats tab)
@@ -380,22 +376,7 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                 }
             }
 
-            // Video Mini-Player Overlay - shown when video is in mini-mode
-            if (currentVideoTrack != null && isVideoMiniMode) {
-                VideoMiniPlayer(
-                    viewModel = viewModel,
-                    onExpand = {
-                        viewModel.expandVideo()
-                        // Re-set currentMedia to re-enter full screen
-                        currentMedia = currentVideoTrack
-                    },
-                    onClose = {
-                        viewModel.closeVideoMiniPlayer()
-                        currentMedia = null
-                    },
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
+
         }
     }
 }
