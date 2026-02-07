@@ -215,15 +215,15 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
         bottomBar = {
             if (!isVideoPlayingFullscreen) {
                 // FastBeat Custom Navigation Bar
-                val navContainerColor = Color(0xFF0B0B0F)
+                val navContainerColor = MaterialTheme.colorScheme.background
                 val primaryColor = LocalAppTheme.current.primaryColor
                 val activeIndicatorColor = primaryColor.copy(alpha = 0.15f)
                 val activeIconColor = primaryColor
-                val inactiveIconColor = Color.Gray
+                val inactiveIconColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
 
                 NavigationBar(
                     containerColor = navContainerColor,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
                     tonalElevation = 0.dp
                 ) {
                     // 0. Videos

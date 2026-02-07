@@ -31,7 +31,7 @@ fun FastBeatHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF0B0B0F)) // Deep dark background
+            .background(MaterialTheme.colorScheme.background) // Theme-aware background
             .statusBarsPadding()
     ) {
         Row(
@@ -49,7 +49,7 @@ fun FastBeatHeader(
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.SansSerif,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground, // Theme-aware text
                         letterSpacing = (-0.5).sp
                     )
                 )
@@ -69,7 +69,7 @@ fun FastBeatHeader(
                         .padding(horizontal = 12.dp)
                         .width(1.dp)
                         .height(16.dp)
-                        .background(Color.White.copy(alpha = 0.2f))
+                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
                 )
 
                 // Section Title
@@ -78,7 +78,7 @@ fun FastBeatHeader(
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.sp,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
                 )
             }
@@ -90,12 +90,12 @@ fun FastBeatHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1E1E24))
+                        .background(MaterialTheme.colorScheme.surface) // Theme-aware surface
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Search,
                         contentDescription = "Search",
-                        tint = Color.White.copy(alpha = 0.7f),
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
