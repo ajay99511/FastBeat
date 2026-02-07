@@ -1,7 +1,10 @@
 
 package com.local.offlinemediaplayer
 
+import android.app.PictureInPictureParams
+import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -31,6 +34,22 @@ class MainActivity : ComponentActivity() {
             ) {
                 MainScreen(viewModel = viewModel)
             }
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Enter PIP mode when user presses home/swipes up during video playback (like MX Player)
+        if (true && viewModel.shouldEnterPipMode()) {
+            val builder = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+
+            // Android 12+ gets smoother auto-enter PIP transition for gesture navigation
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                builder.setAutoEnterEnabled(true)
+            }
+
+            enterPictureInPictureMode(builder.build())
         }
     }
 }

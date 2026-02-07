@@ -57,6 +57,7 @@ import java.util.Calendar
 import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.max
+import androidx.core.content.edit
 
 enum class SortOption {
     TITLE_ASC, TITLE_DESC, DURATION_ASC, DURATION_DESC, DATE_ADDED_DESC
@@ -111,13 +112,14 @@ class MainViewModel @Inject constructor(
 
     fun updateTheme(themeId: String) {
         _currentTheme.value = themes[themeId] ?: themes["orange"]!!
-        sharedPrefs.edit().putString("current_theme_id", themeId).apply()
+        sharedPrefs.edit { putString("current_theme_id", themeId) }
     }
 
     fun toggleThemeMode() {
         val newMode = !_isDarkTheme.value
         _isDarkTheme.value = newMode
-        sharedPrefs.edit().putBoolean("is_dark_mode", newMode).apply()
+        sharedPrefs.edit { putBoolean("is_dark_mode", newMode) }
+//        sharedPrefs.edit().putBoolean("is_dark_mode", newMode).apply()
     }
 
     // Media Lists
@@ -299,6 +301,14 @@ class MainViewModel @Inject constructor(
 
     private val _isInPipMode = MutableStateFlow(false)
     val isInPipMode = _isInPipMode.asStateFlow()
+
+    /**
+     * Returns true if a video is currently playing and PIP should be triggered.
+     * Used by MainActivity to enter PIP when home button is pressed.
+     */
+    fun shouldEnterPipMode(): Boolean {
+        return _currentTrack.value?.isVideo == true && _isPlaying.value
+    }
 
 
 
@@ -786,7 +796,7 @@ class MainViewModel @Inject constructor(
     }
 
     private fun persistQueueIndex(index: Int) {
-        sharedPrefs.edit().putInt("last_queue_index", index).apply()
+        sharedPrefs.edit { putInt("last_queue_index", index) }
     }
 
     // --- Query Methods (Unchanged) ---
