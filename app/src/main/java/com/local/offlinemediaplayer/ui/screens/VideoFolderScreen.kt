@@ -40,6 +40,7 @@ import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoFolderScreen(
     viewModel: MainViewModel,
@@ -99,7 +100,7 @@ fun VideoFolderScreen(
                         }
                     },
                     divider = {
-                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -138,7 +139,9 @@ fun VideoFolderScreen(
         }
 
         // 3. Content
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
             when (selectedTab) {
                 0 -> {
                     // FOLDERS VIEW

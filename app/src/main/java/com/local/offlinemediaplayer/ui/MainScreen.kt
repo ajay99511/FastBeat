@@ -47,10 +47,14 @@ import com.local.offlinemediaplayer.ui.screens.ImageListScreen
 import com.local.offlinemediaplayer.ui.screens.MeScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
+import com.local.offlinemediaplayer.ui.screens.AccessibilityGuideScreen
+import com.local.offlinemediaplayer.ui.components.VideoMiniPlayer
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
 import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.compose.ui.Alignment
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
@@ -147,6 +151,9 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     // Global Search Visibility State (Controlled by Header)
     var isSearchVisible by remember { mutableStateOf(false) }
 
+    // Accessibility Guide Screen State
+    var showAccessibilityGuide by remember { mutableStateOf(false) }
+
     // Reset search visibility when changing tabs
     LaunchedEffect(selectedTab) {
         isSearchVisible = false
@@ -163,8 +170,12 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     val currentAudioRoute = audioNavBackStackEntry?.destination?.route
     val currentVideoRoute = videoNavBackStackEntry?.destination?.route
 
-    // UI Logic Variables
-    val isVideoPlaying = currentMedia?.isVideo == true
+    // Video Mini-Player State
+    val isVideoMiniMode by viewModel.isVideoMiniMode.collectAsStateWithLifecycle()
+    val currentVideoTrack by viewModel.currentVideoTrack.collectAsStateWithLifecycle()
+
+    // UI Logic Variables - video is "playing fullscreen" only if video is set AND not in mini-mode
+    val isVideoPlayingFullscreen = currentMedia?.isVideo == true && !isVideoMiniMode
     val isAudioDetailScreen = currentAudioRoute != "audio_library"
     // Video root is either folders or list, we usually show header on root folders
     val isVideoRoot = currentVideoRoute == "video_folders"
@@ -172,8 +183,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     // Theme Color
     val themeColor = LocalAppTheme.current.primaryColor
 
-    // Show Header Logic
-    val showHeader = !isVideoPlaying && (
+    // Show Header Logic - don't show when full screen video
+    val showHeader = !isVideoPlayingFullscreen && (
             (selectedTab == 0 && isVideoRoot) || // Videos (Folders only)
                     (selectedTab == 1 && !isAudioDetailScreen) || // Audio (Library only)
                     selectedTab == 2 || // Images (Always)
@@ -206,7 +217,7 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
             }
         },
         bottomBar = {
-            if (!isVideoPlaying) {
+            if (!isVideoPlayingFullscreen) {
                 // FastBeat Custom Navigation Bar
                 val navContainerColor = Color(0xFF0B0B0F)
                 val primaryColor = LocalAppTheme.current.primaryColor
@@ -224,7 +235,10 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                         icon = { Icon(if (selectedTab == 0) Icons.Filled.PlayArrow else Icons.Outlined.PlayArrow, "Videos") },
                         label = { Text("Videos", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
+                        onClick = {
+                            selectedTab = 0
+                            showAccessibilityGuide = false
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = activeIconColor,
                             selectedTextColor = activeIconColor,
@@ -239,7 +253,10 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                         icon = { Icon(if (selectedTab == 1) Icons.Filled.MusicNote else Icons.Outlined.MusicNote, "Music") },
                         label = { Text("Music", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
+                        onClick = {
+                            selectedTab = 1
+                            showAccessibilityGuide = false
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = activeIconColor,
                             selectedTextColor = activeIconColor,
@@ -254,7 +271,10 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                         icon = { Icon(if (selectedTab == 2) Icons.Filled.Image else Icons.Outlined.Image, "Images") },
                         label = { Text("Images", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
+                        onClick = {
+                            selectedTab = 2
+                            showAccessibilityGuide = false
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = activeIconColor,
                             selectedTextColor = activeIconColor,
@@ -269,7 +289,10 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                         icon = { Icon(if (selectedTab == 3) Icons.Filled.Analytics else Icons.Outlined.Analytics, "Stats") },
                         label = { Text("Stats", fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) },
                         selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
+                        onClick = {
+                            selectedTab = 3
+                            showAccessibilityGuide = false
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = activeIconColor,
                             selectedTextColor = activeIconColor,
@@ -285,7 +308,7 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             // Animate transition between Main Content and Fullscreen Video Player
             AnimatedContent(
-                targetState = currentMedia != null && currentMedia!!.isVideo,
+                targetState = isVideoPlayingFullscreen,
                 transitionSpec = {
                     if (targetState) {
                         // Opening Video: Scale up and Fade In
@@ -299,10 +322,14 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
             ) { isVideoMode ->
                 if (isVideoMode) {
                     VideoPlayerScreen(viewModel = viewModel, onBack = {
-                        currentMedia = null
-                        // CALL NEW FUNCTION TO RESTORE STATE
-                        viewModel.closeVideo()
+                        // Minimize to mini-player instead of closing
+                        viewModel.minimizeVideo()
                     })
+                } else if (showAccessibilityGuide) {
+                    // Accessibility Guide Screen (overlay on Stats tab)
+                    AccessibilityGuideScreen(
+                        onBack = { showAccessibilityGuide = false }
+                    )
                 } else {
                     // Animate transition between Tabs
                     AnimatedContent(
@@ -343,11 +370,31 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                                         currentMedia = null
                                     }
                                 },
+                                onNavigateToAccessibilityGuide = {
+                                    showAccessibilityGuide = true
+                                },
                                 isSearchVisible = isSearchVisible // Pass visibility
                             )
                         }
                     }
                 }
+            }
+
+            // Video Mini-Player Overlay - shown when video is in mini-mode
+            if (currentVideoTrack != null && isVideoMiniMode) {
+                VideoMiniPlayer(
+                    viewModel = viewModel,
+                    onExpand = {
+                        viewModel.expandVideo()
+                        // Re-set currentMedia to re-enter full screen
+                        currentMedia = currentVideoTrack
+                    },
+                    onClose = {
+                        viewModel.closeVideoMiniPlayer()
+                        currentMedia = null
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

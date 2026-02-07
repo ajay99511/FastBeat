@@ -260,7 +260,7 @@ fun VideoPlaylistDetailScreen(
                             index = index + 1,
                             video = video,
                             onClick = {
-                                viewModel.setQueue(videos, index, false)
+                                viewModel.playVideoFromList(video, videos)
                                 onNavigateToPlayer(video)
                             },
                             onRemove = {

@@ -133,6 +133,10 @@ class MainViewModel @Inject constructor(
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums = _albums.asStateFlow()
 
+    // --- REFRESH STATE ---
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
     // --- REALTIME ANALYTICS STATE ---
     private val _analyticsUpdateTrigger = MutableStateFlow(0L) // Used to force refresh logic
 
@@ -172,6 +176,10 @@ class MainViewModel @Inject constructor(
 
     private val _currentIndex = MutableStateFlow<Int?>(null)
     val currentIndex = _currentIndex.asStateFlow()
+
+    // Display queue for UI - reflects shuffled order when shuffle is enabled
+    private val _displayQueue = MutableStateFlow<List<MediaFile>>(emptyList())
+    val displayQueue = _displayQueue.asStateFlow()
 
     // --- CONTINUE WATCHING FLOW ---
     val continueWatchingList = combine(_videoList, mediaDao.getContinueWatching()) { videos, historyItems ->
@@ -292,6 +300,28 @@ class MainViewModel @Inject constructor(
     private val _isInPipMode = MutableStateFlow(false)
     val isInPipMode = _isInPipMode.asStateFlow()
 
+    // --- VIDEO MINI-PLAYER STATE ---
+    private val _isVideoMiniMode = MutableStateFlow(false)
+    val isVideoMiniMode = _isVideoMiniMode.asStateFlow()
+
+    // Derived flow for current video track (only when video is playing)
+    val currentVideoTrack = _currentTrack.map { if (it?.isVideo == true) it else null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun minimizeVideo() {
+        _isVideoMiniMode.value = true
+    }
+
+    fun expandVideo() {
+        _isVideoMiniMode.value = false
+    }
+
+    fun closeVideoMiniPlayer() {
+        _isVideoMiniMode.value = false
+        _player.value?.stop()
+        _currentTrack.value = null
+    }
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var positionUpdateJob: Job? = null
 
@@ -311,6 +341,12 @@ class MainViewModel @Inject constructor(
         val favPlaylist = allPlaylists.find { it.name == "Favorites" && !it.isVideo }
         favPlaylist != null && favPlaylist.mediaIds.contains(track.id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // Track current position in display queue (for highlighting current track in shuffled view)
+    val displayQueueIndex = combine(_currentTrack, _displayQueue) { track, queue ->
+        if (track == null) null
+        else queue.indexOfFirst { it.id == track.id }.takeIf { it >= 0 }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // --- SELECTION & DELETION STATE ---
     private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())
@@ -480,6 +516,7 @@ class MainViewModel @Inject constructor(
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 _isShuffleEnabled.value = shuffleModeEnabled
+                updateDisplayQueue()
             }
 
             override fun onRepeatModeChanged(repeatMode: Int) {
@@ -689,19 +726,28 @@ class MainViewModel @Inject constructor(
 
     // --- Media Loading ---
     fun scanMedia() {
+        if (_isRefreshing.value) return
         viewModelScope.launch(Dispatchers.IO) {
-            val videos = queryMedia(isVideo = true)
-            val audio = queryMedia(isVideo = false)
-            _videoList.value = videos
-            _audioList.value = audio
-            _imageList.value = queryImages()
-            _albums.value = queryAlbums()
+            _isRefreshing.value = true
+            try {
+                val videos = queryMedia(isVideo = true)
+                val audio = queryMedia(isVideo = false)
+                _videoList.value = videos
+                _audioList.value = audio
+                _imageList.value = queryImages()
+                _albums.value = queryAlbums()
 
-            // RESTORE QUEUE AFTER LOADING
-            restoreQueue(audio + videos)
+                // RESTORE QUEUE AFTER LOADING
+                // Only restore if queue is empty to avoid disrupting playback on refresh
+                if (_currentQueue.value.isEmpty()) {
+                    restoreQueue(audio + videos)
+                }
 
-            // Initial Analytics Calc
-            _analyticsUpdateTrigger.emit(System.currentTimeMillis())
+                // Initial Analytics Calc
+                _analyticsUpdateTrigger.emit(System.currentTimeMillis())
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 
@@ -944,6 +990,19 @@ class MainViewModel @Inject constructor(
     }
 
     private fun playVideo(media: MediaFile) {
+        // Use folder context as default - find all videos in same folder
+        val folderVideos = _videoList.value.filter { it.bucketId == media.bucketId }
+        val contextList = if (folderVideos.size > 1) folderVideos else listOf(media)
+        playVideoFromList(media, contextList)
+    }
+
+    /**
+     * Play a video from a context list (folder videos or playlist).
+     * Sets the full list as the queue so next/prev navigation works.
+     */
+    fun playVideoFromList(media: MediaFile, list: List<MediaFile>) {
+        if (!media.isVideo) return
+
         // Snapshot Audio State if we are interrupting an active audio session
         val current = _currentTrack.value
         if (_currentQueue.value.isNotEmpty() && current?.isVideo != true) {
@@ -964,12 +1023,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             val history = mediaDao.getHistory(media.id)
             val startPos = if (history != null && history.position < (history.duration * 0.95)) history.position else 0L
+            val startIndex = list.indexOfFirst { it.id == media.id }.coerceAtLeast(0)
+
             withContext(Dispatchers.Main) {
-                val allVideos = _videoList.value
-                val startIndex = allVideos.indexOfFirst { it.id == media.id }
-                // Use existing queue logic but this will trigger updateCurrentTrackFromPlayer
-                // which we modified to NOT persist queue index for videos.
-                if (startIndex >= 0) setQueue(listOf(media), 0, false, startPos)
+                setQueue(list, startIndex, false, startPos)
             }
         }
     }
@@ -1075,9 +1132,81 @@ class MainViewModel @Inject constructor(
             controller.play()
         }
 
+        // Update display queue after controller is set up
+        updateDisplayQueue()
+
         // Persist
         persistQueue(mediaList)
         persistQueueIndex(startIndex)
+    }
+
+    /**
+     * Updates the display queue to reflect the shuffled playback order.
+     * When shuffle is disabled, displays the original queue order.
+     * When shuffle is enabled, builds the queue order based on Media3's shuffle timeline.
+     */
+    private fun updateDisplayQueue() {
+        val controller = _player.value
+        val originalQueue = _currentQueue.value
+
+        if (controller == null || originalQueue.isEmpty()) {
+            _displayQueue.value = originalQueue
+            return
+        }
+
+        if (!controller.shuffleModeEnabled) {
+            _displayQueue.value = originalQueue
+            return
+        }
+
+        // Build shuffled queue from Media3's timeline - starting from current position
+        val shuffledList = mutableListOf<MediaFile>()
+        val count = controller.mediaItemCount
+        val currentIdx = controller.currentMediaItemIndex
+
+        // First, add tracks from current position to end (in shuffle order)
+        var idx = currentIdx
+        val visited = mutableSetOf<Int>()
+
+        while (idx in 0 until count && !visited.contains(idx)) {
+            visited.add(idx)
+            val mediaId = controller.getMediaItemAt(idx).mediaId.toLongOrNull()
+            val track = originalQueue.find { it.id == mediaId }
+            if (track != null) shuffledList.add(track)
+            
+            // Get next in shuffle sequence
+            val nextIdx = controller.nextMediaItemIndex
+            if (nextIdx == -1 || visited.contains(nextIdx)) break
+            idx = nextIdx
+        }
+
+        // Add remaining tracks that weren't visited (before current in shuffle sequence)
+        for (i in 0 until count) {
+            if (!visited.contains(i)) {
+                val mediaId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
+                val track = originalQueue.find { it.id == mediaId }
+                if (track != null) shuffledList.add(track)
+            }
+        }
+
+        _displayQueue.value = shuffledList
+    }
+
+    /**
+     * Play a specific track from the queue (handles both shuffled and non-shuffled modes).
+     * Finds the track in the controller's timeline and seeks to it.
+     */
+    fun playTrackFromQueue(track: MediaFile) {
+        _player.value?.let { controller ->
+            // Find the index of this track in the controller's timeline
+            for (i in 0 until controller.mediaItemCount) {
+                if (controller.getMediaItemAt(i).mediaId == track.id.toString()) {
+                    controller.seekTo(i, 0L)
+                    controller.play()
+                    break
+                }
+            }
+        }
     }
 
     private fun MediaFile.toMediaItem(): MediaItem {
@@ -1134,6 +1263,7 @@ class MainViewModel @Inject constructor(
             val newMode = !it.shuffleModeEnabled
             it.shuffleModeEnabled = newMode
             _isShuffleEnabled.value = newMode
+            updateDisplayQueue()
         }
     }
     fun toggleRepeat() {

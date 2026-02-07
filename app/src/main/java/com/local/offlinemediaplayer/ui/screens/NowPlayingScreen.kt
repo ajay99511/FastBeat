@@ -52,9 +52,9 @@ fun NowPlayingScreen(
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentTrackFavorite.collectAsStateWithLifecycle()
 
-    // Queue State
-    val queue by viewModel.currentQueue.collectAsStateWithLifecycle()
-    val currentIndex by viewModel.currentIndex.collectAsStateWithLifecycle()
+    // Queue State - uses displayQueue which shows shuffled order when shuffle is enabled
+    val displayQueue by viewModel.displayQueue.collectAsStateWithLifecycle()
+    val displayQueueIndex by viewModel.displayQueueIndex.collectAsStateWithLifecycle()
 
     // Bottom Sheet State
     var showQueueSheet by remember { mutableStateOf(false) }
@@ -331,10 +331,13 @@ fun NowPlayingScreen(
             containerColor = Color(0xFF1E1E24)
         ) {
             QueueSheetContent(
-                queue = queue,
-                currentIndex = currentIndex ?: 0,
+                queue = displayQueue,
+                currentIndex = displayQueueIndex ?: 0,
                 onTrackClick = { index ->
-                    viewModel.setQueue(queue, index, isShuffleEnabled)
+                    // Use playTrackFromQueue to properly handle shuffled playback
+                    displayQueue.getOrNull(index)?.let { track ->
+                        viewModel.playTrackFromQueue(track)
+                    }
                 }
             )
         }

@@ -13,8 +13,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -206,7 +208,7 @@ fun VideoListScreen(
                     }
                 }
 
-                Divider(color = Color(0xFF1E1E24), thickness = 1.dp)
+                HorizontalDivider(color = Color(0xFF1E1E24), thickness = 1.dp)
             }
         }
 
@@ -218,95 +220,100 @@ fun VideoListScreen(
             placeholderText = "Search in $title..."
         )
 
-        if (filteredVideos.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .background(Color(0xFF1E1E24), CircleShape),
-                        contentAlignment = Alignment.Center
+        // Nested Scroll Container
+        Box(modifier = Modifier.weight(1f)) {
+            if (filteredVideos.isEmpty()) {
+                // Empty state
+                Box(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.VideoLibrary,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = Color(0xFF475569)
-                        )
-                    }
-                    Text(
-                        if (searchQuery.isNotEmpty()) "No results found" else "No videos found here",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF475569)
-                    )
-                    if (searchQuery.isEmpty()) {
-                        Button(
-                            onClick = { viewModel.scanMedia() },
-                            colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(Color(0xFF1E1E24), CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Rescan Library")
+                            Icon(
+                                imageVector = Icons.Outlined.VideoLibrary,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = Color(0xFF475569)
+                            )
+                        }
+                        Text(
+                            if (searchQuery.isNotEmpty()) "No results found" else "No videos found here",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFF475569)
+                        )
+                        if (searchQuery.isEmpty()) {
+                            Button(
+                                onClick = { viewModel.scanMedia() },
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                            ) {
+                                Text("Rescan Library")
+                            }
                         }
                     }
                 }
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(items = filteredVideos, key = { it.id }) { video ->
-                    val isSelected = selectedIds.contains(video.id)
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(items = filteredVideos, key = { it.id }) { video ->
+                        val isSelected = selectedIds.contains(video.id)
 
-                    if (isGridView) {
-                        VideoCardItem(
-                            video = video,
-                            onVideoClick = {
-                                if (isSelectionMode) viewModel.toggleSelection(video.id)
-                                else onVideoClick(video)
-                            },
-                            onLongClick = {
-                                viewModel.toggleSelectionMode(true)
-                                viewModel.toggleSelection(video.id)
-                            },
-                            accentColor = primaryAccent,
-                            onAddToPlaylist = {
-                                selectedVideoForPlaylist = video
-                                showAddToPlaylistDialog = true
-                            },
-                            isSelectionMode = isSelectionMode,
-                            isSelected = isSelected,
-                            onDelete = {
-                                viewModel.toggleSelectionMode(true)
-                                viewModel.selectAll(listOf(video.id))
-                                showDeleteConfirmDialog = true
-                            }
-                        )
-                    } else {
-                        VideoListItem(
-                            video = video,
-                            onVideoClick = {
-                                if (isSelectionMode) viewModel.toggleSelection(video.id)
-                                else onVideoClick(video)
-                            },
-                            onLongClick = {
-                                viewModel.toggleSelectionMode(true)
-                                viewModel.toggleSelection(video.id)
-                            },
-                            onAddToPlaylist = {
-                                selectedVideoForPlaylist = video
-                                showAddToPlaylistDialog = true
-                            },
-                            isSelectionMode = isSelectionMode,
-                            isSelected = isSelected,
-                            onDelete = {
-                                viewModel.toggleSelectionMode(true)
-                                viewModel.selectAll(listOf(video.id))
-                                showDeleteConfirmDialog = true
-                            }
-                        )
+                        if (isGridView) {
+                            VideoCardItem(
+                                video = video,
+                                onVideoClick = {
+                                    if (isSelectionMode) viewModel.toggleSelection(video.id)
+                                    else onVideoClick(video)
+                                },
+                                onLongClick = {
+                                    viewModel.toggleSelectionMode(true)
+                                    viewModel.toggleSelection(video.id)
+                                },
+                                accentColor = primaryAccent,
+                                onAddToPlaylist = {
+                                    selectedVideoForPlaylist = video
+                                    showAddToPlaylistDialog = true
+                                },
+                                isSelectionMode = isSelectionMode,
+                                isSelected = isSelected,
+                                onDelete = {
+                                    viewModel.toggleSelectionMode(true)
+                                    viewModel.selectAll(listOf(video.id))
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        } else {
+                            VideoListItem(
+                                video = video,
+                                onVideoClick = {
+                                    if (isSelectionMode) viewModel.toggleSelection(video.id)
+                                    else onVideoClick(video)
+                                },
+                                onLongClick = {
+                                    viewModel.toggleSelectionMode(true)
+                                    viewModel.toggleSelection(video.id)
+                                },
+                                onAddToPlaylist = {
+                                    selectedVideoForPlaylist = video
+                                    showAddToPlaylistDialog = true
+                                },
+                                isSelectionMode = isSelectionMode,
+                                isSelected = isSelected,
+                                onDelete = {
+                                    viewModel.toggleSelectionMode(true)
+                                    viewModel.selectAll(listOf(video.id))
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
                     }
                 }
             }

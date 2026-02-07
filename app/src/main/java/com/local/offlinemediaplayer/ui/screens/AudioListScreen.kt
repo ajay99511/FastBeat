@@ -1,6 +1,8 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import android.R.attr.fontWeight
+import android.R.attr.text
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,6 +43,7 @@ import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioListScreen(
     viewModel: MainViewModel,
@@ -85,198 +88,199 @@ fun AudioListScreen(
         viewModel.toggleSelectionMode(false)
     }
 
-    LazyColumn(
-        contentPadding = PaddingValues(bottom = 100.dp), // Space for MiniPlayer
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // 1. Collapsible Search Bar (Hide in selection mode)
-        item {
-            CollapsibleSearchBox(
-                isVisible = isSearchVisible && !isSelectionMode,
-                query = searchQuery,
-                onQueryChange = { viewModel.updateSearchQuery(it) },
-                placeholderText = "Search tracks..."
-            )
-        }
-
-        // 2. Selection Header (Changes logic based on mode)
-        if (isSelectionMode) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            contentPadding = PaddingValues(bottom = 100.dp), // Space for MiniPlayer
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // 1. Collapsible Search Bar (Hide in selection mode)
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { viewModel.toggleSelectionMode(false) }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = Color.Gray)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "${selectedIds.size} Selected",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
+                CollapsibleSearchBox(
+                    isVisible = isSearchVisible && !isSelectionMode,
+                    query = searchQuery,
+                    onQueryChange = { viewModel.updateSearchQuery(it) },
+                    placeholderText = "Search tracks..."
+                )
             }
-        } else {
-            // 2. Play All & Shuffle Buttons
-            if (audioList.isNotEmpty()) {
+
+            // 2. Selection Header (Changes logic based on mode)
+            if (isSelectionMode) {
                 item {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted top padding
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Play All (Filled Theme Color)
-                        Button(
-                            onClick = { viewModel.playAll(false) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                            shape = RoundedCornerShape(50)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black) // Black icon on bright accent
-                            Spacer(Modifier.width(8.dp))
-                            Text("Play All", color = Color.Black, fontWeight = FontWeight.Bold)
-                        }
-
-                        // Shuffle (Outlined Dark)
-                        Button(
-                            onClick = { viewModel.playAll(true) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
-                            shape = RoundedCornerShape(50)
-                        ) {
-                            Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
-                            Spacer(Modifier.width(8.dp))
-                            Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                // 3. Count & Sort Row
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${audioList.size} SONGS",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.Gray,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-
-                        Box {
-                            Row(
-                                modifier = Modifier.clickable { showSortMenu = true },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = "Sort: ${getSortLabel(sortOption)}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.Gray
-                                )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { viewModel.toggleSelectionMode(false) }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = Color.Gray)
                             }
-
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false },
-                                modifier = Modifier.background(cardBg)
-                            ) {
-                                SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
-                                SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
-                                SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
-                                SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
-                                SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4. List Items
-        if (audioList.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .background(Color(0xFF1E1E24), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.LibraryMusic,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = Color(0xFF475569)
+                            Text(
+                                text = "${selectedIds.size} Selected",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        Text(
-                            if (searchQuery.isNotEmpty()) "No results found" else "No music found",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF475569)
-                        )
-                        if (searchQuery.isEmpty()) {
+                        IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            } else {
+                // 2. Play All & Shuffle Buttons
+                if (audioList.isNotEmpty()) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted top padding
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Play All (Filled Theme Color)
                             Button(
-                                onClick = { viewModel.scanMedia() },
-                                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                                onClick = { viewModel.playAll(false) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
+                                shape = RoundedCornerShape(50)
                             ) {
-                                Text("Rescan Library")
+                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black) // Black icon on bright accent
+                                Spacer(Modifier.width(8.dp))
+                                Text("Play All", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+
+                            // Shuffle (Outlined Dark)
+                            Button(
+                                onClick = { viewModel.playAll(true) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
+                                shape = RoundedCornerShape(50)
+                            ) {
+                                Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
+                                Spacer(Modifier.width(8.dp))
+                                Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    // 3. Count & Sort Row
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${audioList.size} SONGS",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+
+                            Box {
+                                Row(
+                                    modifier = Modifier.clickable { showSortMenu = true },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = "Sort: ${getSortLabel(sortOption)}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false },
+                                    modifier = Modifier.background(cardBg)
+                                ) {
+                                    SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
+                                    SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
+                                    SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
+                                    SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
+                                    SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
+                                }
                             }
                         }
                     }
                 }
             }
-        } else {
-            items(items = audioList, key = { it.id }) { song ->
-                val isSelected = selectedIds.contains(song.id)
-                AudioListItemStyled(
-                    song = song,
-                    onClick = {
-                        if (isSelectionMode) viewModel.toggleSelection(song.id)
-                        else onAudioClick(song)
-                    },
-                    onLongClick = {
-                        viewModel.toggleSelectionMode(true)
-                        viewModel.toggleSelection(song.id)
-                    },
-                    onAddToPlaylist = onAddToPlaylist,
-                    isSelectionMode = isSelectionMode,
-                    isSelected = isSelected,
-                    onDelete = {
-                        viewModel.toggleSelectionMode(true)
-                        viewModel.selectAll(listOf(song.id))
-                        showDeleteConfirmDialog = true
+
+            // 4. List Items
+            if (audioList.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(400.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .background(Color(0xFF1E1E24), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.LibraryMusic,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = Color(0xFF475569)
+                                )
+                            }
+                            Text(
+                                if (searchQuery.isNotEmpty()) "No results found" else "No music found",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF475569)
+                            )
+                            if (searchQuery.isEmpty()) {
+                                Button(
+                                    onClick = { viewModel.scanMedia() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                                ) {
+                                    Text("Rescan Library")
+                                }
+                            }
+                        }
                     }
-                )
+                }
+            } else {
+                items(items = audioList, key = { it.id }) { song ->
+                    val isSelected = selectedIds.contains(song.id)
+                    AudioListItemStyled(
+                        song = song,
+                        onClick = {
+                            if (isSelectionMode) viewModel.toggleSelection(song.id)
+                            else onAudioClick(song)
+                        },
+                        onLongClick = {
+                            viewModel.toggleSelectionMode(true)
+                            viewModel.toggleSelection(song.id)
+                        },
+                        onAddToPlaylist = onAddToPlaylist,
+                        isSelectionMode = isSelectionMode,
+                        isSelected = isSelected,
+                        onDelete = {
+                            viewModel.toggleSelectionMode(true)
+                            viewModel.selectAll(listOf(song.id))
+                            showDeleteConfirmDialog = true
+                        }
+                    )
+                }
             }
         }
     }
@@ -346,7 +350,7 @@ private fun AudioListItemStyled(
                 text = song.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -354,7 +358,7 @@ private fun AudioListItemStyled(
             Text(
                 text = "${song.artist ?: "Unknown"} • ${formatDuration(song.duration)}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -372,12 +376,12 @@ private fun AudioListItemStyled(
                     modifier = Modifier.background(Color(0xFF2B2930))
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Add to Playlist", color = Color.White) },
+                        text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             showMenu = false
                             onAddToPlaylist(song)
                         },
-                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
@@ -393,7 +397,7 @@ private fun AudioListItemStyled(
     }
 
     // Thin divider
-    Divider(color = Color(0xFF2B2930), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(color = Color(0xFF2B2930), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }
 
 @Composable
@@ -404,7 +408,7 @@ private fun SortMenuItem(
     onSelect: () -> Unit
 ) {
     DropdownMenuItem(
-        text = { Text(label, color = Color.White) },
+        text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
         onClick = {
             viewModel.updateSortOption(option)
             onSelect()
