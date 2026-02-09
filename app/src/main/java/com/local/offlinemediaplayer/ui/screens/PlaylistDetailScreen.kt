@@ -59,45 +59,12 @@ fun PlaylistDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // 1. Background (Blurred/Darkened first song art or Gradient)
-        if (coverArtUri != null) {
-            AsyncImage(
-                model = coverArtUri,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.6f // Dimmed for readability
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF2B2930), Color.Black)
-                        )
-                    )
-            )
-        }
-
-        // Gradient Overlay for readability (Fade to black at bottom)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.4f),
-                            Color.Black.copy(alpha = 0.9f),
-                            Color.Black
-                        ),
-                        startY = 0f,
-                        endY = 1400f
-                    )
-                )
-        )
-
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // 1. Background (Just standard background now, no blurred image or gradient)
+        // Kept clean for standard app look as per light mode support requests.
+        // If "Cinematic" look is desired in dark mode only, we could condition it on isSystemInDarkTheme(),
+        // but user asked to remove hardcoding. For simplicity and consistency:
+        
         // 2. Content
         Column(modifier = Modifier.fillMaxSize()) {
             // Top Bar
@@ -111,31 +78,31 @@ fun PlaylistDetailScreen(
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                    Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                 }
 
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                     ) {
-                        Icon(Icons.Default.MoreVert, "Options", tint = Color.White)
+                        Icon(Icons.Default.MoreVert, "Options", tint = MaterialTheme.colorScheme.onSurface)
                     }
 
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(Color(0xFF2B2930))
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Rename", color = Color.White) },
+                            text = { Text("Rename", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 showMenu = false
                                 showRenameDialog = true
                             },
-                            leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = Color.White) }
+                            leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.onSurface) }
                         )
                         DropdownMenuItem(
                             text = { Text("Delete", color = Color(0xFFFF8A80)) },
@@ -179,7 +146,7 @@ fun PlaylistDetailScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(Color(0xFF333333)),
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -198,7 +165,7 @@ fun PlaylistDetailScreen(
                         Text(
                             text = playlist.name,
                             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -210,7 +177,7 @@ fun PlaylistDetailScreen(
                         Text(
                             text = "Playlist • ${songs.size} Songs",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.LightGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -249,8 +216,8 @@ fun PlaylistDetailScreen(
                                 },
                                 shape = RoundedCornerShape(50),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF2B2930),
-                                    contentColor = Color.White
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .height(50.dp)
@@ -271,7 +238,7 @@ fun PlaylistDetailScreen(
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 text = "No songs yet.\nAdd some tracks from the library!",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -324,7 +291,7 @@ fun PlaylistItemStyled(
         Text(
             text = "$index",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(30.dp)
         )
 
@@ -332,7 +299,7 @@ fun PlaylistItemStyled(
         Card(
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.size(48.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             AsyncImage(
                 model = song.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
@@ -349,14 +316,14 @@ fun PlaylistItemStyled(
             Text(
                 text = song.title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist ?: "Unknown",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -367,7 +334,7 @@ fun PlaylistItemStyled(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove",
-                tint = Color.DarkGray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }

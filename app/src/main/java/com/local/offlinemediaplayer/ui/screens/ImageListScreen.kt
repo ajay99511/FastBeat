@@ -70,7 +70,7 @@ fun ImageListScreen(
         )
     } else {
         // Grid View
-        Column(modifier = Modifier.fillMaxSize().background(Color(0xFF12121A))) {
+        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
 
             // Collapsible Search Box
             CollapsibleSearchBox(
@@ -132,7 +132,7 @@ fun ImageItem(image: MediaFile, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .aspectRatio(1f)
-            .background(Color(0xFF2B2930))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick)
     ) {
         AsyncImage(

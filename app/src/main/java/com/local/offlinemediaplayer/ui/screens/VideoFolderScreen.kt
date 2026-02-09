@@ -250,7 +250,7 @@ private fun MoviesListContent(
             Text(
                 text = "${filteredMovies.size} MOVIES (>1h)",
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
@@ -259,43 +259,43 @@ private fun MoviesListContent(
                 // Sort Menu
                 Box {
                     IconButton(onClick = { showSortMenu = true }) {
-                        Icon(Icons.Default.Sort, contentDescription = "Sort", tint = Color.Gray)
+                        Icon(Icons.Default.Sort, contentDescription = "Sort", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(
                         expanded = showSortMenu,
                         onDismissRequest = { showSortMenu = false },
-                        modifier = Modifier.background(Color(0xFF1E1E24))
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Latest Added", color = Color.White) },
+                            text = { Text("Latest Added", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.updateMovieSortOption(SortOption.DATE_ADDED_DESC)
                                 showSortMenu = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Longest", color = Color.White) },
+                            text = { Text("Longest", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.updateMovieSortOption(SortOption.DURATION_DESC)
                                 showSortMenu = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Shortest", color = Color.White) },
+                            text = { Text("Shortest", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.updateMovieSortOption(SortOption.DURATION_ASC)
                                 showSortMenu = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("A-Z", color = Color.White) },
+                            text = { Text("A-Z", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.updateMovieSortOption(SortOption.TITLE_ASC)
                                 showSortMenu = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Z-A", color = Color.White) },
+                            text = { Text("Z-A", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.updateMovieSortOption(SortOption.TITLE_DESC)
                                 showSortMenu = false
@@ -309,7 +309,7 @@ private fun MoviesListContent(
                     Icon(
                         imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
                         contentDescription = "Change View",
-                        tint = Color.Gray
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -319,7 +319,7 @@ private fun MoviesListContent(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = if(searchQuery.isNotEmpty()) "No movies found matching search" else "No videos longer than 1h found",
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {

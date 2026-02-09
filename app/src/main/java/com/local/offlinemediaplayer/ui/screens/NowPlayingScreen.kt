@@ -72,14 +72,14 @@ fun NowPlayingScreen(
     )
 
     if (currentTrack == null) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            Text("Nothing Playing", color = Color.Gray)
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+            Text("Nothing Playing", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
 
     Scaffold(
-        containerColor = Color.Black,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
@@ -89,12 +89,12 @@ fun NowPlayingScreen(
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.background(Color(0xFF2C2C2C), CircleShape).size(40.dp)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape).size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowLeft,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -110,7 +110,7 @@ fun NowPlayingScreen(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "From \"${currentTrack?.artist ?: "Unknown"}\"",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -120,7 +120,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.Outlined.QueueMusic,
                         contentDescription = "Queue",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -128,7 +128,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "More",
-                        tint = Color.Gray
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -153,7 +153,7 @@ fun NowPlayingScreen(
                 AsyncImage(
                     model = currentTrack?.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize().background(Color.DarkGray),
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -170,7 +170,7 @@ fun NowPlayingScreen(
                     Text(
                         text = currentTrack?.title ?: "",
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -178,7 +178,7 @@ fun NowPlayingScreen(
                     Text(
                         text = currentTrack?.artist ?: "Unknown Artist",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -188,7 +188,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (isFavorite) primaryAccent else Color.Gray,
+                        tint = if (isFavorite) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -207,7 +207,7 @@ fun NowPlayingScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp)
-                        .background(Color(0xFF2C2C2C), RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp))
                 )
 
                 val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
@@ -241,12 +241,12 @@ fun NowPlayingScreen(
             ) {
                 Text(
                     text = formatDuration(currentPosition),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
                     text = formatDuration(duration),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -263,7 +263,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.Outlined.Shuffle,
                         contentDescription = "Shuffle",
-                        tint = if (isShuffleEnabled) Color.White else Color.Gray,
+                        tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -272,7 +272,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
                         contentDescription = "Previous",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -293,7 +293,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play",
-                        tint = Color.White,
+                        tint = Color.White, // Always white on gradient
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -302,14 +302,14 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(36.dp)
                     )
                 }
 
                 IconButton(onClick = { viewModel.toggleRepeat() }) {
                     val icon = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat
-                    val tint = if (repeatMode == Player.REPEAT_MODE_OFF) Color.Gray else Color.White
+                    val tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
                     Icon(
                         imageVector = icon,
                         contentDescription = "Repeat",
@@ -328,7 +328,7 @@ fun NowPlayingScreen(
         ModalBottomSheet(
             onDismissRequest = { showQueueSheet = false },
             sheetState = sheetState,
-            containerColor = Color(0xFF1E1E24)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             QueueSheetContent(
                 queue = displayQueue,
@@ -363,11 +363,11 @@ fun QueueSheetContent(
         Text(
             text = "Playing Queue",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(16.dp)
         )
 
-        HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
 
         LazyColumn(
             state = listState,
@@ -378,7 +378,7 @@ fun QueueSheetContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(if (isPlaying) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                        .background(if (isPlaying) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent)
                         .clickable { onTrackClick(index) }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -387,13 +387,13 @@ fun QueueSheetContent(
                         Icon(
                             imageVector = Icons.Default.GraphicEq,
                             contentDescription = "Playing",
-                            tint = LocalAppTheme.current.primaryColor,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     } else {
                         Text(
                             text = "${index + 1}",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.width(24.dp)
                         )
@@ -404,7 +404,7 @@ fun QueueSheetContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = track.title,
-                            color = if (isPlaying) LocalAppTheme.current.primaryColor else Color.White,
+                            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodyLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -412,7 +412,7 @@ fun QueueSheetContent(
                         )
                         Text(
                             text = track.artist ?: "Unknown Artist",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

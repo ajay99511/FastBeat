@@ -57,7 +57,7 @@ fun MiniPlayer(
                 .fillMaxWidth()
                 .height(80.dp)
                 .clickable(onClick = onTap),
-            color = Color(0xFF181818),
+            color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -66,7 +66,7 @@ fun MiniPlayer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(2.dp)
-                        .background(Color.White.copy(alpha = 0.1f))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                 ) {
                     Box(
                         modifier = Modifier
@@ -86,13 +86,13 @@ fun MiniPlayer(
                     Card(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.size(48.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         AsyncImage(
                             model = track.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
                             contentDescription = track.title,
-                            modifier = Modifier.fillMaxSize().background(Color.DarkGray),
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -107,7 +107,7 @@ fun MiniPlayer(
                             text = track.title,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -115,7 +115,7 @@ fun MiniPlayer(
                         Text(
                             text = track.artist ?: "Unknown Artist",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

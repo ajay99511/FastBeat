@@ -82,7 +82,7 @@ fun AudioListScreen(
 
     // Colors from Theme
     val primaryAccent = LocalAppTheme.current.primaryColor
-    val cardBg = Color(0xFF1E1E24)
+    val cardBg = MaterialTheme.colorScheme.surface
 
     // Refresh State
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
@@ -121,7 +121,7 @@ fun AudioListScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { viewModel.toggleSelectionMode(false) }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Text(
                                 text = "${selectedIds.size} Selected",
@@ -154,9 +154,9 @@ fun AudioListScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
                                 shape = RoundedCornerShape(50)
                             ) {
-                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black) // Black icon on bright accent
+                                Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary) // Black icon on bright accent
                                 Spacer(Modifier.width(8.dp))
-                                Text("Play All", color = Color.Black, fontWeight = FontWeight.Bold)
+                                Text("Play All", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                             }
 
                             // Shuffle (Outlined Dark)
@@ -165,13 +165,13 @@ fun AudioListScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(48.dp)
-                                    .border(1.dp, Color.DarkGray, RoundedCornerShape(50)),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E24)),
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
                                 shape = RoundedCornerShape(50)
                             ) {
                                 Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
                                 Spacer(Modifier.width(8.dp))
-                                Text("Shuffle", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Shuffle", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -198,7 +198,7 @@ fun AudioListScreen(
                                     modifier = Modifier.clickable { showSortMenu = true },
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.SwapVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.SwapVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
                                     Text(
                                         text = "Sort: ${getSortLabel(sortOption)}",
@@ -240,20 +240,20 @@ fun AudioListScreen(
                             Box(
                                 modifier = Modifier
                                     .size(100.dp)
-                                    .background(Color(0xFF1E1E24), CircleShape),
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.LibraryMusic,
                                     contentDescription = null,
                                     modifier = Modifier.size(48.dp),
-                                    tint = Color(0xFF475569)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
                                 if (searchQuery.isNotEmpty()) "No results found" else "No music found",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFF475569)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (searchQuery.isEmpty()) {
                                 Button(
@@ -331,7 +331,7 @@ private fun AudioListItemStyled(
             Icon(
                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(end = 16.dp).size(24.dp)
             )
         }
@@ -340,7 +340,7 @@ private fun AudioListItemStyled(
         Card(
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.size(56.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             AsyncImage(
                 model = song.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
@@ -376,12 +376,12 @@ private fun AudioListItemStyled(
         if (!isSelectionMode) {
             Box {
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
+                    Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
-                    modifier = Modifier.background(Color(0xFF2B2930))
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     DropdownMenuItem(
                         text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
@@ -405,7 +405,7 @@ private fun AudioListItemStyled(
     }
 
     // Thin divider
-    HorizontalDivider(color = Color(0xFF2B2930), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }
 
 @Composable

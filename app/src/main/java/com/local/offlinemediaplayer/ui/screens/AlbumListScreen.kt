@@ -38,14 +38,10 @@ fun AlbumListScreen(
     val albums by viewModel.filteredAlbums.collectAsStateWithLifecycle()
     val searchQuery by viewModel.albumSearchQuery.collectAsStateWithLifecycle()
 
-    // Colors
-    val backgroundColor = Color(0xFF12121A) // Ink Dark
-    val cardBg = Color(0xFF1E1E24)
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // 1. Collapsible Search Bar
         CollapsibleSearchBox(
@@ -59,7 +55,7 @@ fun AlbumListScreen(
         Text(
             text = "${albums.size} ALBUMS",
             style = MaterialTheme.typography.labelMedium,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -105,14 +101,13 @@ fun AlbumItemStyled(
     onPlayClick: () -> Unit
 ) {
     val primaryAccent = Color(0xFFE11D48)
-    val cardBg = Color(0xFF1E1E24)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(0.dp),
         border = null
     ) {
@@ -159,7 +154,7 @@ fun AlbumItemStyled(
             Text(
                 text = album.name,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -169,7 +164,7 @@ fun AlbumItemStyled(
             Text(
                 text = album.artist,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -187,7 +182,7 @@ fun AlbumItemStyled(
             Text(
                 text = metaText,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.DarkGray, // Slightly darker than artist text
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 maxLines = 1
             )
         }

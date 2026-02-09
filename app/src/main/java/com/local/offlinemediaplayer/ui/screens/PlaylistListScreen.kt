@@ -65,10 +65,6 @@ fun PlaylistListScreen(
         viewModel.audioPlaylists.collectAsStateWithLifecycle()
     }
 
-    // Colors
-    val backgroundColor = Color(0xFF12121A) // Ink Dark
-    val primaryAccent = Color(0xFFE11D48)
-
     // State for actions
     var playlistToRename by remember { mutableStateOf<Pair<String, String>?>(null) } // id, currentName
     var playlistToDelete by remember { mutableStateOf<String?>(null) } // id
@@ -76,7 +72,7 @@ fun PlaylistListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // 1. Header with Add Button
         Row(
@@ -89,13 +85,13 @@ fun PlaylistListScreen(
             Text(
                 text = if (isVideo) "Video Playlists" else "Playlists",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             // Add Button (Top Right)
             Card(
                 onClick = onCreateClick,
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E24)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier.height(40.dp)
             ) {
@@ -106,13 +102,13 @@ fun PlaylistListScreen(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "New Playlist",
-                        tint = primaryAccent,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Create",
-                        color = primaryAccent,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -120,7 +116,7 @@ fun PlaylistListScreen(
             }
         }
 
-        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
         // 2. Playlist List
         if (playlists.isEmpty()) {
@@ -147,7 +143,7 @@ fun PlaylistListScreen(
                         onClick = onCreateClick,
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Text("Create your first playlist", color = primaryAccent)
+                        Text("Create your first playlist", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -220,7 +216,7 @@ private fun PlaylistListItem(
             Card(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.size(56.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -242,13 +238,13 @@ private fun PlaylistListItem(
                     text = name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "$count videos", // Changed text slightly for generic feel
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -256,7 +252,7 @@ private fun PlaylistListItem(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color.DarkGray
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -264,16 +260,16 @@ private fun PlaylistListItem(
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            modifier = Modifier.background(Color(0xFF1E1E24))
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
         ) {
             if (onRename != null) {
                 DropdownMenuItem(
-                    text = { Text("Rename", color = Color.White) },
+                    text = { Text("Rename", color = MaterialTheme.colorScheme.onSurface) },
                     onClick = {
                         showMenu = false
                         onRename()
                     },
-                    leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = Color.White) }
+                    leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.onSurface) }
                 )
             }
             if (onDelete != null) {
@@ -291,7 +287,7 @@ private fun PlaylistListItem(
 
     // Divider
     HorizontalDivider(
-        color = Color(0xFF2B2930),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         thickness = 0.5.dp,
         modifier = Modifier.padding(horizontal = 16.dp)
     )

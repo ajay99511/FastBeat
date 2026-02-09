@@ -55,46 +55,8 @@ fun VideoPlaylistDetailScreen(
     // Colors
     val primaryAccent = LocalAppTheme.current.primaryColor
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // 1. Background (Blurred/Darkened first video frame or Gradient)
-        if (thumbUri != null) {
-            AsyncImage(
-                model = thumbUri,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.4f // Dimmed for readability
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF2B2930), Color.Black)
-                        )
-                    )
-            )
-        }
-
-        // Gradient Overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.6f),
-                            Color.Black.copy(alpha = 0.9f),
-                            Color.Black
-                        ),
-                        startY = 0f,
-                        endY = 1000f
-                    )
-                )
-        )
-
-        // 2. Content
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // CONTENT
         Column(modifier = Modifier.fillMaxSize()) {
             // Top Bar
             Row(
@@ -107,9 +69,9 @@ fun VideoPlaylistDetailScreen(
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                    Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                 }
 
                 IconButton(
@@ -117,9 +79,9 @@ fun VideoPlaylistDetailScreen(
                         viewModel.deletePlaylist(playlistId)
                         onBack()
                     },
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 ) {
-                    Icon(Icons.Outlined.Delete, "Delete", tint = Color(0xFFFF8A80))
+                    Icon(Icons.Outlined.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
                 }
             }
 
@@ -149,7 +111,7 @@ fun VideoPlaylistDetailScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(Color(0xFF333333)),
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -168,7 +130,7 @@ fun VideoPlaylistDetailScreen(
                         Text(
                             text = playlist.name,
                             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -180,7 +142,7 @@ fun VideoPlaylistDetailScreen(
                         Text(
                             text = "${videos.size} Videos",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.LightGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -227,8 +189,8 @@ fun VideoPlaylistDetailScreen(
                                 },
                                 shape = RoundedCornerShape(50),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF2B2930),
-                                    contentColor = Color.White
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
                                 ),
                                 modifier = Modifier
                                     .height(50.dp)
@@ -249,7 +211,7 @@ fun VideoPlaylistDetailScreen(
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 text = "No videos yet.\nAdd some videos from folders!",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -292,7 +254,7 @@ fun VideoPlaylistItem(
         Text(
             text = "$index",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(30.dp)
         )
 
@@ -302,7 +264,7 @@ fun VideoPlaylistItem(
                 .width(80.dp)
                 .height(45.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color.DarkGray)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             AsyncImage(
                 model = video.uri,
@@ -319,14 +281,14 @@ fun VideoPlaylistItem(
             Text(
                 text = video.title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = formatDuration(video.duration),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -335,7 +297,7 @@ fun VideoPlaylistItem(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove",
-                tint = Color.DarkGray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }

@@ -53,31 +53,8 @@ fun AlbumDetailScreen(
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // 1. Background Image (Full Screen with Gradient)
-        AsyncImage(
-            model = album.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        // 2. Gradient Overlay (Transparent top -> Solid Black bottom)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.3f), // Top slightly dark
-                            Color.Black.copy(alpha = 0.8f), // Mid dark
-                            Color.Black // Bottom solid black
-                        ),
-                        startY = 0f,
-                        endY = 1500f // Adjust gradient point
-                    )
-                )
-        )
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // CONTENT (Removed full screen background image and gradient overlay to support Light Mode)
 
         // 3. Content
         Column(
@@ -91,16 +68,16 @@ fun AlbumDetailScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Back Button with semi-transparent background
+                // Back Button with theme-aware background
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -136,7 +113,7 @@ fun AlbumDetailScreen(
                         Text(
                             text = "ALBUM",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFFFFD600), // Yellow/Gold
+                            color = MaterialTheme.colorScheme.primary, // Theme primary
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
@@ -147,7 +124,7 @@ fun AlbumDetailScreen(
                         Text(
                             text = album.name,
                             style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             lineHeight = 40.sp
                         )
 
@@ -168,7 +145,7 @@ fun AlbumDetailScreen(
                             Text(
                                 text = "${album.artist} • ${album.songCount} Songs",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.LightGray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -179,7 +156,7 @@ fun AlbumDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Big Yellow Play Button
+                            // Big Primary Play Button
                             Button(
                                 onClick = {
                                     if (albumSongs.isNotEmpty()) {
@@ -188,14 +165,14 @@ fun AlbumDetailScreen(
                                     }
                                 },
                                 shape = CircleShape,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD600)),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                 contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier.size(56.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
                                     contentDescription = "Play",
-                                    tint = Color.Black,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
@@ -209,7 +186,7 @@ fun AlbumDetailScreen(
                                 Icon(
                                     imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
                                     contentDescription = "Favorite",
-                                    tint = if (isFavorite) Color(0xFFFFD600) else Color.White, // Yellow if active
+                                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
@@ -219,7 +196,7 @@ fun AlbumDetailScreen(
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
                                     contentDescription = "More",
-                                    tint = Color.White,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
@@ -238,24 +215,24 @@ fun AlbumDetailScreen(
                     ) {
                         Text(
                             text = "#",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.width(32.dp)
                         )
                         Text(
                             text = "TITLE",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f)
                         )
                         Icon(
                             imageVector = Icons.Default.AccessTime,
                             contentDescription = "Duration",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
                         )
                     }
-                    Divider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 24.dp))
+                    Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f), modifier = Modifier.padding(horizontal = 24.dp))
                 }
 
                 // Song List
@@ -273,7 +250,7 @@ fun AlbumDetailScreen(
                         // Index
                         Text(
                             text = "${index + 1}",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.width(32.dp)
                         )
@@ -282,14 +259,14 @@ fun AlbumDetailScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = song.title,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodyLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = song.artist ?: "Unknown",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -299,7 +276,7 @@ fun AlbumDetailScreen(
                         // Duration
                         Text(
                             text = formatDuration(song.duration),
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
