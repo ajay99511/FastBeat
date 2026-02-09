@@ -109,10 +109,8 @@ fun VideoListScreen(
         videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
     }
 
-    val backgroundColor = Color(0xFF0B0B0F)
-
     Column(
-        modifier = Modifier.fillMaxSize().background(backgroundColor)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
     ) {
         // Custom Header logic for "Folder View"
         if (title != null && onBack != null) {
@@ -128,9 +126,9 @@ fun VideoListScreen(
                         // SELECTION MODE HEADER
                         IconButton(
                             onClick = { viewModel.toggleSelectionMode(false) },
-                            modifier = Modifier.background(Color(0xFF1E1E24), CircleShape).size(40.dp)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(40.dp)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         Spacer(modifier = Modifier.width(16.dp))
@@ -138,13 +136,13 @@ fun VideoListScreen(
                         Text(
                             text = "${selectedIds.size} Selected",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f)
                         )
 
                         IconButton(
                             onClick = { showDeleteConfirmDialog = true },
-                            modifier = Modifier.background(Color(0xFF1E1E24), CircleShape).size(40.dp)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(40.dp)
                         ) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                         }
@@ -152,7 +150,7 @@ fun VideoListScreen(
                         // NORMAL HEADER
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.background(Color(0xFF1E1E24), CircleShape).size(40.dp)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(40.dp)
                         ) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = primaryAccent)
                         }
@@ -177,7 +175,7 @@ fun VideoListScreen(
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onBackground,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -185,7 +183,7 @@ fun VideoListScreen(
 
                         IconButton(
                             onClick = { isSearchVisible = !isSearchVisible },
-                            modifier = Modifier.background(if (isSearchVisible) Color(0xFF1E1E24) else Color.Transparent, CircleShape).size(40.dp)
+                            modifier = Modifier.background(if (isSearchVisible) MaterialTheme.colorScheme.surface else Color.Transparent, CircleShape).size(40.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Search,
@@ -208,7 +206,7 @@ fun VideoListScreen(
                     }
                 }
 
-                HorizontalDivider(color = Color(0xFF1E1E24), thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.surface, thickness = 1.dp)
             }
         }
 
@@ -232,7 +230,7 @@ fun VideoListScreen(
                         Box(
                             modifier = Modifier
                                 .size(100.dp)
-                                .background(Color(0xFF1E1E24), CircleShape),
+                                .background(MaterialTheme.colorScheme.surface, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -401,7 +399,7 @@ fun VideoListItem(
             Text(
                 text = video.title,
                 maxLines = 1,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
@@ -419,15 +417,15 @@ fun VideoListItem(
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
-                    modifier = Modifier.background(Color(0xFF2B2930))
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Add to Playlist", color = Color.White) },
+                        text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {
                             showMenu = false
                             onAddToPlaylist()
                         },
-                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
@@ -473,7 +471,7 @@ fun VideoCardItem(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF1E1E24))
+                .background(MaterialTheme.colorScheme.surface)
         ) {
             AsyncImage(
                 model = video.uri,
@@ -523,7 +521,7 @@ fun VideoCardItem(
                 Text(
                     text = video.title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -562,15 +560,15 @@ fun VideoCardItem(
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(Color(0xFF2B2930))
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Add to Playlist", color = Color.White) },
+                            text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 showMenu = false
                                 onAddToPlaylist()
                             },
-                            leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = Color.White) }
+                            leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
                         )
                         DropdownMenuItem(
                             text = { Text("Delete", color = MaterialTheme.colorScheme.error) },

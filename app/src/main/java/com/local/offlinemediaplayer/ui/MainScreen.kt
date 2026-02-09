@@ -38,9 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.local.offlinemediaplayer.model.MediaFile
+//import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.navigation.AudioNavigationHost
 import com.local.offlinemediaplayer.ui.navigation.VideoNavigationHost
 import com.local.offlinemediaplayer.ui.screens.ImageListScreen
@@ -146,7 +147,10 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 fun MediaPlayerAppContent(viewModel: MainViewModel) {
     // 0 = Videos, 1 = Music, 2 = Images, 3 = Stats
     var selectedTab by remember { mutableIntStateOf(0) }
-    var currentMedia by remember { mutableStateOf<MediaFile?>(null) }
+    
+    // UI Logic: Video Player Visibility is now controlled by ViewModel state
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isVideoPlayingFullscreen = currentTrack?.isVideo == true
 
     // Global Search Visibility State (Controlled by Header)
     var isSearchVisible by remember { mutableStateOf(false) }
@@ -170,9 +174,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     val currentAudioRoute = audioNavBackStackEntry?.destination?.route
     val currentVideoRoute = videoNavBackStackEntry?.destination?.route
 
-    // UI Logic Variables - video is "playing fullscreen" if video is set
-    val isVideoPlayingFullscreen = currentMedia?.isVideo == true
     val isAudioDetailScreen = currentAudioRoute != "audio_library"
+
     // Video root is either folders or list, we usually show header on root folders
     val isVideoRoot = currentVideoRoute == "video_folders"
 
@@ -319,7 +322,6 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                 if (isVideoMode) {
                     VideoPlayerScreen(viewModel = viewModel, onBack = {
                         viewModel.closeVideo()
-                        currentMedia = null
                     })
                 } else if (showAccessibilityGuide) {
                     // Accessibility Guide Screen (overlay on Stats tab)
@@ -341,7 +343,6 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                                 viewModel = viewModel,
                                 navController = videoNavController,
                                 onVideoClick = { file ->
-                                    currentMedia = file
                                     viewModel.playMedia(file)
                                 },
                                 isSearchVisible = isSearchVisible // Pass visibility
@@ -359,11 +360,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                                 viewModel = viewModel,
                                 onPlayMedia = { file ->
                                     viewModel.playMedia(file)
-                                    if (file.isVideo) {
-                                        currentMedia = file
-                                    } else {
+                                    if (!file.isVideo) {
                                         selectedTab = 1 // Switch to Music tab
-                                        currentMedia = null
                                     }
                                 },
                                 onNavigateToAccessibilityGuide = {
