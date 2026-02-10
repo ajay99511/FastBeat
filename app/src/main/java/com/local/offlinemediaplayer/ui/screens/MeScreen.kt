@@ -274,6 +274,65 @@ fun MeScreen(
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+                    val lastPlayedAudio by viewModel.lastPlayedAudio.collectAsStateWithLifecycle()
+                    
+                    // Logic: Show Current Track if active AND AUDIO, else show Last Played from DB
+                    // The user explicitly wants "Last Played Song Alone", so we must filter out any active video.
+                    val activeAudio = currentTrack?.takeIf { !it.isVideo }
+                    val displayTrack = activeAudio ?: lastPlayedAudio
+                    
+                    if (displayTrack != null) {
+                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { 
+                                    // If clicking "Last Played" (not active), we need to play it.
+                                    // If clicking "Current", we just open player (or toggle play).
+                                    // Simplest: just call onPlayMedia(track) which handles both.
+                                    displayTrack.let { onPlayMedia(it) } 
+                                }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                             Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(theme.primaryColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.MusicNote, null, tint = theme.primaryColor, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    if (currentTrack != null) "Current Playing" else "Last Played", 
+                                    style = MaterialTheme.typography.labelMedium, 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = displayTrack.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = displayTrack.artist ?: "Unknown Artist",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        )
+                    }
+
                     val currentFav = analytics.currentFavorite
                     // Current Favorite (Last 30 days)
                     Row(

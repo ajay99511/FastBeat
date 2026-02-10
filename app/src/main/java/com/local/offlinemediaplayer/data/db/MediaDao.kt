@@ -19,6 +19,12 @@ interface MediaDao {
     @Query("SELECT * FROM playback_history ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastPlayed(): PlaybackHistory?
 
+    @Query("SELECT * FROM playback_history WHERE mediaType = 'AUDIO' ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastPlayedAudio(): PlaybackHistory?
+
+    @Query("SELECT * FROM playback_history WHERE mediaType = 'AUDIO' ORDER BY timestamp DESC LIMIT 1")
+    fun getLastPlayedAudioFlow(): Flow<PlaybackHistory?>
+
     // Fetch unfinished videos (progress > 0 and < 95% complete), ordered by most recently watched
     @Query("SELECT * FROM playback_history WHERE mediaType = 'VIDEO' AND position > 0 AND (duration = 0 OR position < (duration * 0.95)) ORDER BY timestamp DESC LIMIT 10")
     fun getContinueWatching(): Flow<List<PlaybackHistory>>

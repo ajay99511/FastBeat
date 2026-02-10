@@ -359,6 +359,13 @@ class MainViewModel @Inject constructor(
         favPlaylist != null && favPlaylist.mediaIds.contains(track.id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // --- LAST PLAYED AUDIO FLOW ---
+    val lastPlayedAudio = combine(_audioList, mediaDao.getLastPlayedAudioFlow()) { audioFiles, history ->
+        if (history != null) {
+            audioFiles.find { it.id == history.mediaId }
+        } else null
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     // Track current position in display queue (for highlighting current track in shuffled view)
     val displayQueueIndex = combine(_currentTrack, _displayQueue) { track, queue ->
         if (track == null) null
@@ -819,37 +826,48 @@ class MainViewModel @Inject constructor(
                 allMedia.find { it.id == item.mediaId }
             }.filter { !it.isVideo }
 
-            if (restoredQueue.isNotEmpty()) {
-                _currentQueue.value = restoredQueue
-
+            var finalQueue = restoredQueue
+            var finalIndex = 0
+            var finalStartPos = 0L
+            
+            if (finalQueue.isNotEmpty()) {
                 // Restore Index from Prefs
                 val savedIndex = sharedPrefs.getInt("last_queue_index", 0)
-                val safeIndex = savedIndex.coerceIn(0, restoredQueue.size - 1)
-                _currentIndex.value = safeIndex
-
-                // Restore UI state
-                val track = restoredQueue[safeIndex]
-                _currentTrack.value = track
-
-                // Fetch last playback position to resume
-                var startPos = 0L
+                finalIndex = savedIndex.coerceIn(0, finalQueue.size - 1)
+                
+                // Fetch last playback position
+                val track = finalQueue[finalIndex]
                 val history = mediaDao.getHistory(track.id)
-                if (history != null) {
-                    // Resume unless track was basically finished (e.g. > 99%)
-                    if (history.duration == 0L || history.position < (history.duration * 0.99)) {
-                        startPos = history.position
+                if (history != null && (history.duration == 0L || history.position < (history.duration * 0.99))) {
+                    finalStartPos = history.position
+                }
+            } else {
+                // FALLBACK: If queue is empty (or was all videos), try to restore the last played AUDIO track
+                val lastAudio = mediaDao.getLastPlayedAudio()
+                if (lastAudio != null) {
+                    val track = allMedia.find { it.id == lastAudio.mediaId }
+                    if (track != null) {
+                        finalQueue = listOf(track)
+                        finalIndex = 0
+                        if (lastAudio.duration == 0L || lastAudio.position < (lastAudio.duration * 0.99)) {
+                            finalStartPos = lastAudio.position
+                        }
                     }
                 }
+            }
+
+            if (finalQueue.isNotEmpty()) {
+                _currentQueue.value = finalQueue
+                _currentIndex.value = finalIndex
+                _currentTrack.value = finalQueue[finalIndex]
 
                 // Set to player
                 withContext(Dispatchers.Main) {
                     _player.value?.let { controller ->
                         if (controller.mediaItemCount == 0) {
-                            val items = restoredQueue.map { it.toMediaItem() }
-                            // Restore queue at correct index and position
-                            controller.setMediaItems(items, safeIndex, startPos)
+                            val items = finalQueue.map { it.toMediaItem() }
+                            controller.setMediaItems(items, finalIndex, finalStartPos)
                             controller.prepare()
-                            // Don't call play() on restore
                         }
                     }
                 }
