@@ -50,6 +50,9 @@ fun MiniPlayer(
     )
 
     currentTrack?.let { track ->
+        // Architecture Fix: MiniPlayer should never show video tracks
+        if (track.isVideo) return
+
         val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
 
         Surface(

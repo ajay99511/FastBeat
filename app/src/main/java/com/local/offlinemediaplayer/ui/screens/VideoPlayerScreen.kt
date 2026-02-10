@@ -102,15 +102,32 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val screenWidth = with(LocalDensity.current) { configuration.screenWidthDp.dp.toPx() }
     val screenHeight = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
 
-    DisposableEffect(videoSize) {
+    // Track if we have valid metadata to prevent premature rotation (0x0 -> Landscape -> Portrait)
+    var isVideoMetadataLoaded by remember { mutableStateOf(false) }
+
+    // Debounce state to avoid rapid flickering if dimensions report weirdly at start
+    LaunchedEffect(videoSize) {
+        if (videoSize.width > 0 && videoSize.height > 0) {
+            if (!isVideoMetadataLoaded) {
+                 // Small buffer to ensure stable readout, though >0 check is usually enough
+                delay(100) 
+                isVideoMetadataLoaded = true
+            }
+        }
+    }
+
+    DisposableEffect(isVideoMetadataLoaded, videoSize) {
         val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         
-        val isPortraitVideo = videoSize.width > 0 && videoSize.height > videoSize.width
-        
-        if (isPortraitVideo) {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-        } else {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        // Only enforce orientation if we have valid metadata
+        if (isVideoMetadataLoaded && videoSize.width > 0 && videoSize.height > 0) {
+            val isPortraitVideo = videoSize.height > videoSize.width
+            
+            if (isPortraitVideo) {
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            } else {
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            }
         }
         
         hideSystemBars(activity)

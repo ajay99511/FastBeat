@@ -817,7 +817,8 @@ class MainViewModel @Inject constructor(
         if (savedQueueItems.isNotEmpty()) {
             val restoredQueue = savedQueueItems.mapNotNull { item ->
                 allMedia.find { it.id == item.mediaId }
-            }
+            }.filter { !it.isVideo }
+
             if (restoredQueue.isNotEmpty()) {
                 _currentQueue.value = restoredQueue
 
