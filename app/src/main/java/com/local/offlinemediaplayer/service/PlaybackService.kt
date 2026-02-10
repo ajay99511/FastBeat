@@ -26,9 +26,19 @@ class PlaybackService : MediaSessionService() {
                 true
             )
             .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        val sessionActivityPendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            android.content.Intent(this, com.local.offlinemediaplayer.MainActivity::class.java),
+            android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivityPendingIntent)
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

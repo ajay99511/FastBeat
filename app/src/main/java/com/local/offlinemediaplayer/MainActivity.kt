@@ -106,7 +106,10 @@ class MainActivity : ComponentActivity() {
         // If we are NOT in PIP mode, pausing/stopping the activity should pause the video.
         // This handles cases where PIP failed to enter, or user just minimized the app without PIP intent.
         if (!isInPictureInPictureMode) {
-            viewModel.pauseVideo()
+            // Only pause if it's a VIDEO. Audio should keep playing.
+            if (viewModel.currentTrack.value?.isVideo == true) {
+                viewModel.pauseVideo()
+            }
         }
     }
 }
