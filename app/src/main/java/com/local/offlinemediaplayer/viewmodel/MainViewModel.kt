@@ -1069,10 +1069,23 @@ class MainViewModel @Inject constructor(
     }
 
     private fun playVideo(media: MediaFile) {
-        // Use folder context as default - find all videos in same folder
-        val folderVideos = _videoList.value.filter { it.bucketId == media.bucketId }
-        val contextList = if (folderVideos.size > 1) folderVideos else listOf(media)
-        playVideoFromList(media, contextList)
+        // OPTIMIZATION: Start playing the target video IMMEDIATELY.
+        // Navigate to player with just this item first.
+        playVideoFromList(media, listOf(media))
+        
+        // Then, load the rest of the folder in the background to enable "Next/Prev"
+        viewModelScope.launch(Dispatchers.IO) {
+            val folderVideos = _videoList.value.filter { it.bucketId == media.bucketId }
+            if (folderVideos.size > 1) {
+                // Determine start index for the FULL list
+                val newStartIndex = folderVideos.indexOfFirst { it.id == media.id }.coerceAtLeast(0)
+                
+                withContext(Dispatchers.Main) {
+                    // SILENTLY update the queue without stopping playback
+                    updateQueueInBackground(folderVideos, newStartIndex)
+                }
+            }
+        }
     }
 
     /**
@@ -1232,6 +1245,37 @@ class MainViewModel @Inject constructor(
                 persistQueueIndex(startIndex)
             }
         }
+    }
+
+    /**
+     * Updates the queue silently without stopping playback.
+     * Used for loading large video playlists in the background after playback starts.
+     */
+    private suspend fun updateQueueInBackground(mediaList: List<MediaFile>, startIndex: Int) {
+        // Update Local State so UI shows correct list
+        _currentQueue.value = mediaList
+        _displayQueue.value = mediaList // Since we are in static mode
+        
+        // Update Player: Add items before and after current item
+        // We use a simplified strategy: Replace the items but keep the current window/position
+        _player.value?.let { controller ->
+            // Current State
+            val currentMediaId = controller.currentMediaItem?.mediaId
+            val currentPos = controller.currentPosition
+            
+            // Re-verify that we are still playing the expected item
+            val currentIndex = mediaList.indexOfFirst { it.id.toString() == currentMediaId }
+            
+            if (currentIndex != -1) {
+                    val mediaItems = withContext(Dispatchers.IO) {
+                        mediaList.map { it.toMediaItem() }
+                    }
+                    controller.setMediaItems(mediaItems, currentIndex, currentPos)
+            }
+        }
+        
+        persistQueue(mediaList)
+        persistQueueIndex(startIndex)
     }
 
     /**
