@@ -639,8 +639,15 @@ class MainViewModel @Inject constructor(
             var saveCounter = 0
             val today = getNormalizedToday()
 
-            // Initialize today's row if missing
-            mediaDao.initDailyPlaytime(today)
+            // Initialize today's row if missing (Fire and forget, or await on IO)
+            // We use launch(IO) so we don't delay the first tick of the slider
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    mediaDao.initDailyPlaytime(today)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
 
             // Accumulator for playtime logic
             var accumulatedPlaytime = 0L
@@ -648,48 +655,62 @@ class MainViewModel @Inject constructor(
 
             while (isActive) {
                 _player.value?.let { player ->
-                    val pos = player.currentPosition
-                    _currentPosition.value = pos
-                    val dur = player.duration.coerceAtLeast(0L)
-                    _duration.value = dur
+                    try {
+                        val pos = player.currentPosition
+                        _currentPosition.value = pos
+                        val dur = player.duration.coerceAtLeast(0L)
+                        _duration.value = dur
 
-                    // ACCUMULATE PLAYTIME
-                    if (_isPlaying.value) {
-                        // 1. Total Daily Playtime (Existing)
-                        accumulatedPlaytime += updateInterval
+                        // ACCUMULATE PLAYTIME
+                        if (_isPlaying.value) {
+                            // 1. Total Daily Playtime (Existing)
+                            accumulatedPlaytime += updateInterval
 
-                        // 2. Track Play Count Threshold Logic (New)
-                        // Ensures we only count a "Play" if user listened for 30s or 50% of track (if short)
-                        if (!hasLoggedCurrentTrack) {
-                            currentTrackPlaytimeAccumulator += updateInterval
+                            // 2. Track Play Count Threshold Logic (New)
+                            // Ensures we only count a "Play" if user listened for 30s or 50% of track (if short)
+                            if (!hasLoggedCurrentTrack) {
+                                currentTrackPlaytimeAccumulator += updateInterval
 
-                            val threshold = if (dur > 0) min(30000L, dur / 2) else 30000L
-                            val safeThreshold = max(5000L, threshold) // Minimum 5s even for very short clips
+                                val threshold = if (dur > 0) min(30000L, dur / 2) else 30000L
+                                val safeThreshold = max(5000L, threshold) // Minimum 5s even for very short clips
 
-                            if (currentTrackPlaytimeAccumulator >= safeThreshold) {
-                                _currentTrack.value?.let { track ->
-                                    recordPlay(track.id)
-                                    hasLoggedCurrentTrack = true
+                                if (currentTrackPlaytimeAccumulator >= safeThreshold) {
+                                    val track = _currentTrack.value
+                                    if (track != null) {
+                                        recordPlay(track.id)
+                                        hasLoggedCurrentTrack = true
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Flush to DB every 30 seconds (60 ticks)
-                    if (saveCounter % 60 == 0) {
-                        if (accumulatedPlaytime > 0) {
-                            mediaDao.addToDailyPlaytime(getNormalizedToday(), accumulatedPlaytime)
-                            accumulatedPlaytime = 0
-                            // Notify UI to refresh stats
-                            _analyticsUpdateTrigger.emit(System.currentTimeMillis())
+                        // Flush to DB every 30 seconds (60 ticks)
+                        if (saveCounter % 60 == 0) {
+                            if (accumulatedPlaytime > 0) {
+                                val timeToSave = accumulatedPlaytime
+                                // Fire and forget IO, DO NOT suspend the loop
+                                viewModelScope.launch(Dispatchers.IO) {
+                                    try {
+                                        mediaDao.addToDailyPlaytime(today, timeToSave)
+                                        // Notify UI to refresh stats
+                                        _analyticsUpdateTrigger.emit(System.currentTimeMillis())
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                                accumulatedPlaytime = 0 // Reset local accumulator immediately
+                            }
                         }
-                    }
 
-                    // Save playback position periodically
-                    if (saveCounter % 10 == 0) {
-                        _currentTrack.value?.let { track ->
-                            savePlaybackState(track.id, pos, track.duration, track.isVideo)
+                        // Save playback position periodically
+                        if (saveCounter % 10 == 0) {
+                            val track = _currentTrack.value
+                            if (track != null) {
+                                savePlaybackState(track.id, pos, track.duration, track.isVideo)
+                            }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
 
                     saveCounter++
@@ -1276,24 +1297,30 @@ class MainViewModel @Inject constructor(
         
         // Update Player: Add items before and after current item
         // We use a simplified strategy: Replace the items but keep the current window/position
-        _player.value?.let { controller ->
-            // Current State
-            val currentMediaId = controller.currentMediaItem?.mediaId
-            val currentPos = controller.currentPosition
-            
-            // Re-verify that we are still playing the expected item
-            val currentIndex = mediaList.indexOfFirst { it.id.toString() == currentMediaId }
-            
-            if (currentIndex != -1) {
-                    val mediaItems = withContext(Dispatchers.IO) {
-                        mediaList.map { it.toMediaItem() }
-                    }
-                    controller.setMediaItems(mediaItems, currentIndex, currentPos)
+        withContext(Dispatchers.Main) { // Ensure MediaController interaction is on Main
+            _player.value?.let { controller ->
+                // Current State
+                val currentMediaId = controller.currentMediaItem?.mediaId
+                val currentPos = controller.currentPosition
+                
+                // Re-verify that we are still playing the expected item
+                val currentIndex = mediaList.indexOfFirst { it.id.toString() == currentMediaId }
+                
+                if (currentIndex != -1) {
+                        // Offload heavy mapping to IO
+                        val mediaItems = withContext(Dispatchers.IO) {
+                            mediaList.map { it.toMediaItem() }
+                        }
+                        // Back on Main to set items
+                        controller.setMediaItems(mediaItems, currentIndex, currentPos)
+                }
             }
         }
         
         persistQueue(mediaList)
-        persistQueueIndex(startIndex)
+        withContext(Dispatchers.Main) {
+            persistQueueIndex(startIndex)
+        }
     }
 
     /**
