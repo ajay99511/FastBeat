@@ -48,6 +48,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    applicationVariants.all {
+        outputs.all {
+            // In Kotlin DSL, we must cast to 'BaseVariantOutputImpl' to set the file name
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output?.outputFileName = "FastBeat.apk"
+        }
+    }
 }
 
 dependencies {
