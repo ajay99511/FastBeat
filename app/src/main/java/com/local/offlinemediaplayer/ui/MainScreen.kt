@@ -150,7 +150,7 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
     
     // UI Logic: Video Player Visibility is now controlled by ViewModel state
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
-    val isVideoPlayingFullscreen = currentTrack?.isVideo == true
+    val isVideoPlayingFullscreen by viewModel.isVideoPlayerVisible.collectAsStateWithLifecycle()
 
     // Global Search Visibility State (Controlled by Header)
     var isSearchVisible by remember { mutableStateOf(false) }

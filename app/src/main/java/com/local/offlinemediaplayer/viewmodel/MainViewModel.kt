@@ -315,6 +315,12 @@ class MainViewModel @Inject constructor(
     private val _isInPipMode = MutableStateFlow(false)
     val isInPipMode = _isInPipMode.asStateFlow()
 
+    // --- VIDEO PLAYER VISIBILITY STATE ---
+    // Explicitly tracks if the fullscreen player should be shown.
+    // This decouples "Current Track is Video" from "Show Player".
+    private val _isVideoPlayerVisible = MutableStateFlow(false)
+    val isVideoPlayerVisible = _isVideoPlayerVisible.asStateFlow()
+
     /**
      * Returns true if a video is currently playing and PIP should be triggered.
      * Used by MainActivity to enter PIP when home button is pressed.
@@ -1073,6 +1079,7 @@ class MainViewModel @Inject constructor(
         _isPlayerLocked.value = false
         _playbackSpeed.value = 1.0f
         _resizeMode.value = ResizeMode.FIT
+        _isVideoPlayerVisible.value = true // Explicitly show player
 
         viewModelScope.launch(Dispatchers.IO) {
             val history = mediaDao.getHistory(media.id)
@@ -1095,6 +1102,7 @@ class MainViewModel @Inject constructor(
      * It saves the video position and restores the previous music session.
      */
     fun closeVideo() {
+        _isVideoPlayerVisible.value = false // Hide player
         val current = _currentTrack.value
         if (current?.isVideo == true) {
             // Save video position to history for "Continue Watching"
@@ -1155,6 +1163,7 @@ class MainViewModel @Inject constructor(
                 _isPlayerLocked.value = false
                 _playbackSpeed.value = 1.0f
                 _resizeMode.value = ResizeMode.FIT
+                _isVideoPlayerVisible.value = true // Explicitly show player for video playlists
             }
             setQueue(playlistMedia, startIndex, shuffle)
         }
