@@ -102,6 +102,10 @@ class MainViewModel @Inject constructor(
     private var currentTrackPlaytimeAccumulator = 0L
     private var hasLoggedCurrentTrack = false
 
+    // --- PENDING TRACK RESTORATION ---
+    private var pendingAudioTrackIndex: Int = -1
+    private var pendingSubtitleTrackIndex: Int = -1
+
     // --- THEMING STATE ---
     private val themes = mapOf(
         "blue" to AppThemeConfig("blue", Color(0xFF00E5FF), "DIGITAL WAVES", "Quick Mix"),
@@ -538,6 +542,29 @@ class MainViewModel @Inject constructor(
                 updateCurrentTrackFromPlayer(controller)
                 // Logic moved to heartbeat to ensure duration threshold
             }
+
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                // Restore saved track selection if pending
+                if (pendingAudioTrackIndex != -1) {
+                    val allAudio = getAudioTracks()
+                    if (pendingAudioTrackIndex in allAudio.indices) {
+                        val track = allAudio[pendingAudioTrackIndex]
+                        selectAudioTrack(track.groupIndex, track.trackIndex)
+                    }
+                    pendingAudioTrackIndex = -1
+                }
+                
+                if (pendingSubtitleTrackIndex != -1) {
+                    val allSubs = getSubtitleTracks()
+                   if (pendingSubtitleTrackIndex in allSubs.indices) {
+                        val track = allSubs[pendingSubtitleTrackIndex]
+                        selectSubtitleTrack(track.groupIndex, track.trackIndex)
+                    } else if (pendingSubtitleTrackIndex == -2) {
+                        disableSubtitles()
+                    }
+                    pendingSubtitleTrackIndex = -1
+                }
+            }
         })
     }
 
@@ -656,6 +683,12 @@ class MainViewModel @Inject constructor(
     }
 
     private fun savePlaybackState(mediaId: Long, position: Long, duration: Long, isVideo: Boolean) {
+        // Get current track selections
+        val audioIndex = if (isVideo) getAudioTracks().indexOfFirst { it.isSelected } else -1
+        val subtitleIndex = if (isVideo) {
+            if (areSubtitlesDisabled()) -2 else getSubtitleTracks().indexOfFirst { it.isSelected }
+        } else -1
+
         viewModelScope.launch(Dispatchers.IO) {
             mediaDao.saveHistory(
                 PlaybackHistory(
@@ -663,7 +696,9 @@ class MainViewModel @Inject constructor(
                     position = position,
                     duration = duration,
                     timestamp = System.currentTimeMillis(),
-                    mediaType = if (isVideo) "VIDEO" else "AUDIO"
+                    mediaType = if (isVideo) "VIDEO" else "AUDIO",
+                    audioTrackIndex = audioIndex,
+                    subtitleTrackIndex = subtitleIndex
                 )
             )
         }
@@ -1030,6 +1065,11 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             val history = mediaDao.getHistory(media.id)
             val startPos = if (history != null && history.position < (history.duration * 0.95)) history.position else 0L
+            
+            // Set pending tracks for restoration
+            pendingAudioTrackIndex = history?.audioTrackIndex ?: -1
+            pendingSubtitleTrackIndex = history?.subtitleTrackIndex ?: -1
+            
             val startIndex = list.indexOfFirst { it.id == media.id }.coerceAtLeast(0)
 
             withContext(Dispatchers.Main) {

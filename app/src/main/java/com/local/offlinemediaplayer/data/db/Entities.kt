@@ -13,7 +13,9 @@ data class PlaybackHistory(
     val position: Long,
     val duration: Long = 0, // Added duration to calculate progress percentage
     val timestamp: Long,
-    val mediaType: String // "AUDIO" or "VIDEO"
+    val mediaType: String, // "AUDIO" or "VIDEO"
+    val audioTrackIndex: Int = -1, // New field for track persistence
+    val subtitleTrackIndex: Int = -1 // New field for track persistence (-1 = default/none or unset)
 )
 
 @Entity(tableName = "media_analytics")

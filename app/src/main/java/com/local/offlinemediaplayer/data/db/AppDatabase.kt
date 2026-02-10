@@ -14,7 +14,7 @@ import androidx.room.RoomDatabase
         DailyPlaytime::class,
         PlayEvent::class
     ],
-    version = 4, // Bumped version to 4 for Analytics
+    version = 5, // Bumped version to 5 for Track Persistence
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

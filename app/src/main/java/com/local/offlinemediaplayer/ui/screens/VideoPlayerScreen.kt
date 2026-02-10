@@ -100,9 +100,18 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val screenWidth = with(LocalDensity.current) { configuration.screenWidthDp.dp.toPx() }
     val screenHeight = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(player?.videoSize) {
         val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        
+        val videoSize = player?.videoSize
+        val isPortraitVideo = videoSize != null && videoSize.height > videoSize.width && videoSize.width > 0
+        
+        if (isPortraitVideo) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        } else {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+        
         hideSystemBars(activity)
 
         onDispose {
@@ -128,9 +137,16 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
     // Update PiP Params for Android 12+ (Auto-Enter)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        LaunchedEffect(player?.isPlaying) {
+        val videoSize = player?.videoSize
+        val aspectRatio = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+            Rational(videoSize.width, videoSize.height)
+        } else {
+            Rational(16, 9)
+        }
+        
+        LaunchedEffect(player?.isPlaying, aspectRatio) {
             val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
+                .setAspectRatio(aspectRatio)
                 .setAutoEnterEnabled(player?.isPlaying == true)
                 .build()
             activity?.setPictureInPictureParams(params)
@@ -266,7 +282,13 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 onBack = onBack,
                 onPip = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val params = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()
+                        val videoSize = player?.videoSize
+                        val aspectRatio = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+                            Rational(videoSize.width, videoSize.height)
+                        } else {
+                            Rational(16, 9)
+                        }
+                        val params = PictureInPictureParams.Builder().setAspectRatio(aspectRatio).build()
                         activity?.enterPictureInPictureMode(params)
                     }
                 },

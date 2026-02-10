@@ -47,8 +47,16 @@ class MainActivity : ComponentActivity() {
         // We only need to manually trigger it for older versions.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             if (viewModel.shouldEnterPipMode()) {
+                val player = viewModel.player.value
+                val videoSize = player?.videoSize
+                val aspectRatio = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+                    Rational(videoSize.width, videoSize.height)
+                } else {
+                    Rational(16, 9)
+                }
+                
                 val builder = PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(16, 9))
+                    .setAspectRatio(aspectRatio)
                 enterPictureInPictureMode(builder.build())
             }
         }
@@ -73,8 +81,11 @@ class MainActivity : ComponentActivity() {
             // BUT: We can check if the app is now in the foreground.
             // If not in foreground, it was likely dismissed.
             
-            // Simple Logic: If we exit PiP and the lifecycle is not RESUMED, it's likely a dismiss.
-            if (lifecycle.currentState != androidx.lifecycle.Lifecycle.State.RESUMED) {
+            // Simple Logic: If we exit PiP and the lifecycle is not RESUMED or STARTED, it's likely a dismiss.
+            // When maximizing, the activity is usually STARTED and about to be RESUMED.
+            // When dismissing, it goes to STOPPED/DESTROYED.
+            if (lifecycle.currentState == androidx.lifecycle.Lifecycle.State.CREATED || 
+                lifecycle.currentState == androidx.lifecycle.Lifecycle.State.DESTROYED) {
                  // The user closed the PiP window. We should STOP video.
                  viewModel.closeVideo() 
             }
