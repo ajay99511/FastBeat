@@ -40,6 +40,7 @@ import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,8 +52,8 @@ fun VideoFolderScreen(
     isSearchVisible: Boolean
 ) {
     // 0 = Folders, 1 = Movies, 2 = Playlists
-    // Use rememberSaveable to persist selection when navigating back from details
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
     var showCreateDialog by remember { mutableStateOf(false) }
 
     // View Mode State: True = Grid, False = List
@@ -78,7 +79,7 @@ fun VideoFolderScreen(
             isVisible = isSearchVisible,
             query = searchQuery,
             onQueryChange = { viewModel.updateFolderSearchQuery(it) },
-            placeholderText = "Search ${if (selectedTab == 0) "folders" else if (selectedTab == 1) "movies" else "playlists"}..."
+            placeholderText = "Search ${if (pagerState.currentPage == 0) "folders" else if (pagerState.currentPage == 1) "movies" else "playlists"}..."
         )
 
         // 2. Tabs + View Toggle (Combined Row to eliminate extra spacing)
@@ -89,19 +90,17 @@ fun VideoFolderScreen(
             // Tabs occupy remaining space
             Box(modifier = Modifier.weight(1f)) {
                 ScrollableTabRow(
-                    selectedTabIndex = selectedTab,
+                    selectedTabIndex = pagerState.currentPage,
                     containerColor = Color.Transparent,
                     contentColor = MaterialTheme.colorScheme.onBackground,
                     edgePadding = 0.dp,
                     indicator = { tabPositions ->
-                        if (selectedTab < tabPositions.size) {
-                            Box(
-                                Modifier
-                                    .tabIndicatorOffset(tabPositions[selectedTab])
-                                    .height(3.dp)
-                                    .background(primaryAccent)
-                            )
-                        }
+                        Box(
+                            Modifier
+                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                                .height(3.dp)
+                                .background(primaryAccent)
+                        )
                     },
                     divider = {
                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -111,14 +110,18 @@ fun VideoFolderScreen(
                     val tabs = listOf("FOLDERS", "MOVIES", "PLAYLISTS")
                     tabs.forEachIndexed { index, title ->
                         Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
                             text = {
                                 Text(
                                     text = title,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
                                     letterSpacing = 1.sp,
-                                    color = if (selectedTab == index) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (pagerState.currentPage == index) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         )
@@ -127,7 +130,7 @@ fun VideoFolderScreen(
             }
 
             // View Toggle Button (Only visible on Folders tab)
-            if (selectedTab == 0) {
+            if (pagerState.currentPage == 0) {
                 IconButton(
                     onClick = { isGridView = !isGridView },
                     modifier = Modifier.padding(end = 8.dp)
@@ -148,64 +151,69 @@ fun VideoFolderScreen(
             onRefresh = { viewModel.scanMedia() },
             modifier = Modifier.weight(1f)
         ) {
-            when (selectedTab) {
-                0 -> {
-                    // FOLDERS VIEW
-                    val filteredFolders = if (searchQuery.isEmpty()) {
-                        folders
-                    } else {
-                        folders.filter { it.name.contains(searchQuery, ignoreCase = true) }
-                    }
-
-                    if (filteredFolders.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No folders found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    0 -> {
+                        // FOLDERS VIEW
+                        val filteredFolders = if (searchQuery.isEmpty()) {
+                            folders
+                        } else {
+                            folders.filter { it.name.contains(searchQuery, ignoreCase = true) }
                         }
-                    } else {
-                        if (isGridView) {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(24.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(filteredFolders) { folder ->
-                                    FolderItem(folder, onFolderClick, primaryAccent)
-                                }
+
+                        if (filteredFolders.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No folders found", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(filteredFolders) { folder ->
-                                    FolderListItem(folder, onFolderClick, primaryAccent)
+                            if (isGridView) {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    contentPadding = PaddingValues(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(filteredFolders) { folder ->
+                                        FolderItem(folder, onFolderClick, primaryAccent)
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(filteredFolders) { folder ->
+                                        FolderListItem(folder, onFolderClick, primaryAccent)
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                1 -> {
-                    // MOVIES VIEW (Videos > 1h)
-                    MoviesListContent(
-                        viewModel = viewModel,
-                        onVideoClick = onVideoClick,
-                        isGridView = isMoviesGridView,
-                        onToggleView = { isMoviesGridView = !isMoviesGridView }
-                    )
-                }
-                2 -> {
-                    // PLAYLISTS LIST
-                    PlaylistListScreen(
-                        viewModel = viewModel,
-                        onPlaylistClick = onPlaylistClick,
-                        onCreateClick = { showCreateDialog = true },
-                        isVideo = true, // Show video playlists
-                        onRename = { id, newName -> viewModel.renamePlaylist(id, newName) },
-                        onDelete = { id -> viewModel.deletePlaylist(id) }
-                    )
+                    1 -> {
+                        // MOVIES VIEW (Videos > 1h)
+                        MoviesListContent(
+                            viewModel = viewModel,
+                            onVideoClick = onVideoClick,
+                            isGridView = isMoviesGridView,
+                            onToggleView = { isMoviesGridView = !isMoviesGridView }
+                        )
+                    }
+                    2 -> {
+                        // PLAYLISTS LIST
+                        PlaylistListScreen(
+                            viewModel = viewModel,
+                            onPlaylistClick = onPlaylistClick,
+                            onCreateClick = { showCreateDialog = true },
+                            isVideo = true, // Show video playlists
+                            onRename = { id, newName -> viewModel.renamePlaylist(id, newName) },
+                            onDelete = { id -> viewModel.deletePlaylist(id) }
+                        )
+                    }
                 }
             }
         }

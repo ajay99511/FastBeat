@@ -26,6 +26,7 @@ import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun AudioLibraryScreen(
@@ -36,8 +37,8 @@ fun AudioLibraryScreen(
     isSearchVisible: Boolean
 ) {
     // 0 = Tracks, 1 = Albums, 2 = Playlists
-    // Use rememberSaveable to persist selection when navigating back from details
-    var selectedSubTab by rememberSaveable { mutableIntStateOf(0) }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
 
     // Add to Playlist Dialog State
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
@@ -54,19 +55,17 @@ fun AudioLibraryScreen(
         Column {
             // Styled Tab Row
             ScrollableTabRow(
-                selectedTabIndex = selectedSubTab,
+                selectedTabIndex = pagerState.currentPage,
                 containerColor = Color.Transparent, // Transparent to show background
                 contentColor = MaterialTheme.colorScheme.onBackground,
                 edgePadding = 0.dp,
                 indicator = { tabPositions ->
-                    if (selectedSubTab < tabPositions.size) {
-                        Box(
-                            Modifier
-                                .tabIndicatorOffset(tabPositions[selectedSubTab])
-                                .height(3.dp)
-                                .background(primaryAccent)
-                        )
-                    }
+                    Box(
+                        Modifier
+                            .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                            .height(3.dp)
+                            .background(primaryAccent)
+                    )
                 },
                 divider = {
                     Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -76,14 +75,18 @@ fun AudioLibraryScreen(
                 val tabs = listOf("TRACKS", "ALBUMS", "PLAYLISTS")
                 tabs.forEachIndexed { index, title ->
                     Tab(
-                        selected = selectedSubTab == index,
-                        onClick = { selectedSubTab = index },
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
                         text = {
                             Text(
                                 text = title,
-                                fontWeight = if (selectedSubTab == index) FontWeight.Bold else FontWeight.Normal,
+                                fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
                                 letterSpacing = 1.sp,
-                                color = if (selectedSubTab == index) primaryAccent else inactiveColor
+                                color = if (pagerState.currentPage == index) primaryAccent else inactiveColor
                             )
                         }
                     )
@@ -91,8 +94,11 @@ fun AudioLibraryScreen(
             }
 
             // Content Area
-            Box(modifier = Modifier.weight(1f)) {
-                when (selectedSubTab) {
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f)
+            ) { page ->
+                when (page) {
                     0 -> {
                         // TRACKS VIEW
                         AudioListScreen(
