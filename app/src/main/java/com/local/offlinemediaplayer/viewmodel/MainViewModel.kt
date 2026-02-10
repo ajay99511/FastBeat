@@ -1223,7 +1223,7 @@ class MainViewModel @Inject constructor(
                 }
                 
                 // Update display queue only after controller is set up
-                updateDisplayQueue()
+                _displayQueue.value = _currentQueue.value
             }
             
             // Persist
@@ -1240,59 +1240,9 @@ class MainViewModel @Inject constructor(
      * When shuffle is enabled, builds the queue order based on Media3's shuffle timeline.
      */
     private fun updateDisplayQueue() {
-        val controller = _player.value
-        val originalQueue = _currentQueue.value
-
-        if (controller == null || originalQueue.isEmpty()) {
-            _displayQueue.value = originalQueue
-            return
-        }
-
-        if (!controller.shuffleModeEnabled) {
-            _displayQueue.value = originalQueue
-            return
-        }
-
-        // OPTIMIZATION: Create a map for O(1) lookups instead of O(N) linear search
-        val mediaMap = originalQueue.associateBy { it.id }
-
-        // Build shuffled queue from Media3's timeline - starting from current position
-        val shuffledList = mutableListOf<MediaFile>()
-        val count = controller.mediaItemCount
-        val currentIdx = controller.currentMediaItemIndex
-
-        // First, add tracks from current position to end (in shuffle order)
-        var idx = currentIdx
-        val visited = mutableSetOf<Int>()
-
-        // Safety break to prevent infinite loops if something goes wrong with nextMediaItemIndex
-        var iterations = 0
-        val maxIterations = count + 1
-
-        while (idx in 0 until count && !visited.contains(idx) && iterations < maxIterations) {
-            visited.add(idx)
-            val mediaId = controller.getMediaItemAt(idx).mediaId.toLongOrNull()
-            
-            // O(1) lookup
-            mediaMap[mediaId]?.let { shuffledList.add(it) }
-            
-            // Get next in shuffle sequence
-            val nextIdx = controller.nextMediaItemIndex
-            if (nextIdx == -1 || visited.contains(nextIdx)) break
-            idx = nextIdx
-            iterations++
-        }
-
-        // Add remaining tracks that weren't visited (before current in shuffle sequence)
-        for (i in 0 until count) {
-            if (!visited.contains(i)) {
-                val mediaId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
-                // O(1) lookup
-                mediaMap[mediaId]?.let { shuffledList.add(it) }
-            }
-        }
-
-        _displayQueue.value = shuffledList
+        // SIMPLIFIED: Always show the original queue order.
+        // Shuffle just jumps around this static list.
+        _displayQueue.value = _currentQueue.value
     }
 
     /**
@@ -1486,7 +1436,8 @@ class MainViewModel @Inject constructor(
             val newMode = !it.shuffleModeEnabled
             it.shuffleModeEnabled = newMode
             _isShuffleEnabled.value = newMode
-            updateDisplayQueue()
+            // No need to rebuild/reorder queue visual list
+            // usage: The queue remains in original order, but playback order changes internally
         }
     }
     fun toggleRepeat() {
@@ -1526,9 +1477,9 @@ class MainViewModel @Inject constructor(
             // Add to player
             controller.addMediaItem(currentIdx + 1, media.toMediaItem())
 
-            // Update UI
-            updateDisplayQueue()
-
+            // Update UI - just reflect current queue
+            _displayQueue.value = _currentQueue.value
+            
             // Persist
             persistQueue(queue)
         } else {
@@ -1549,8 +1500,8 @@ class MainViewModel @Inject constructor(
             // Add to player
             controller.addMediaItem(media.toMediaItem())
 
-            // Update UI
-            updateDisplayQueue()
+            // Update UI - just reflect current queue
+            _displayQueue.value = _currentQueue.value
 
             // Persist
             persistQueue(queue)
