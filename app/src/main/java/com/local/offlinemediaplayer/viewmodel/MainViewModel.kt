@@ -504,6 +504,7 @@ class MainViewModel @Inject constructor(
                     _isShuffleEnabled.value = controller.shuffleModeEnabled
                     _repeatMode.value = controller.repeatMode
                     _playbackSpeed.value = controller.playbackParameters.speed
+                    _videoSize.value = controller.videoSize
                     updateCurrentTrackFromPlayer(controller)
                 }
             } catch (e: Exception) {
@@ -512,8 +513,15 @@ class MainViewModel @Inject constructor(
         }, MoreExecutors.directExecutor())
     }
 
+    private val _videoSize = MutableStateFlow(androidx.media3.common.VideoSize.UNKNOWN)
+    val videoSize = _videoSize.asStateFlow()
+
     private fun setupPlayerListener(controller: MediaController?) {
         controller?.addListener(object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                _videoSize.value = videoSize
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     _duration.value = controller.duration.coerceAtLeast(0L)
@@ -1424,6 +1432,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun togglePlayPause() { _player.value?.let { if (it.isPlaying) it.pause() else it.play() } }
+    fun pauseVideo() { _player.value?.pause() }
     fun toggleShuffle() {
         _player.value?.let {
             val newMode = !it.shuffleModeEnabled

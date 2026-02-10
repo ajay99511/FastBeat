@@ -73,6 +73,8 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val resizeMode by viewModel.resizeMode.collectAsStateWithLifecycle()
     val isLocked by viewModel.isPlayerLocked.collectAsStateWithLifecycle()
     val isInPip by viewModel.isInPipMode.collectAsStateWithLifecycle()
+    val videoSize by viewModel.videoSize.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
@@ -100,11 +102,10 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val screenWidth = with(LocalDensity.current) { configuration.screenWidthDp.dp.toPx() }
     val screenHeight = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
 
-    DisposableEffect(player?.videoSize) {
+    DisposableEffect(videoSize) {
         val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         
-        val videoSize = player?.videoSize
-        val isPortraitVideo = videoSize != null && videoSize.height > videoSize.width && videoSize.width > 0
+        val isPortraitVideo = videoSize.width > 0 && videoSize.height > videoSize.width
         
         if (isPortraitVideo) {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
@@ -137,19 +138,32 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
     // Update PiP Params for Android 12+ (Auto-Enter)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val videoSize = player?.videoSize
-        val aspectRatio = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
-            Rational(videoSize.width, videoSize.height)
+        // Use observed videoSize instead of player?.videoSize
+        val aspectRatio = if (videoSize.width > 0 && videoSize.height > 0) {
+            val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
+            val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
+            if (ratio == clampedRatio) {
+                Rational(videoSize.width, videoSize.height)
+            } else {
+                // Adjust width to match clamped ratio
+                Rational((videoSize.height * clampedRatio).toInt(), videoSize.height)
+            }
         } else {
             Rational(16, 9)
         }
         
-        LaunchedEffect(player?.isPlaying, aspectRatio) {
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(aspectRatio)
-                .setAutoEnterEnabled(player?.isPlaying == true)
-                .build()
-            activity?.setPictureInPictureParams(params)
+        // Key off isPlaying and aspectRatio state
+        LaunchedEffect(isPlaying, aspectRatio) {
+            // Re-verify range to be absolutely safe against 0 or negative values
+            if (aspectRatio.numerator > 0 && aspectRatio.denominator > 0) {
+                try {
+                val params = PictureInPictureParams.Builder()
+                    .setAspectRatio(aspectRatio)
+                    .setAutoEnterEnabled(isPlaying)
+                    .build()
+                activity?.setPictureInPictureParams(params)
+                } catch (e: Exception) { e.printStackTrace() }
+            }
         }
     }
 
@@ -282,14 +296,22 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 onBack = onBack,
                 onPip = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val videoSize = player?.videoSize
-                        val aspectRatio = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
-                            Rational(videoSize.width, videoSize.height)
+                        // Use observed videoSize state
+                        val aspectRatio = if (videoSize.width > 0 && videoSize.height > 0) {
+                            val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
+                            val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
+                            if (ratio == clampedRatio) {
+                                Rational(videoSize.width, videoSize.height)
+                            } else {
+                                Rational((videoSize.height * clampedRatio).toInt(), videoSize.height)
+                            }
                         } else {
                             Rational(16, 9)
                         }
-                        val params = PictureInPictureParams.Builder().setAspectRatio(aspectRatio).build()
-                        activity?.enterPictureInPictureMode(params)
+                        try {
+                            val params = PictureInPictureParams.Builder().setAspectRatio(aspectRatio).build()
+                            activity?.enterPictureInPictureMode(params)
+                        } catch (e: Exception) { e.printStackTrace() }
                     }
                 },
                 onRotate = {

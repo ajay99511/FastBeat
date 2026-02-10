@@ -50,14 +50,22 @@ class MainActivity : ComponentActivity() {
                 val player = viewModel.player.value
                 val videoSize = player?.videoSize
                 val aspectRatio = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
-                    Rational(videoSize.width, videoSize.height)
+                    val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
+                    val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
+                    if (ratio == clampedRatio) {
+                        Rational(videoSize.width, videoSize.height)
+                    } else {
+                        Rational((videoSize.height * clampedRatio).toInt(), videoSize.height)
+                    }
                 } else {
                     Rational(16, 9)
                 }
                 
-                val builder = PictureInPictureParams.Builder()
-                    .setAspectRatio(aspectRatio)
-                enterPictureInPictureMode(builder.build())
+                try {
+                    val builder = PictureInPictureParams.Builder()
+                        .setAspectRatio(aspectRatio)
+                    enterPictureInPictureMode(builder.build())
+                } catch (e: Exception) { e.printStackTrace() }
             }
         }
     }
@@ -91,6 +99,14 @@ class MainActivity : ComponentActivity() {
             }
             
             wasInPipMode = false
+        }
+    }
+    override fun onStop() {
+        super.onStop()
+        // If we are NOT in PIP mode, pausing/stopping the activity should pause the video.
+        // This handles cases where PIP failed to enter, or user just minimized the app without PIP intent.
+        if (!isInPictureInPictureMode) {
+            viewModel.pauseVideo()
         }
     }
 }
