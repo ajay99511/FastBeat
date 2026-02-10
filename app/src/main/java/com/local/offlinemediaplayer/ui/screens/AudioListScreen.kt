@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Shuffle
+import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -286,7 +288,9 @@ fun AudioListScreen(
                             viewModel.toggleSelectionMode(true)
                             viewModel.selectAll(listOf(song.id))
                             showDeleteConfirmDialog = true
-                        }
+                        },
+                        onPlayNext = { viewModel.playNext(it) },
+                        onAddToQueue = { viewModel.addToQueue(it) }
                     )
                 }
             }
@@ -312,7 +316,9 @@ private fun AudioListItemStyled(
     onAddToPlaylist: (MediaFile) -> Unit,
     isSelectionMode: Boolean,
     isSelected: Boolean,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onPlayNext: (MediaFile) -> Unit,
+    onAddToQueue: (MediaFile) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -383,6 +389,22 @@ private fun AudioListItemStyled(
                     onDismissRequest = { showMenu = false },
                     modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("Play Next", color = MaterialTheme.colorScheme.onSurface) },
+                        onClick = {
+                            showMenu = false
+                            onPlayNext(song)
+                        },
+                        leadingIcon = { Icon(Icons.Default.PlaylistPlay, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Add to Queue", color = MaterialTheme.colorScheme.onSurface) },
+                        onClick = {
+                            showMenu = false
+                            onAddToQueue(song)
+                        },
+                        leadingIcon = { Icon(Icons.Default.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    )
                     DropdownMenuItem(
                         text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
                         onClick = {

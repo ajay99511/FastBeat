@@ -522,6 +522,10 @@ class MainViewModel @Inject constructor(
                 _videoSize.value = videoSize
             }
 
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                updateDisplayQueue()
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     _duration.value = controller.duration.coerceAtLeast(0L)
@@ -1462,6 +1466,54 @@ class MainViewModel @Inject constructor(
     }
     fun hasPrevious(): Boolean {
         return _player.value?.hasPreviousMediaItem() ?: false
+    }
+
+    // --- Queue Management ---
+    fun playNext(media: MediaFile) {
+        val controller = _player.value
+        val queue = _currentQueue.value.toMutableList()
+        val currentIdx = _currentIndex.value ?: -1
+
+        if (controller != null && queue.isNotEmpty() && currentIdx >= 0) {
+            // Add to local queue
+            queue.add(currentIdx + 1, media)
+            _currentQueue.value = queue
+
+            // Add to player
+            controller.addMediaItem(currentIdx + 1, media.toMediaItem())
+
+            // Update UI
+            updateDisplayQueue()
+
+            // Persist
+            persistQueue(queue)
+        } else {
+            // If nothing playing, just play this
+            playMedia(media)
+        }
+    }
+
+    fun addToQueue(media: MediaFile) {
+        val controller = _player.value
+        val queue = _currentQueue.value.toMutableList()
+
+        if (controller != null && queue.isNotEmpty()) {
+            // Add to local queue
+            queue.add(media)
+            _currentQueue.value = queue
+
+            // Add to player
+            controller.addMediaItem(media.toMediaItem())
+
+            // Update UI
+            updateDisplayQueue()
+
+            // Persist
+            persistQueue(queue)
+        } else {
+            // If nothing playing, just play this
+            playMedia(media)
+        }
     }
 
     override fun onCleared() {

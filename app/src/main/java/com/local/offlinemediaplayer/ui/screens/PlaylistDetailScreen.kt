@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Shuffle
+import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -254,7 +256,9 @@ fun PlaylistDetailScreen(
                             },
                             onRemove = {
                                 viewModel.removeSongFromPlaylist(playlistId, song.id)
-                            }
+                            },
+                            onPlayNext = { viewModel.playNext(song) },
+                            onAddToQueue = { viewModel.addToQueue(song) }
                         )
                     }
                 }
@@ -278,8 +282,12 @@ fun PlaylistItemStyled(
     index: Int,
     song: MediaFile,
     onClick: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -329,14 +337,47 @@ fun PlaylistItemStyled(
             )
         }
 
-        // Remove Button
-        IconButton(onClick = onRemove) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Remove",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
+        }
+
+        // More Menu
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Play Next", color = MaterialTheme.colorScheme.onSurface) },
+                    onClick = {
+                        showMenu = false
+                        onPlayNext()
+                    },
+                    leadingIcon = { Icon(Icons.Default.PlaylistPlay, null, tint = MaterialTheme.colorScheme.onSurface) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Add to Queue", color = MaterialTheme.colorScheme.onSurface) },
+                    onClick = {
+                        showMenu = false
+                        onAddToQueue()
+                    },
+                    leadingIcon = { Icon(Icons.Default.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Remove from Playlist", color = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        showMenu = false
+                        onRemove()
+                    },
+                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                )
+            }
         }
     }
-}
