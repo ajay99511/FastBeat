@@ -1206,25 +1206,32 @@ class MainViewModel @Inject constructor(
 
     // UPDATED setQueue to delegate to MediaController
     fun setQueue(mediaList: List<MediaFile>, startIndex: Int, shuffle: Boolean = false, startPosition: Long = 0L) {
-        // Update Local State
+        // Update Local State immediately for UI responsiveness
         _currentQueue.value = mediaList
         _isShuffleEnabled.value = shuffle
-
-        // Pass entire queue to Controller
-        _player.value?.let { controller ->
+        
+        // Launch in background to avoid blocking Main Thread during conversion of large playlists
+        viewModelScope.launch(Dispatchers.IO) {
             val mediaItems = mediaList.map { it.toMediaItem() }
-            controller.setMediaItems(mediaItems, startIndex, startPosition)
-            controller.shuffleModeEnabled = shuffle
-            controller.prepare()
-            controller.play()
+            
+            withContext(Dispatchers.Main) {
+                _player.value?.let { controller ->
+                    controller.setMediaItems(mediaItems, startIndex, startPosition)
+                    controller.shuffleModeEnabled = shuffle
+                    controller.prepare()
+                    controller.play()
+                }
+                
+                // Update display queue only after controller is set up
+                updateDisplayQueue()
+            }
+            
+            // Persist
+            persistQueue(mediaList)
+            withContext(Dispatchers.Main) {
+                persistQueueIndex(startIndex)
+            }
         }
-
-        // Update display queue after controller is set up
-        updateDisplayQueue()
-
-        // Persist
-        persistQueue(mediaList)
-        persistQueueIndex(startIndex)
     }
 
     /**
@@ -1246,6 +1253,9 @@ class MainViewModel @Inject constructor(
             return
         }
 
+        // OPTIMIZATION: Create a map for O(1) lookups instead of O(N) linear search
+        val mediaMap = originalQueue.associateBy { it.id }
+
         // Build shuffled queue from Media3's timeline - starting from current position
         val shuffledList = mutableListOf<MediaFile>()
         val count = controller.mediaItemCount
@@ -1255,24 +1265,30 @@ class MainViewModel @Inject constructor(
         var idx = currentIdx
         val visited = mutableSetOf<Int>()
 
-        while (idx in 0 until count && !visited.contains(idx)) {
+        // Safety break to prevent infinite loops if something goes wrong with nextMediaItemIndex
+        var iterations = 0
+        val maxIterations = count + 1
+
+        while (idx in 0 until count && !visited.contains(idx) && iterations < maxIterations) {
             visited.add(idx)
             val mediaId = controller.getMediaItemAt(idx).mediaId.toLongOrNull()
-            val track = originalQueue.find { it.id == mediaId }
-            if (track != null) shuffledList.add(track)
+            
+            // O(1) lookup
+            mediaMap[mediaId]?.let { shuffledList.add(it) }
             
             // Get next in shuffle sequence
             val nextIdx = controller.nextMediaItemIndex
             if (nextIdx == -1 || visited.contains(nextIdx)) break
             idx = nextIdx
+            iterations++
         }
 
         // Add remaining tracks that weren't visited (before current in shuffle sequence)
         for (i in 0 until count) {
             if (!visited.contains(i)) {
                 val mediaId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
-                val track = originalQueue.find { it.id == mediaId }
-                if (track != null) shuffledList.add(track)
+                // O(1) lookup
+                mediaMap[mediaId]?.let { shuffledList.add(it) }
             }
         }
 
