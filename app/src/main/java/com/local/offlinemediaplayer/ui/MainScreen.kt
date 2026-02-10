@@ -342,8 +342,8 @@ fun MediaPlayerAppContent(viewModel: MainViewModel) {
                             0 -> VideoNavigationHost(
                                 viewModel = viewModel,
                                 navController = videoNavController,
-                                onVideoClick = { file ->
-                                    viewModel.playMedia(file)
+                                onVideoClick = { file, list ->
+                                    viewModel.playVideoFromList(file, list)
                                 },
                                 isSearchVisible = isSearchVisible // Pass visibility
                             )

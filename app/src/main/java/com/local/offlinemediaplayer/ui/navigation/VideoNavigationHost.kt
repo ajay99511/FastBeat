@@ -18,7 +18,7 @@ import com.local.offlinemediaplayer.viewmodel.MainViewModel
 fun VideoNavigationHost(
     viewModel: MainViewModel,
     navController: NavHostController,
-    onVideoClick: (MediaFile) -> Unit,
+    onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
     isSearchVisible: Boolean
 ) {
     NavHost(
@@ -46,7 +46,7 @@ fun VideoNavigationHost(
                 onPlaylistClick = { playlistId ->
                     navController.navigate("video_playlist_detail/$playlistId")
                 },
-                onVideoClick = onVideoClick,
+                onVideoClick = { file, list -> onVideoClick(file, list) },
                 isSearchVisible = isSearchVisible
             )
         }
@@ -76,6 +76,7 @@ fun VideoNavigationHost(
                 playlistId = playlistId,
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
+//                onBack = { navController.popBackStack() },
                 onNavigateToPlayer = onVideoClick
             )
         }

@@ -47,7 +47,7 @@ fun VideoFolderScreen(
     viewModel: MainViewModel,
     onFolderClick: (String) -> Unit,
     onPlaylistClick: (String) -> Unit,
-    onVideoClick: (MediaFile) -> Unit,
+    onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
     isSearchVisible: Boolean
 ) {
     // 0 = Folders, 1 = Movies, 2 = Playlists
@@ -222,7 +222,7 @@ fun VideoFolderScreen(
 @Composable
 private fun MoviesListContent(
     viewModel: MainViewModel,
-    onVideoClick: (MediaFile) -> Unit,
+    onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
     isGridView: Boolean,
     onToggleView: () -> Unit
 ) {
@@ -333,7 +333,7 @@ private fun MoviesListContent(
                         // Reusing VideoCardItem from VideoListScreen (made public)
                         VideoCardItem(
                             video = movie,
-                            onVideoClick = { onVideoClick(movie) },
+                            onVideoClick = { onVideoClick(movie, filteredMovies) },
                             onLongClick = {}, // No selection mode in Movies tab for simplicity
                             accentColor = primaryAccent,
                             onAddToPlaylist = {}, // Simplification
@@ -345,7 +345,7 @@ private fun MoviesListContent(
                         // Reusing VideoListItem from VideoListScreen (made public)
                         VideoListItem(
                             video = movie,
-                            onVideoClick = { onVideoClick(movie) },
+                            onVideoClick = { onVideoClick(movie, filteredMovies) },
                             onLongClick = {},
                             onAddToPlaylist = {},
                             isSelectionMode = false,

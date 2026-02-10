@@ -56,7 +56,7 @@ import java.text.DecimalFormat
 @Composable
 fun VideoListScreen(
     viewModel: MainViewModel,
-    onVideoClick: (MediaFile) -> Unit,
+    onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
     videoListOverride: List<MediaFile>? = null,
     title: String? = null,
     onBack: (() -> Unit)? = null
@@ -269,7 +269,7 @@ fun VideoListScreen(
                                 video = video,
                                 onVideoClick = {
                                     if (isSelectionMode) viewModel.toggleSelection(video.id)
-                                    else onVideoClick(video)
+                                    else onVideoClick(video, filteredVideos)
                                 },
                                 onLongClick = {
                                     viewModel.toggleSelectionMode(true)
@@ -293,7 +293,7 @@ fun VideoListScreen(
                                 video = video,
                                 onVideoClick = {
                                     if (isSelectionMode) viewModel.toggleSelection(video.id)
-                                    else onVideoClick(video)
+                                    else onVideoClick(video, filteredVideos)
                                 },
                                 onLongClick = {
                                     viewModel.toggleSelectionMode(true)

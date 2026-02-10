@@ -36,7 +36,7 @@ fun VideoPlaylistDetailScreen(
     playlistId: String,
     viewModel: MainViewModel,
     onBack: () -> Unit,
-    onNavigateToPlayer: (MediaFile) -> Unit
+    onNavigateToPlayer: (MediaFile, List<MediaFile>) -> Unit
 ) {
     val playlists by viewModel.videoPlaylists.collectAsStateWithLifecycle()
     val allVideos by viewModel.videoList.collectAsStateWithLifecycle()
@@ -157,7 +157,7 @@ fun VideoPlaylistDetailScreen(
                                 onClick = {
                                     if (videos.isNotEmpty()) {
                                         viewModel.playPlaylist(playlist, false)
-                                        onNavigateToPlayer(videos[0])
+                                        onNavigateToPlayer(videos[0], videos)
                                     }
                                 },
                                 shape = RoundedCornerShape(50),
@@ -184,7 +184,7 @@ fun VideoPlaylistDetailScreen(
                                         // Ideally, pass the first item of the shuffled list.
                                         // For simplicity, we just pass the first video of the *unshuffled* list 
                                         // because the PlayerScreen will sync with the VM's currentTrack anyway.
-                                        onNavigateToPlayer(videos[0])
+                                        onNavigateToPlayer(videos[0], videos)
                                     }
                                 },
                                 shape = RoundedCornerShape(50),
@@ -222,8 +222,8 @@ fun VideoPlaylistDetailScreen(
                             index = index + 1,
                             video = video,
                             onClick = {
-                                viewModel.playVideoFromList(video, videos)
-                                onNavigateToPlayer(video)
+                                // For playlist items, simply pass context, MainScreen will handle playVideoFromList
+                                onNavigateToPlayer(video, videos)
                             },
                             onRemove = {
                                 viewModel.removeSongFromPlaylist(playlistId, video.id)
