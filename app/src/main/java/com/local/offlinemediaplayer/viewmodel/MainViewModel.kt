@@ -1069,12 +1069,15 @@ class MainViewModel @Inject constructor(
     }
 
     private fun playVideo(media: MediaFile) {
+        // Cancel any pending queue update
+        queueUpdateJob?.cancel()
+
         // OPTIMIZATION: Start playing the target video IMMEDIATELY.
         // Navigate to player with just this item first.
         playVideoFromList(media, listOf(media))
         
         // Then, load the rest of the folder in the background to enable "Next/Prev"
-        viewModelScope.launch(Dispatchers.IO) {
+        queueUpdateJob = viewModelScope.launch(Dispatchers.IO) {
             val folderVideos = _videoList.value.filter { it.bucketId == media.bucketId }
             if (folderVideos.size > 1) {
                 // Determine start index for the FULL list
@@ -1088,12 +1091,19 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private var queueUpdateJob: Job? = null
+
     /**
      * Play a video from a context list (folder videos or playlist).
      * Sets the full list as the queue so next/prev navigation works.
+     * OPTIMIZATION: Loads only the target video first for instant playback, 
+     * then loads the rest of the queue in the background.
      */
     fun playVideoFromList(media: MediaFile, list: List<MediaFile>) {
         if (!media.isVideo) return
+
+        // Cancel any pending queue update from a previous click to prevent race conditions
+        queueUpdateJob?.cancel()
 
         // Snapshot Audio State if we are interrupting an active audio session
         val current = _currentTrack.value
@@ -1121,10 +1131,18 @@ class MainViewModel @Inject constructor(
             pendingAudioTrackIndex = history?.audioTrackIndex ?: -1
             pendingSubtitleTrackIndex = history?.subtitleTrackIndex ?: -1
             
-            val startIndex = list.indexOfFirst { it.id == media.id }.coerceAtLeast(0)
-
+            // 1. Play ONLY the target video immediately
             withContext(Dispatchers.Main) {
-                setQueue(list, startIndex, false, startPos)
+                // Pass just the single item list to setQueue for instant start
+                setQueue(listOf(media), 0, false, startPos)
+            }
+
+            // 2. Queue the rest in background if there's more than one item
+            if (list.size > 1) {
+                queueUpdateJob = launch {
+                    val startIndex = list.indexOfFirst { it.id == media.id }.coerceAtLeast(0)
+                    updateQueueInBackground(list, startIndex)
+                }
             }
         }
     }
@@ -1514,20 +1532,71 @@ class MainViewModel @Inject constructor(
         val currentIdx = _currentIndex.value ?: -1
 
         if (controller != null && queue.isNotEmpty() && currentIdx >= 0) {
-            // Add to local queue
-            queue.add(currentIdx + 1, media)
-            _currentQueue.value = queue
-
-            // Add to player
-            controller.addMediaItem(currentIdx + 1, media.toMediaItem())
-
-            // Update UI - just reflect current queue
-            _displayQueue.value = _currentQueue.value
+            // Check if media already exists in queue
+            val existingIndex = queue.indexOfFirst { it.id == media.id }
             
-            // Persist
+            if (existingIndex != -1) {
+                // CASE 1: Currently Playing -> Ignore
+                if (existingIndex == currentIdx) return
+                
+                // CASE 2: In Upcoming List (Index > Current) -> Ignore
+                // User requirement: "make sure the song added only once if it is not in the upcoming list"
+                // Meaning: If it IS in upcoming, don't change anything.
+                if (existingIndex > currentIdx) return
+
+                // CASE 3: In History (Index < Current) -> Move to Next
+                // User requirement: "playnext for the song already played should move it"
+                
+                // Remove from history
+                queue.removeAt(existingIndex)
+                controller.removeMediaItem(existingIndex)
+                
+                // New insertion point is currentIdx (since everything shifted up by 1)
+                // Wait, if we remove at 0, current was 5 -> current becomes 4.
+                // We want to insert at current + 1.
+                // But `controller` handles index shifts automatically for `currentMediaItemIndex`?
+                // Actually, if we remove before current, current index changes?
+                // ExoPlayer: removing item before current DECREMENTS current index.
+                // Our local `currentIdx` is a snapshot.
+                
+                // Let's use the controller's state after removal? No, async.
+                // Logic:
+                // Old Current: 5. Remove 2. New Current: 4.
+                // We want to insert at New Current + 1 = 5.
+                // So insert index = Current Index (old) ??
+                
+                // Let's do it safely:
+                // If existing < current:
+                // Remove existing.
+                // Insert at currentIdx (which was old currentIdx, but now represents the slot AFTER the *new* current).
+                // Example: [0, 1, 2(existing), 3, 4, 5(current), 6].
+                // Remove 2 -> [0, 1, 3, 4, 5(current), 6]. (Indices shifted).
+                // Old Current was 5. New Current is 4.
+                // We want to insert at 5 (after 4).
+                // So insert at `currentIdx`.
+                
+                val insertIndex = currentIdx
+                queue.add(insertIndex, media)
+                _currentQueue.value = queue
+                controller.addMediaItem(insertIndex, media.toMediaItem())
+                
+                // Update current index locally to match reality (decremented by 1)
+                // _currentIndex.value = currentIdx - 1
+                // BUT ExoPlayer listener will update _currentIndex automatically!
+                // We should trust the listener.
+            } else {
+                // CASE 4: New Song -> Add Next
+                // Simply insert at current + 1
+                val insertIndex = currentIdx + 1
+                queue.add(insertIndex, media)
+                _currentQueue.value = queue
+                controller.addMediaItem(insertIndex, media.toMediaItem())
+            }
+
+            // Update UI
+            _displayQueue.value = _currentQueue.value
             persistQueue(queue)
         } else {
-            // If nothing playing, just play this
             playMedia(media)
         }
     }
@@ -1535,25 +1604,42 @@ class MainViewModel @Inject constructor(
     fun addToQueue(media: MediaFile) {
         val controller = _player.value
         val queue = _currentQueue.value.toMutableList()
+        val currentIdx = _currentIndex.value ?: -1
 
         if (controller != null && queue.isNotEmpty()) {
-            // Add to local queue
-            queue.add(media)
-            _currentQueue.value = queue
+            val existingIndex = queue.indexOfFirst { it.id == media.id }
 
-            // Add to player
-            controller.addMediaItem(media.toMediaItem())
+            if (existingIndex != -1) {
+                // CASE 1: Currently Playing -> Ignore
+                if (existingIndex == currentIdx) return
 
-            // Update UI - just reflect current queue
+                // CASE 2: In Upcoming List (Index > Current) -> Ignore
+                if (existingIndex > currentIdx) return
+
+                // CASE 3: In History (Index < Current) -> Move to End
+                // User requirement: "similarly for the add to queue as well" (move if played)
+                queue.removeAt(existingIndex)
+                controller.removeMediaItem(existingIndex)
+                
+                // Add to end
+                queue.add(media)
+                _currentQueue.value = queue
+                controller.addMediaItem(media.toMediaItem())
+            } else {
+                // CASE 4: New Song -> Add to End
+                queue.add(media)
+                _currentQueue.value = queue
+                controller.addMediaItem(media.toMediaItem())
+            }
+            
+            // Update UI
             _displayQueue.value = _currentQueue.value
-
-            // Persist
             persistQueue(queue)
         } else {
-            // If nothing playing, just play this
             playMedia(media)
         }
     }
+
 
     override fun onCleared() {
         super.onCleared()
