@@ -337,8 +337,6 @@ fun PlaylistItemStyled(
             )
         }
 
-        }
-
         // More Menu
         Box {
             IconButton(onClick = { showMenu = true }) {
@@ -381,3 +379,4 @@ fun PlaylistItemStyled(
             }
         }
     }
+}
