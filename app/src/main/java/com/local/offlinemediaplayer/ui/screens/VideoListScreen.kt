@@ -8,7 +8,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+//import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,16 +18,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.*
+//import androidx.compose.material.icons.filled.ArrowBack
+//import androidx.compose.material.icons.filled.ArrowBackIosNew
+//import androidx.compose.material.icons.filled.CheckCircle
+//import androidx.compose.material.icons.filled.ChevronRight
+//import androidx.compose.material.icons.filled.Close
+//import androidx.compose.material.icons.filled.Delete
+//import androidx.compose.material.icons.filled.FormatListNumbered
+//import androidx.compose.material.icons.filled.GridView
+//import androidx.compose.material.icons.filled.MoreVert
+//import androidx.compose.material.icons.filled.PlaylistAdd
+//import androidx.compose.material.icons.filled.RadioButtonUnchecked
+//import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -152,7 +155,7 @@ fun VideoListScreen(
                             onClick = onBack,
                             modifier = Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).size(40.dp)
                         ) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = primaryAccent)
+                            Icon(Icons.Default.ArrowBackIosNew, contentDescription = "Back", tint = primaryAccent)
                         }
 
                         Spacer(modifier = Modifier.width(16.dp))
@@ -197,7 +200,8 @@ fun VideoListScreen(
                             modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
-                                imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                                imageVector = if (isGridView) Icons.Default.FormatListNumbered else Icons.Default.GridView,
+                                //Alt to viewlist icon
                                 contentDescription = "Change View",
                                 tint = Color(0xFF475569),
                                 modifier = Modifier.size(28.dp)
@@ -425,7 +429,7 @@ fun VideoListItem(
                             showMenu = false
                             onAddToPlaylist()
                         },
-                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
+                        leadingIcon = { Icon(Icons.Default.PlaylistAddCircle, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
@@ -529,14 +533,7 @@ fun VideoCardItem(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (video.resolution.isNotEmpty()) {
-                        Text(
-                            text = video.resolution,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = accentColor
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
+
 
                     if (video.size > 0) {
                         Text(
@@ -568,7 +565,7 @@ fun VideoCardItem(
                                 showMenu = false
                                 onAddToPlaylist()
                             },
-                            leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
+                            leadingIcon = { Icon(Icons.Default.PlaylistAddCircle, null, tint = MaterialTheme.colorScheme.onSurface) }
                         )
                         DropdownMenuItem(
                             text = { Text("Delete", color = MaterialTheme.colorScheme.error) },

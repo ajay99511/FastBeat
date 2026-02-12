@@ -556,7 +556,7 @@ fun VideoPlayerControls(
                     IconButton(onClick = onBack) { Icon(Icons.Default.KeyboardArrowLeft, "Back", tint = Color.White) }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = currentTrack?.title ?: "Video", color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1)
-                        Text(text = "${currentTrack?.resolution ?: "Unknown"} • ${formatSize(currentTrack?.size ?: 0)}", color = primaryAccent, style = MaterialTheme.typography.labelSmall)
+                        Text(text = formatSize(currentTrack?.size ?: 0), color = primaryAccent, style = MaterialTheme.typography.labelSmall)
                     }
                     IconButton(onClick = onPip) { Icon(Icons.Default.PictureInPictureAlt, "PiP", tint = Color.White) }
                     IconButton(onClick = onShowBookmarks) { Icon(Icons.Default.Bookmarks, "Bookmarks", tint = Color.White) }
