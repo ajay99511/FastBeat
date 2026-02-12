@@ -1,4 +1,3 @@
-
 package com.local.offlinemediaplayer.ui.components
 
 import androidx.compose.foundation.background
@@ -10,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,11 +28,7 @@ import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @Composable
-fun MiniPlayer(
-    viewModel: MainViewModel,
-    onTap: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun MiniPlayer(viewModel: MainViewModel, onTap: () -> Unit, modifier: Modifier = Modifier) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
@@ -41,13 +37,10 @@ fun MiniPlayer(
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     // Gradient brush matching theme
-    val gradientBrush = Brush.horizontalGradient(
-        colors = listOf(
-            primaryAccent,
-            Color(0xFF9656CE),
-            Color(0xFFE44CD8)
-        )
-    )
+    val gradientBrush =
+            Brush.horizontalGradient(
+                    colors = listOf(primaryAccent, Color(0xFF9656CE), Color(0xFFE44CD8))
+            )
 
     currentTrack?.let { track ->
         // Architecture Fix: MiniPlayer should never show video tracks
@@ -56,106 +49,129 @@ fun MiniPlayer(
         val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
 
         Surface(
-            modifier = modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .clickable(onClick = onTap),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp
+                modifier = modifier.fillMaxWidth().height(80.dp).clickable(onClick = onTap),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // 1. Top Gradient Progress Bar
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .height(2.dp)
+                                        .background(
+                                                MaterialTheme.colorScheme.onSurface.copy(
+                                                        alpha = 0.1f
+                                                )
+                                        )
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(progress)
-                            .background(gradientBrush)
+                            modifier =
+                                    Modifier.fillMaxHeight()
+                                            .fillMaxWidth(progress)
+                                            .background(gradientBrush)
                     )
                 }
 
                 // 2. Main Content
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                 ) {
                     Card(
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.size(48.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        elevation = CardDefaults.cardElevation(0.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(48.dp),
+                            colors =
+                                    CardDefaults.cardColors(
+                                            containerColor =
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                            elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         AsyncImage(
-                            model = track.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
-                            contentDescription = track.title,
-                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentScale = ContentScale.Crop
+                                model = track.albumArtUri
+                                                ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                                contentDescription = track.title,
+                                modifier =
+                                        Modifier.fillMaxSize()
+                                                .background(
+                                                        MaterialTheme.colorScheme.surfaceVariant
+                                                ),
+                                contentScale = ContentScale.Crop
                         )
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.Center
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = track.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                                text = track.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = track.artist ?: "Unknown Artist",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                                text = track.artist ?: "Unknown Artist",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                         )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Play/Pause Button (Gradient Circle)
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(gradientBrush)
-                                .clickable { viewModel.togglePlayPause() },
-                            contentAlignment = Alignment.Center
+                        // Previous Button
+                        IconButton(
+                                onClick = { viewModel.playPrevious() },
+                                enabled = viewModel.hasPrevious()
                         ) {
                             Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                                    imageVector = Icons.Default.SkipPrevious,
+                                    contentDescription = "Previous",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        // Play/Pause Button (Gradient Circle)
+                        Box(
+                                modifier =
+                                        Modifier.size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(gradientBrush)
+                                                .clickable { viewModel.togglePlayPause() },
+                                contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                    imageVector =
+                                            if (isPlaying) Icons.Default.Pause
+                                            else Icons.Default.PlayArrow,
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
                             )
                         }
 
                         IconButton(
-                            onClick = { viewModel.playNext() },
-                            enabled = viewModel.hasNext()
+                                onClick = { viewModel.playNext() },
+                                enabled = viewModel.hasNext()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.SkipNext,
-                                contentDescription = "Next",
-                                tint = Color.Gray,
-                                modifier = Modifier.size(32.dp)
+                                    imageVector = Icons.Default.SkipNext,
+                                    contentDescription = "Next",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(32.dp)
                             )
                         }
                     }
