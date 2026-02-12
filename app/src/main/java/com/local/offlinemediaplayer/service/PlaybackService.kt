@@ -17,28 +17,36 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .setUsage(C.USAGE_MEDIA)
-                    .build(),
-                true
-            )
-            .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
-            .build()
+        val player =
+                ExoPlayer.Builder(this)
+                        .setAudioAttributes(
+                                AudioAttributes.Builder()
+                                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                                        .setUsage(C.USAGE_MEDIA)
+                                        .build(),
+                                true
+                        )
+                        .setHandleAudioBecomingNoisy(true)
+                        .setWakeMode(C.WAKE_MODE_LOCAL)
+                        .build()
 
-        val sessionActivityPendingIntent = android.app.PendingIntent.getActivity(
-            this,
-            0,
-            android.content.Intent(this, com.local.offlinemediaplayer.MainActivity::class.java),
-            android.app.PendingIntent.FLAG_IMMUTABLE
-        )
+        val sessionActivityPendingIntent =
+                android.app.PendingIntent.getActivity(
+                        this,
+                        0,
+                        android.content.Intent(
+                                        this,
+                                        com.local.offlinemediaplayer.MainActivity::class.java
+                                )
+                                .apply { putExtra("open_player", true) },
+                        android.app.PendingIntent.FLAG_IMMUTABLE or
+                                android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                )
 
-        mediaSession = MediaSession.Builder(this, player)
-            .setSessionActivity(sessionActivityPendingIntent)
-            .build()
+        mediaSession =
+                MediaSession.Builder(this, player)
+                        .setSessionActivity(sessionActivityPendingIntent)
+                        .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

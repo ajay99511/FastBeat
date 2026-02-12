@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels // Use activity viewModels for shared state
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+//import androidx.lifecycle.viewmodel.compose.viewModel
 import com.local.offlinemediaplayer.ui.MainScreen
 import com.local.offlinemediaplayer.ui.theme.OfflineMediaPlayerTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
@@ -38,6 +39,14 @@ class MainActivity : ComponentActivity() {
                 MainScreen(viewModel = viewModel)
             }
         }
+        
+        // Handle intent on launch
+        viewModel.handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        viewModel.handleIntent(intent)
     }
 
     override fun onUserLeaveHint() {
