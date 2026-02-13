@@ -366,12 +366,15 @@ private fun MoviesListContent(
             }
         } else {
             val primaryAccent = LocalAppTheme.current.primaryColor
-            LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(filteredMovies) { movie ->
-                    if (isGridView) {
+            if (isGridView) {
+                LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredMovies) { movie ->
                         // Reusing VideoCardItem from VideoListScreen (made public)
                         VideoCardItem(
                                 video = movie,
@@ -387,7 +390,15 @@ private fun MoviesListContent(
                                     showPropertiesDialog = true
                                 }
                         )
-                    } else {
+                    }
+                }
+            } else {
+                LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredMovies) { movie ->
                         // Reusing VideoListItem from VideoListScreen (made public)
                         VideoListItem(
                                 video = movie,
