@@ -26,4 +26,15 @@ object FormatUtils {
                 " " +
                 units[digitGroups]
     }
+
+    fun formatMinutesToHours(minutes: Int): String {
+        if (minutes < 60) return "${minutes}m"
+        val hours = minutes / 60
+        val remainingMinutes = minutes % 60
+        return if (remainingMinutes > 0) {
+            "${hours}h ${remainingMinutes}m"
+        } else {
+            "${hours}h"
+        }
+    }
 }
