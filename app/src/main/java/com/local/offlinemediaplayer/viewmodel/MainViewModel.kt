@@ -23,6 +23,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.BookmarkEntity
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlayEvent
@@ -99,7 +100,8 @@ class MainViewModel
 constructor(
         private val app: Application,
         private val playlistRepository: PlaylistRepository,
-        private val mediaDao: MediaDao
+        private val mediaDao: MediaDao,
+        private val thumbnailManager: ThumbnailManager
 ) : AndroidViewModel(app) {
 
     // --- STATE PRESERVATION ---
@@ -930,7 +932,12 @@ constructor(
             try {
                 val videos = queryMedia(isVideo = true)
                 val audio = queryMedia(isVideo = false)
-                _videoList.value = videos
+                // Attach any already-cached thumbnails before publishing the list
+                val videosWithCachedThumbs = videos.map { v ->
+                    val cached = thumbnailManager.getCachedPath(v)
+                    if (cached != null) v.copy(thumbnailPath = cached) else v
+                }
+                _videoList.value = videosWithCachedThumbs
                 _audioList.value = audio
                 _imageList.value = queryImages()
                 _albums.value = queryAlbums()
@@ -946,6 +953,20 @@ constructor(
             } finally {
                 _isRefreshing.value = false
             }
+
+            // Generate missing thumbnails in background (after refreshing flag is cleared)
+            val uncachedVideos = _videoList.value.filter { it.thumbnailPath == null }
+            if (uncachedVideos.isNotEmpty()) {
+                thumbnailManager.generateThumbnails(uncachedVideos)
+                    .collect { (id, path) ->
+                        _videoList.value = _videoList.value.map {
+                            if (it.id == id) it.copy(thumbnailPath = path) else it
+                        }
+                    }
+            }
+
+            // Clean up thumbnails for deleted videos
+            thumbnailManager.cleanStaleThumbnails(_videoList.value)
         }
     }
 
@@ -1046,7 +1067,8 @@ constructor(
                             MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
                             MediaStore.Video.Media.SIZE,
                             MediaStore.Video.Media.WIDTH,
-                            MediaStore.Video.Media.HEIGHT
+                            MediaStore.Video.Media.HEIGHT,
+                            MediaStore.Video.Media.DATE_MODIFIED
                     )
                 } else {
                     arrayOf(
@@ -1096,6 +1118,8 @@ constructor(
                         if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.WIDTH) else -1
                 val heightColumn =
                         if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT) else -1
+                val dateModifiedColumn =
+                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED) else -1
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -1111,6 +1135,7 @@ constructor(
                     var bucketName = ""
                     var size: Long = 0
                     var resolution = ""
+                    var dateModified: Long = 0
 
                     if (isVideo) {
                         bucketId =
@@ -1121,6 +1146,7 @@ constructor(
                                         cursor.getString(bucketNameColumn) ?: "Unknown"
                                 else "Unknown"
                         size = if (sizeColumn != -1) cursor.getLong(sizeColumn) else 0
+                        dateModified = if (dateModifiedColumn != -1) cursor.getLong(dateModifiedColumn) else 0
 
                         val width = if (widthColumn != -1) cursor.getInt(widthColumn) else 0
                         val height = if (heightColumn != -1) cursor.getInt(heightColumn) else 0
@@ -1152,7 +1178,8 @@ constructor(
                                     bucketId,
                                     bucketName,
                                     size,
-                                    resolution
+                                    resolution,
+                                    dateModified
                             )
                     )
                 }

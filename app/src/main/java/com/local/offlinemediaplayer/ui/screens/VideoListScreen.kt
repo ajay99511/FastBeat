@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import java.io.File
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
@@ -584,7 +585,7 @@ fun VideoListItem(
                                         .background(Color.Gray)
                 ) {
                         AsyncImage(
-                                model = video.uri,
+                                model = video.thumbnailPath?.let { File(it) } ?: video.uri,
                                 contentDescription = video.title,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -709,7 +710,7 @@ fun VideoCardItem(
                                         .background(MaterialTheme.colorScheme.surface)
                 ) {
                         AsyncImage(
-                                model = video.uri,
+                                model = video.thumbnailPath?.let { File(it) } ?: video.uri,
                                 contentDescription = video.title,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop

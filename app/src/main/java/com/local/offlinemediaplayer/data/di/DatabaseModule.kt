@@ -2,6 +2,7 @@ package com.local.offlinemediaplayer.di
 
 import android.content.Context
 import androidx.room.Room
+import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.AppDatabase
 import com.local.offlinemediaplayer.data.db.MediaDao
 import dagger.Module
@@ -30,5 +31,11 @@ object DatabaseModule {
     @Provides
     fun provideMediaDao(database: AppDatabase): MediaDao {
         return database.mediaDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideThumbnailManager(@ApplicationContext context: Context): ThumbnailManager {
+        return ThumbnailManager(context)
     }
 }

@@ -14,5 +14,7 @@ data class MediaFile(
     val bucketId: String = "",
     val bucketName: String = "",
     val size: Long = 0,
-    val resolution: String = ""
+    val resolution: String = "",
+    val dateModified: Long = 0,
+    val thumbnailPath: String? = null
 )
