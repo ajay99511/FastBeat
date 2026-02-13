@@ -12,9 +12,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Favorite
+//import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.QueueMusic
+//import androidx.compose.material.icons.outlined.QueueMusic
+import androidx.compose.material.icons.outlined.QueuePlayNext
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.RepeatOne
 import androidx.compose.material.icons.outlined.Shuffle
@@ -92,7 +93,7 @@ fun NowPlayingScreen(
                     modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape).size(40.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowLeft,
+                        imageVector = Icons.Default.KeyboardDoubleArrowLeft,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface
                     )
@@ -118,7 +119,7 @@ fun NowPlayingScreen(
                 // Queue Button
                 IconButton(onClick = { showQueueSheet = true }) {
                     Icon(
-                        imageVector = Icons.Outlined.QueueMusic,
+                        imageVector = Icons.Outlined.QueuePlayNext,
                         contentDescription = "Queue",
                         tint = MaterialTheme.colorScheme.onSurface
                     )
