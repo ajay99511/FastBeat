@@ -11,12 +11,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material.icons.filled.ViewList
+//import androidx.compose.material.icons.filled.Sort
+//import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -285,7 +286,7 @@ private fun MoviesListContent(
                 Box {
                     IconButton(onClick = { showSortMenu = true }) {
                         Icon(
-                                Icons.Default.Sort,
+                            Icons.AutoMirrored.Filled.Sort,
                                 contentDescription = "Sort",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -346,7 +347,7 @@ private fun MoviesListContent(
                 IconButton(onClick = onToggleView) {
                     Icon(
                             imageVector =
-                                    if (isGridView) Icons.Default.ViewList
+                                    if (isGridView) Icons.AutoMirrored.Filled.ViewList
                                     else Icons.Default.GridView,
                             contentDescription = "Change View",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant

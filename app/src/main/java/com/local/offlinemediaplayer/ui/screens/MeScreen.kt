@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -260,9 +261,7 @@ fun MeScreen(
                                                                                         .labelSmall,
                                                                         maxLines = 1,
                                                                         overflow =
-                                                                                androidx.compose.ui
-                                                                                        .text.style
-                                                                                        .TextOverflow
+                                                                                TextOverflow
                                                                                         .Ellipsis
                                                                 )
                                                         }
@@ -337,7 +336,7 @@ fun MeScreen(
 
                                 AnalyticsCard(
                                         modifier = Modifier.weight(1f),
-                                        icon = Icons.Outlined.ShowChart,
+                                        icon = Icons.AutoMirrored.Outlined.ShowChart,
                                         iconColor = Color(0xFF00E5FF), // Blue
                                         label = "Daily Avg",
                                         value =
@@ -396,11 +395,14 @@ fun MeScreen(
                                                                                 // call
                                                                                 // onPlayMedia(track) which
                                                                                 // handles both.
-                                                                                displayTrack.let {
-                                                                                        onPlayMedia(
-                                                                                                it
-                                                                                        )
-                                                                                }
+//                                                                                displayTrack.let {
+//                                                                                        onPlayMedia(
+//                                                                                                it
+//                                                                                        )
+//                                                                                }
+                                                                                onPlayMedia(
+                                                                                        displayTrack
+                                                                                )
                                                                         }
                                                                         .padding(8.dp),
                                                         verticalAlignment =

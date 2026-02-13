@@ -3,6 +3,8 @@ package com.local.offlinemediaplayer.ui.common
 import java.text.DecimalFormat
 import java.util.Formatter
 import java.util.Locale
+import kotlin.math.log10
+import kotlin.math.pow
 
 object FormatUtils {
     fun formatDuration(millis: Long): String {
@@ -21,8 +23,8 @@ object FormatUtils {
     fun formatSize(bytes: Long): String {
         if (bytes <= 0) return "0 B"
         val units = arrayOf("B", "KB", "MB", "GB", "TB")
-        val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
-        return DecimalFormat("#,##0.#").format(bytes / Math.pow(1024.0, digitGroups.toDouble())) +
+        val digitGroups = (log10(bytes.toDouble()) / log10(1024.0)).toInt()
+        return DecimalFormat("#,##0.#").format(bytes / 1024.0.pow(digitGroups.toDouble())) +
                 " " +
                 units[digitGroups]
     }

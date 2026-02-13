@@ -28,9 +28,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -129,7 +132,8 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             val isPortraitVideo = videoSize.height > videoSize.width
 
             if (isPortraitVideo) {
-                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+//                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
             } else {
                 activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             }
@@ -394,7 +398,7 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         if (activity?.requestedOrientation ==
                                         ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                         ) {
-                            activity?.requestedOrientation =
+                            activity.requestedOrientation =
                                     ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                         } else {
                             activity?.requestedOrientation =
@@ -523,7 +527,11 @@ fun BookmarksDialog(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Divider(color = Color.Gray.copy(alpha = 0.3f))
+            HorizontalDivider(
+                Modifier,
+                DividerDefaults.Thickness,
+                color = Color.Gray.copy(alpha = 0.3f)
+            )
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(
@@ -587,7 +595,7 @@ private fun CenterGestureOverlay(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val icon =
                         when (mode) {
-                            GestureMode.VOLUME -> Icons.Outlined.VolumeUp
+                            GestureMode.VOLUME -> Icons.AutoMirrored.Outlined.VolumeUp
                             GestureMode.BRIGHTNESS -> Icons.Outlined.BrightnessHigh
                             GestureMode.SEEK ->
                                     if (text.contains("-")) Icons.Default.FastRewind
@@ -714,7 +722,7 @@ fun VideoPlayerControls(
                         verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.KeyboardArrowLeft, "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White)
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(

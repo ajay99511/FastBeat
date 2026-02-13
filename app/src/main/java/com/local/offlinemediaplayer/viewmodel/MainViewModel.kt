@@ -1049,7 +1049,7 @@ constructor(
     private fun queryMedia(isVideo: Boolean): List<MediaFile> {
         val mediaList = mutableListOf<MediaFile>()
         val collection =
-                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                if (Build.VERSION.SDK_INT >= 29) {
                     if (isVideo) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                     else MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 } else {
@@ -1193,7 +1193,7 @@ constructor(
     private fun queryImages(): List<MediaFile> {
         val imageList = mutableListOf<MediaFile>()
         val collection =
-                if (android.os.Build.VERSION.SDK_INT >= 29)
+                if (Build.VERSION.SDK_INT >= 29)
                         MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME)
@@ -1237,7 +1237,7 @@ constructor(
     private fun queryAlbums(): List<Album> {
         val albumList = mutableListOf<Album>()
         val collection =
-                if (android.os.Build.VERSION.SDK_INT >= 29)
+                if (Build.VERSION.SDK_INT >= 29)
                         MediaStore.Audio.Albums.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 else MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI
         val projection =
@@ -1621,7 +1621,7 @@ constructor(
         _isPlayerLocked.value = !_isPlayerLocked.value
     }
     fun toggleResizeMode() {
-        val modes = ResizeMode.values()
+        val modes = ResizeMode.entries.toTypedArray()
         _resizeMode.value = modes[(_resizeMode.value.ordinal + 1) % modes.size]
     }
     fun cyclePlaybackSpeed() {

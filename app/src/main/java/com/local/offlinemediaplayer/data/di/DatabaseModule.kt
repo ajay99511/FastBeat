@@ -1,4 +1,4 @@
-package com.local.offlinemediaplayer.di
+package com.local.offlinemediaplayer.data.di
 
 import android.content.Context
 import androidx.room.Room
@@ -24,7 +24,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "mediaplayer_db"
         )
-            .fallbackToDestructiveMigration() // FIX: Prevents crash on schema updates
+            .fallbackToDestructiveMigration(false) // FIX: Prevents crash on schema updates
             .build()
     }
 

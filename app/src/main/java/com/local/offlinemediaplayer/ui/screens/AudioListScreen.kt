@@ -1,8 +1,8 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
-import android.R.attr.fontWeight
-import android.R.attr.text
+//import android.R.attr.fontWeight
+//import android.R.attr.text
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,18 +19,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Shuffle
-import androidx.compose.material.icons.filled.PlaylistPlay
-import androidx.compose.material.icons.filled.QueueMusic
+//import androidx.compose.material.icons.filled.PlaylistPlay
+//import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+//import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -395,7 +398,7 @@ private fun AudioListItemStyled(
                             showMenu = false
                             onPlayNext(song)
                         },
-                        leadingIcon = { Icon(Icons.Default.PlaylistPlay, null, tint = MaterialTheme.colorScheme.onSurface) }
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Add to Queue", color = MaterialTheme.colorScheme.onSurface) },
@@ -403,7 +406,7 @@ private fun AudioListItemStyled(
                             showMenu = false
                             onAddToQueue(song)
                         },
-                        leadingIcon = { Icon(Icons.Default.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
@@ -411,7 +414,7 @@ private fun AudioListItemStyled(
                             showMenu = false
                             onAddToPlaylist(song)
                         },
-                        leadingIcon = { Icon(Icons.Default.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
