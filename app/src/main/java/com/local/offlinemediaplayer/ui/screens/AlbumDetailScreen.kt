@@ -162,7 +162,6 @@ fun AlbumDetailScreen(
                                     onClick = {
                                         if (albumSongs.isNotEmpty()) {
                                             viewModel.playAlbum(album, false)
-                                            onNavigateToPlayer()
                                         }
                                     },
                                     shape = CircleShape,
@@ -253,7 +252,6 @@ fun AlbumDetailScreen(
                             song = song,
                             onClick = {
                                 viewModel.playMedia(song)
-                                onNavigateToPlayer()
                             },
                             onPlayNext = { viewModel.playNext(song) },
                             onAddToQueue = { viewModel.addToQueue(song) }

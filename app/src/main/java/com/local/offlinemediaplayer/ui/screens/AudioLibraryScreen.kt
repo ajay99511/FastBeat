@@ -105,7 +105,6 @@ fun AudioLibraryScreen(
                             viewModel = viewModel,
                             onAudioClick = { file ->
                                 viewModel.playMedia(file)
-                                onNavigateToPlayer()
                             },
                             onAddToPlaylist = { file ->
                                 songToAdd = file

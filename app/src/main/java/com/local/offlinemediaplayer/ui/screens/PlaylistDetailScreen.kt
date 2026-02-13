@@ -218,7 +218,6 @@ fun PlaylistDetailScreen(
                                     onClick = {
                                         if (songs.isNotEmpty()) {
                                             viewModel.playPlaylist(playlist, false)
-                                            onNavigateToPlayer()
                                         }
                                     },
                                     shape = RoundedCornerShape(50),
@@ -238,7 +237,6 @@ fun PlaylistDetailScreen(
                                     onClick = {
                                         if (songs.isNotEmpty()) {
                                             viewModel.playPlaylist(playlist, true)
-                                            onNavigateToPlayer()
                                         }
                                     },
                                     shape = RoundedCornerShape(50),
@@ -282,7 +280,6 @@ fun PlaylistDetailScreen(
                                 song = song,
                                 onClick = {
                                     viewModel.setQueue(songs, index, false)
-                                    onNavigateToPlayer()
                                 },
                                 onRemove = {
                                     viewModel.removeSongFromPlaylist(playlistId, song.id)
