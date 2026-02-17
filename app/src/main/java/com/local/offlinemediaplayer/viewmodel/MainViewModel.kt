@@ -68,6 +68,13 @@ enum class SortOption {
     DATE_ADDED_DESC
 }
 
+enum class AlbumSortOption {
+    NAME_ASC,
+    ARTIST_ASC,
+    YEAR_DESC,
+    SONG_COUNT_DESC
+}
+
 enum class ResizeMode {
     FIT,
     FILL,
@@ -292,6 +299,9 @@ constructor(
     private val _folderSearchQuery = MutableStateFlow("")
     val folderSearchQuery = _folderSearchQuery.asStateFlow()
 
+    private val _albumSortOption = MutableStateFlow(AlbumSortOption.NAME_ASC)
+    val albumSortOption = _albumSortOption.asStateFlow()
+
     private val _sortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
     val sortOption = _sortOption.asStateFlow()
 
@@ -321,13 +331,23 @@ constructor(
                     )
 
     val filteredAlbums =
-            combine(_albums, _albumSearchQuery) { list, query ->
-                        if (query.isEmpty()) list
-                        else
-                                list.filter {
-                                    it.name.contains(query, ignoreCase = true) ||
-                                            it.artist.contains(query, ignoreCase = true)
-                                }
+            combine(_albums, _albumSearchQuery, _albumSortOption) { list, query, sort ->
+                        var result = list
+                        if (query.isNotEmpty()) {
+                            result =
+                                    result.filter {
+                                        it.name.contains(query, ignoreCase = true) ||
+                                                it.artist.contains(query, ignoreCase = true)
+                                    }
+                        }
+                        when (sort) {
+                            AlbumSortOption.NAME_ASC -> result.sortedBy { it.name.lowercase() }
+                            AlbumSortOption.ARTIST_ASC -> result.sortedBy { it.artist.lowercase() }
+                            AlbumSortOption.YEAR_DESC ->
+                                    result.sortedByDescending { it.firstYear ?: 0 }
+                            AlbumSortOption.SONG_COUNT_DESC ->
+                                    result.sortedByDescending { it.songCount }
+                        }
                     }
                     .stateIn(
                             scope = viewModelScope,
@@ -479,6 +499,10 @@ constructor(
     }
     fun updateSortOption(option: SortOption) {
         _sortOption.value = option
+    }
+
+    fun updateAlbumSortOption(option: AlbumSortOption) {
+        _albumSortOption.value = option
     }
 
     // --- Selection Logic ---
@@ -933,10 +957,11 @@ constructor(
                 val videos = queryMedia(isVideo = true)
                 val audio = queryMedia(isVideo = false)
                 // Attach any already-cached thumbnails before publishing the list
-                val videosWithCachedThumbs = videos.map { v ->
-                    val cached = thumbnailManager.getCachedPath(v)
-                    if (cached != null) v.copy(thumbnailPath = cached) else v
-                }
+                val videosWithCachedThumbs =
+                        videos.map { v ->
+                            val cached = thumbnailManager.getCachedPath(v)
+                            if (cached != null) v.copy(thumbnailPath = cached) else v
+                        }
                 _videoList.value = videosWithCachedThumbs
                 _audioList.value = audio
                 _imageList.value = queryImages()
@@ -957,12 +982,12 @@ constructor(
             // Generate missing thumbnails in background (after refreshing flag is cleared)
             val uncachedVideos = _videoList.value.filter { it.thumbnailPath == null }
             if (uncachedVideos.isNotEmpty()) {
-                thumbnailManager.generateThumbnails(uncachedVideos)
-                    .collect { (id, path) ->
-                        _videoList.value = _videoList.value.map {
-                            if (it.id == id) it.copy(thumbnailPath = path) else it
-                        }
-                    }
+                thumbnailManager.generateThumbnails(uncachedVideos).collect { (id, path) ->
+                    _videoList.value =
+                            _videoList.value.map {
+                                if (it.id == id) it.copy(thumbnailPath = path) else it
+                            }
+                }
             }
 
             // Clean up thumbnails for deleted videos
@@ -1119,7 +1144,8 @@ constructor(
                 val heightColumn =
                         if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT) else -1
                 val dateModifiedColumn =
-                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED) else -1
+                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED)
+                        else -1
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -1146,7 +1172,9 @@ constructor(
                                         cursor.getString(bucketNameColumn) ?: "Unknown"
                                 else "Unknown"
                         size = if (sizeColumn != -1) cursor.getLong(sizeColumn) else 0
-                        dateModified = if (dateModifiedColumn != -1) cursor.getLong(dateModifiedColumn) else 0
+                        dateModified =
+                                if (dateModifiedColumn != -1) cursor.getLong(dateModifiedColumn)
+                                else 0
 
                         val width = if (widthColumn != -1) cursor.getInt(widthColumn) else 0
                         val height = if (heightColumn != -1) cursor.getInt(heightColumn) else 0

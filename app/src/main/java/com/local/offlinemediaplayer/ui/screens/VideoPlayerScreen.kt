@@ -690,7 +690,7 @@ fun VideoPlayerControls(
         }
 
         if (isVisible || isLocked) {
-            Box(modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp)) {
+            Box(modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 100.dp)) {
                 IconButton(
                         onClick = { viewModel.toggleLock() },
                         modifier =
@@ -758,7 +758,7 @@ fun VideoPlayerControls(
                 Row(
                         modifier = Modifier.align(Alignment.Center),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(32.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Previous Video
                     IconButton(
