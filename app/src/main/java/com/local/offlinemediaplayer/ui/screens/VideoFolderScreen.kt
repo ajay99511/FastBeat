@@ -18,6 +18,10 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 //import androidx.compose.material.icons.filled.Sort
 //import androidx.compose.material.icons.filled.ViewList
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -38,6 +42,7 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
@@ -70,6 +75,22 @@ fun VideoFolderScreen(
 
     // Refresh State
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+
+    // Deletion Flow Handling
+    val intentLauncher =
+            rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartIntentSenderForResult()
+            ) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    viewModel.onDeleteSuccess()
+                }
+            }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // 1. Collapsible Search Box
@@ -256,6 +277,8 @@ private fun MoviesListContent(
     // Properties Dialog State
     var showPropertiesDialog by remember { mutableStateOf(false) }
     var selectedVideoForProperties by remember { mutableStateOf<MediaFile?>(null) }
+    // Delete Dialog
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     var showSortMenu by remember { mutableStateOf(false) }
 
@@ -385,7 +408,11 @@ private fun MoviesListContent(
                                 onAddToPlaylist = {}, // Simplification
                                 isSelectionMode = false,
                                 isSelected = false,
-                                onDelete = {},
+                                onDelete = {
+                                    viewModel.toggleSelectionMode(true)
+                                    viewModel.selectAll(listOf(movie.id))
+                                    showDeleteConfirmDialog = true
+                                },
                                 onProperties = {
                                     selectedVideoForProperties = movie
                                     showPropertiesDialog = true
@@ -408,7 +435,11 @@ private fun MoviesListContent(
                                 onAddToPlaylist = {},
                                 isSelectionMode = false,
                                 isSelected = false,
-                                onDelete = {},
+                                onDelete = {
+                                    viewModel.toggleSelectionMode(true)
+                                    viewModel.selectAll(listOf(movie.id))
+                                    showDeleteConfirmDialog = true
+                                },
                                 onProperties = {
                                     selectedVideoForProperties = movie
                                     showPropertiesDialog = true
@@ -424,6 +455,15 @@ private fun MoviesListContent(
         MediaPropertiesDialog(
                 mediaFile = selectedVideoForProperties!!,
                 onDismiss = { showPropertiesDialog = false }
+        )
+    }
+
+    if (showDeleteConfirmDialog) {
+        val selectedIds by viewModel.selectedMediaIds.collectAsStateWithLifecycle()
+        DeleteConfirmationDialog(
+                count = selectedIds.size,
+                onConfirm = { viewModel.deleteSelectedMedia() },
+                onDismiss = { showDeleteConfirmDialog = false }
         )
     }
 }
