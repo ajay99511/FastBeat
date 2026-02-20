@@ -41,6 +41,9 @@ fun AlbumDetailScreen(
     val albums by viewModel.albums.collectAsStateWithLifecycle()
     val allAudio by viewModel.audioList.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
     val album = albums.find { it.id == albumId }
     val albumSongs = allAudio.filter { it.albumId == albumId }
@@ -86,7 +89,7 @@ fun AlbumDetailScreen(
 
             LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 100.dp) // Space for MiniPlayer
+                    contentPadding = PaddingValues(bottom = bottomPadding) // Space for MiniPlayer
             ) {
                 // Header Content
                 item {

@@ -47,6 +47,9 @@ fun AlbumListScreen(
     val albums by viewModel.filteredAlbums.collectAsStateWithLifecycle()
     val searchQuery by viewModel.albumSearchQuery.collectAsStateWithLifecycle()
     val sortOption by viewModel.albumSortOption.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
     // Local state for view mode (Grid vs List) - Persisted across recompositions but not app restarts
     var isListView by rememberSaveable { mutableStateOf(false) }
@@ -185,7 +188,7 @@ fun AlbumListScreen(
         } else {
             if (isListView) {
                 LazyColumn(
-                    contentPadding = PaddingValues(bottom = 100.dp), // Padding for MiniPlayer
+                    contentPadding = PaddingValues(bottom = bottomPadding), // Padding for MiniPlayer
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(albums) { album ->
@@ -220,8 +223,8 @@ fun AlbumListScreen(
                         )
                     }
                     // Padding for MiniPlayer
-                    item { Spacer(modifier = Modifier.height(70.dp)) }
-                    item { Spacer(modifier = Modifier.height(70.dp)) }
+                    item { Spacer(modifier = Modifier.height(if (isMiniPlayerVisible) 70.dp else 0.dp)) }
+                    item { Spacer(modifier = Modifier.height(if (isMiniPlayerVisible) 70.dp else 0.dp)) }
                 }
             }
         }

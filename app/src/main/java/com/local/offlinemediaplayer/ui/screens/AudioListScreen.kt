@@ -61,6 +61,9 @@ fun AudioListScreen(
     val audioList by viewModel.filteredAudioList.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
     // Selection State
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
@@ -103,7 +106,7 @@ fun AudioListScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
-            contentPadding = PaddingValues(bottom = 100.dp), // Space for MiniPlayer
+            contentPadding = PaddingValues(bottom = bottomPadding), // Space for MiniPlayer
             modifier = Modifier.fillMaxSize()
         ) {
             // 1. Collapsible Search Bar (Hide in selection mode)

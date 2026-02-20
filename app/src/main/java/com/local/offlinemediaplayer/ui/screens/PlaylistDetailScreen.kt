@@ -38,6 +38,10 @@ fun PlaylistDetailScreen(
 ) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val allAudio by viewModel.audioList.collectAsStateWithLifecycle()
+    
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 120.dp else 16.dp
 
     val playlist = playlists.find { it.id == playlistId }
 
@@ -141,7 +145,7 @@ fun PlaylistDetailScreen(
 
             LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp) // Space for MiniPlayer
+                    contentPadding = PaddingValues(bottom = bottomPadding) // Space for MiniPlayer
             ) {
                 // Header Info
                 item {

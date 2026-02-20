@@ -49,7 +49,8 @@ fun NowPlayingScreen(
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
-    val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
+    // Current position isn't needed at the top level anymore, passed directly to progress bar
+    // val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsStateWithLifecycle()
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
@@ -199,60 +200,13 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Gradient Progress Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp))
-                )
-
-                val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Box(
-                        modifier = Modifier
-                            .weight(progress.coerceAtLeast(0.001f))
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(progressBarGradient)
-                    )
-                    Spacer(modifier = Modifier.weight((1f - progress).coerceAtLeast(0.001f)))
-                }
-
-                Slider(
-                    value = if (duration > 0) currentPosition.toFloat() else 0f,
-                    onValueChange = { viewModel.seekTo(it.toLong()) },
-                    valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.Transparent,
-                        activeTrackColor = Color.Transparent,
-                        inactiveTrackColor = Color.Transparent
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = formatDuration(currentPosition),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = formatDuration(duration),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            // Gradient Progress Bar (Extracted to prevent full screen recomposition)
+            PlaybackControlsWithProgress(
+                currentPositionFlow = viewModel.currentPosition,
+                duration = duration,
+                progressBarGradient = progressBarGradient,
+                onSeek = { viewModel.seekTo(it) }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -432,4 +386,70 @@ private fun formatDuration(millis: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return String.format("%d:%02d", minutes, seconds)
+}
+
+@Composable
+fun PlaybackControlsWithProgress(
+    currentPositionFlow: kotlinx.coroutines.flow.StateFlow<Long>,
+    duration: Long,
+    progressBarGradient: Brush,
+    onSeek: (Long) -> Unit
+) {
+    val currentPosition by currentPositionFlow.collectAsStateWithLifecycle()
+
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp))
+            )
+
+            val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .weight(progress.coerceAtLeast(0.001f))
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(progressBarGradient)
+                )
+                Spacer(modifier = Modifier.weight((1f - progress).coerceAtLeast(0.001f)))
+            }
+
+            Slider(
+                value = if (duration > 0) currentPosition.toFloat() else 0f,
+                onValueChange = { onSeek(it.toLong()) },
+                valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.Transparent,
+                    activeTrackColor = Color.Transparent,
+                    inactiveTrackColor = Color.Transparent
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = formatDuration(currentPosition),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = formatDuration(duration),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
 }

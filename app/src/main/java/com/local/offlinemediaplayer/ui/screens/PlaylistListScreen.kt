@@ -65,6 +65,10 @@ fun PlaylistListScreen(
         viewModel.audioPlaylists.collectAsStateWithLifecycle()
     }
 
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
+
     // State for actions
     var playlistToRename by remember { mutableStateOf<Pair<String, String>?>(null) } // id, currentName
     var playlistToDelete by remember { mutableStateOf<String?>(null) } // id
@@ -149,7 +153,7 @@ fun PlaylistListScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp) // Space for MiniPlayer
+                contentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding) // Space for MiniPlayer
             ) {
                 items(playlists, key = { it.id }) { playlist ->
                     PlaylistListItem(

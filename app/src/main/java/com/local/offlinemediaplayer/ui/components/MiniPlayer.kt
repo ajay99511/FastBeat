@@ -31,22 +31,23 @@ import com.local.offlinemediaplayer.viewmodel.MainViewModel
 fun MiniPlayer(viewModel: MainViewModel, onTap: () -> Unit, modifier: Modifier = Modifier) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
-    val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
-    val duration by viewModel.duration.collectAsStateWithLifecycle()
-
     val primaryAccent = LocalAppTheme.current.primaryColor
-
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
     // Gradient brush matching theme
     val gradientBrush =
             Brush.horizontalGradient(
                     colors = listOf(primaryAccent, Color(0xFF9656CE), Color(0xFFE44CD8))
             )
 
+    // Current position isn't needed at the top level anymore, we pass the flow directly to the progress bar to isolate recomposition
+    // val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
+
     currentTrack?.let { track ->
         // Architecture Fix: MiniPlayer should never show video tracks
         if (track.isVideo) return
 
-        val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+        // In order to not observe currentPosition here, we'll only compute progress in the extracted component.
+        // We'll leave `progress` calculation to the progress bar exclusively.
 
         Surface(
                 modifier = modifier.fillMaxWidth().height(80.dp).clickable(onClick = onTap),
@@ -55,23 +56,11 @@ fun MiniPlayer(viewModel: MainViewModel, onTap: () -> Unit, modifier: Modifier =
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // 1. Top Gradient Progress Bar
-                Box(
-                        modifier =
-                                Modifier.fillMaxWidth()
-                                        .height(2.dp)
-                                        .background(
-                                                MaterialTheme.colorScheme.onSurface.copy(
-                                                        alpha = 0.1f
-                                                )
-                                        )
-                ) {
-                    Box(
-                            modifier =
-                                    Modifier.fillMaxHeight()
-                                            .fillMaxWidth(progress)
-                                            .background(gradientBrush)
-                    )
-                }
+                MiniPlayerProgressBar(
+                    currentPositionFlow = viewModel.currentPosition,
+                    duration = duration,
+                    gradientBrush = gradientBrush
+                )
 
                 // 2. Main Content
                 Row(
@@ -178,5 +167,31 @@ fun MiniPlayer(viewModel: MainViewModel, onTap: () -> Unit, modifier: Modifier =
                 }
             }
         }
+    }
+}
+
+@Composable
+fun MiniPlayerProgressBar(
+    currentPositionFlow: kotlinx.coroutines.flow.StateFlow<Long>,
+    duration: Long,
+    gradientBrush: Brush
+) {
+    val currentPosition by currentPositionFlow.collectAsStateWithLifecycle()
+    val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
+    
+    Box(
+        modifier =
+            Modifier.fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
+    ) {
+        Box(
+            modifier =
+                Modifier.fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .background(gradientBrush)
+        )
     }
 }
