@@ -656,6 +656,8 @@ constructor(
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_READY) {
                             _duration.value = controller.duration.coerceAtLeast(0L)
+                        } else if (playbackState == Player.STATE_ENDED) {
+                            autoFillQueue(playNext = true)
                         }
                     }
 
@@ -1782,11 +1784,61 @@ constructor(
         )
     }
 
+    // --- Auto Fill Queue Logic ---
+    private fun autoFillQueue(playNext: Boolean = false, playPrevious: Boolean = false) {
+        val currentTrack = _currentTrack.value
+        if (currentTrack?.isVideo == true) return
+
+        val controller = _player.value ?: return
+        val audioList = _audioList.value
+        if (audioList.isEmpty()) return
+
+        val shuffledAudio = audioList.shuffled()
+        val newQueue = _currentQueue.value.toMutableList()
+
+        if (playPrevious) {
+            newQueue.addAll(0, shuffledAudio)
+            _currentQueue.value = newQueue
+            _displayQueue.value = newQueue
+
+            viewModelScope.launch(Dispatchers.IO) {
+                val mediaItems = shuffledAudio.map { it.toMediaItem() }
+                withContext(Dispatchers.Main) {
+                    controller.addMediaItems(0, mediaItems)
+                    controller.seekTo(mediaItems.size - 1, 0L)
+                    controller.play()
+                }
+                persistQueue(newQueue)
+            }
+        } else {
+            newQueue.addAll(shuffledAudio)
+            _currentQueue.value = newQueue
+            _displayQueue.value = newQueue
+
+            viewModelScope.launch(Dispatchers.IO) {
+                val mediaItems = shuffledAudio.map { it.toMediaItem() }
+                withContext(Dispatchers.Main) {
+                    controller.addMediaItems(mediaItems)
+                    
+                    if (playNext || controller.playbackState == Player.STATE_ENDED) {
+                        if (controller.hasNextMediaItem()) {
+                            controller.seekToNext()
+                            controller.play()
+                        }
+                    }
+                }
+                persistQueue(newQueue)
+            }
+        }
+    }
+
     // --- Controls ---
     fun playNext() {
         _player.value?.let {
             if (it.hasNextMediaItem()) {
                 it.seekToNext()
+            } else {
+                autoFillQueue(playNext = true)
             }
         }
     }
@@ -1797,6 +1849,8 @@ constructor(
                 it.seekTo(0)
             } else if (it.hasPreviousMediaItem()) {
                 it.seekToPrevious()
+            } else {
+                autoFillQueue(playPrevious = true)
             }
         }
     }
