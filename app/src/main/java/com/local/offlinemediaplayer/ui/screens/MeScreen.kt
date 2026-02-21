@@ -528,7 +528,7 @@ fun MeScreen(
                                                         )
                                                 }
                                                 Spacer(modifier = Modifier.width(16.dp))
-                                                Column {
+                                                Column(modifier = Modifier.weight(1f)) {
                                                         Text(
                                                                 "Current Obsession",
                                                                 style =
@@ -565,6 +565,14 @@ fun MeScreen(
                                                                                         .onSurfaceVariant
                                                                 )
                                                         }
+                                                }
+                                                if (analytics.currentFavoritePlayCount > 0) {
+                                                        Text(
+                                                                text = "${analytics.currentFavoritePlayCount} plays",
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = theme.primaryColor,
+                                                                fontWeight = FontWeight.Bold
+                                                        )
                                                 }
                                         }
 
@@ -617,7 +625,7 @@ fun MeScreen(
                                                         )
                                                 }
                                                 Spacer(modifier = Modifier.width(16.dp))
-                                                Column {
+                                                Column(modifier = Modifier.weight(1f)) {
                                                         Text(
                                                                 "All Time #1",
                                                                 style =
@@ -654,6 +662,14 @@ fun MeScreen(
                                                                                         .onSurfaceVariant
                                                                 )
                                                         }
+                                                }
+                                                if (analytics.allTimeFavoritePlayCount > 0) {
+                                                        Text(
+                                                                text = "${analytics.allTimeFavoritePlayCount} plays",
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = Color(0xFFFFD700),
+                                                                fontWeight = FontWeight.Bold
+                                                        )
                                                 }
                                         }
                                 }

@@ -88,7 +88,9 @@ data class RealtimeAnalytics(
         val avgDailyMinutes: Int = 0,
         val streakDays: Int = 0,
         val currentFavorite: MediaFile? = null,
-        val allTimeFavorite: MediaFile? = null
+        val allTimeFavorite: MediaFile? = null,
+        val currentFavoritePlayCount: Int = 0,
+        val allTimeFavoritePlayCount: Int = 0
 )
 
 // Data class for audio/subtitle track info
@@ -939,13 +941,19 @@ constructor(
             val overallFav = allMedia.find { it.id == overallFavId }
             val recentFav = allMedia.find { it.id == recentFavId }
 
+            // 4. Play Counts for favorites
+            val currentFavPlayCount = if (recentFavId != null) mediaDao.getAnalytics(recentFavId)?.playCount ?: 0 else 0
+            val allTimeFavPlayCount = if (overallFavId != null) mediaDao.getAnalytics(overallFavId)?.playCount ?: 0 else 0
+
             RealtimeAnalytics(
                     todayPlaytimeMinutes = (todayMs / 60000).toInt(),
                     weekPlaytimeMinutes = (weekMs / 60000).toInt(),
                     avgDailyMinutes = (avgDailyMs / 60000).toInt(),
                     streakDays = currentStreak,
                     currentFavorite = recentFav,
-                    allTimeFavorite = overallFav
+                    allTimeFavorite = overallFav,
+                    currentFavoritePlayCount = currentFavPlayCount,
+                    allTimeFavoritePlayCount = allTimeFavPlayCount
             )
         }
     }
