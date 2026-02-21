@@ -1,8 +1,12 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import android.app.Activity
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,8 +22,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-//import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +55,21 @@ fun ImageListScreen(
     // Local search state for Images
     var searchQuery by remember { mutableStateOf("") }
 
+    // Deletion Flow (for Android 11+ scoped storage)
+    val intentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onImageDeleteSuccess()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
     // Handle Back Press to close viewer
     BackHandler(enabled = selectedImageIndex != null) {
         selectedImageIndex = null
@@ -65,9 +85,21 @@ fun ImageListScreen(
     if (selectedImageIndex != null && filteredImages.isNotEmpty()) {
         // Full Screen Viewer
         ImageViewer(
+            viewModel = viewModel,
             images = filteredImages,
             initialIndex = selectedImageIndex!!,
-            onBack = { selectedImageIndex = null }
+            onBack = { selectedImageIndex = null },
+            onDeleted = { deletedIndex ->
+                // After deletion: navigate to next image, or prev, or close viewer
+                if (filteredImages.size <= 1) {
+                    // Was the last image, close viewer
+                    selectedImageIndex = null
+                } else if (deletedIndex >= filteredImages.size - 1) {
+                    // Was the last item in list, go to previous
+                    selectedImageIndex = deletedIndex - 1
+                }
+                // Otherwise stay at same index (next image slides in)
+            }
         )
     } else {
         // Grid View
@@ -148,15 +180,18 @@ fun ImageItem(image: MediaFile, onClick: () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageViewer(
+    viewModel: MainViewModel,
     images: List<MediaFile>,
     initialIndex: Int,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onDeleted: (Int) -> Unit
 ) {
     val pagerState = rememberPagerState(
         initialPage = initialIndex,
         pageCount = { images.size }
     )
     var showControls by remember { mutableStateOf(true) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -219,6 +254,15 @@ fun ImageViewer(
                         )
                     }
                 }
+
+                // Delete Button
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.White
+                    )
+                }
             }
         }
 
@@ -243,6 +287,22 @@ fun ImageViewer(
                     tint = Color.White.copy(alpha = 0.7f)
                 )
             }
+        }
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteDialog) {
+        val currentPage = pagerState.currentPage
+        val currentImage = images.getOrNull(currentPage)
+        if (currentImage != null) {
+            DeleteConfirmationDialog(
+                count = 1,
+                onConfirm = {
+                    viewModel.deleteImage(currentImage)
+                    onDeleted(currentPage)
+                },
+                onDismiss = { showDeleteDialog = false }
+            )
         }
     }
 }

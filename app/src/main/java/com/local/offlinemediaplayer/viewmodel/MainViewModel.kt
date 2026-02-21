@@ -558,6 +558,7 @@ constructor(
         viewModelScope.launch {
             _videoList.value = _videoList.value.filter { !ids.contains(it.id) }
             _audioList.value = _audioList.value.filter { !ids.contains(it.id) }
+            _imageList.value = _imageList.value.filter { !ids.contains(it.id) }
             val currentPlaylists = playlists.value
             currentPlaylists.forEach { pl ->
                 if (pl.mediaIds.any { ids.contains(it) }) {
@@ -570,6 +571,36 @@ constructor(
             _selectedMediaIds.value = emptySet()
             _isSelectionMode.value = false
         }
+    }
+
+    // --- Image Deletion ---
+    private val _pendingImageDeleteId = MutableStateFlow<Long?>(null)
+
+    fun deleteImage(image: MediaFile) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _pendingImageDeleteId.value = image.id
+            val uris = listOf(image.uri)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val pendingIntent: PendingIntent =
+                        MediaStore.createDeleteRequest(app.contentResolver, uris)
+                _deleteIntentEvent.emit(pendingIntent.intentSender)
+            } else {
+                try {
+                    app.contentResolver.delete(image.uri, null, null)
+                    onImageDeleteSuccess()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _pendingImageDeleteId.value = null
+                }
+            }
+        }
+    }
+
+    fun onImageDeleteSuccess() {
+        val id = _pendingImageDeleteId.value ?: return
+        _imageList.value = _imageList.value.filter { it.id != id }
+        _pendingImageDeleteId.value = null
     }
 
     // --- Bookmark Management ---
