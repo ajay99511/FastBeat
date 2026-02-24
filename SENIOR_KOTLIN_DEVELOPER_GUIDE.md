@@ -19,8 +19,11 @@
 10. [Navigation in Compose](#10-navigation-in-compose)
 11. [Image Loading with Coil](#11-image-loading-with-coil)
 12. [Android Permissions & Lifecycle](#12-android-permissions--lifecycle)
-13. [Advanced Patterns & Best Practices](#13-advanced-patterns--best-practices)
-14. [Interview-Ready Explanations](#14-interview-ready-explanations)
+13. [Video Player & Advanced Media Features](#13-video-player--advanced-media-features)
+14. [Image Gallery & Thumbnail Caching](#14-image-gallery--thumbnail-caching)
+15. [Media Deletion with Scoped Storage](#15-media-deletion-with-scoped-storage)
+16. [Advanced Patterns & Best Practices](#16-advanced-patterns--best-practices)
+17. [Interview-Ready Explanations](#17-interview-ready-explanations)
 
 ---
 
@@ -79,33 +82,59 @@ FastBeat follows a **layered architecture** that separates concerns into distinc
 
 ```
 com.local.offlinemediaplayer/
-├── MainActivity.kt          # Entry point, sets up Compose
-├── MediaPlayerApp.kt         # Hilt Application class
+├── MainActivity.kt              # Entry point, permissions, PiP, theme
+├── MediaPlayerApp.kt            # @HiltAndroidApp Application class
 ├── data/
+│   ├── ThumbnailManager.kt      # Video thumbnail generation + disk caching
 │   ├── db/
-│   │   ├── AppDatabase.kt    # Room database definition
-│   │   ├── Entities.kt       # All Room entity classes
-│   │   └── MediaDao.kt       # Data Access Object
+│   │   ├── AppDatabase.kt       # Room database (v5, 8 entities)
+│   │   ├── Entities.kt          # All Room entity data classes
+│   │   └── MediaDao.kt          # Data Access Object (35 queries)
 │   └── di/
-│       └── DatabaseModule.kt # Hilt module for DI
+│       └── DatabaseModule.kt    # Hilt module: DB + DAO + ThumbnailManager
 ├── model/
-│   ├── MediaFile.kt          # Domain model for media
-│   ├── Album.kt              # Album representation
-│   ├── Playlist.kt           # Playlist domain model
-│   ├── PlayerStates.kt       # State snapshots
-│   └── VideoFolder.kt        # Folder grouping
+│   ├── Album.kt                 # Album domain model
+│   ├── MediaFile.kt             # Core media model (19 fields)
+│   ├── PlayerStates.kt          # AudioPlayerState, VideoPlayerState snapshots
+│   ├── Playlist.kt              # Playlist domain model
+│   └── VideoFolder.kt           # Folder grouping model
 ├── repository/
-│   └── PlaylistRepository.kt # Playlist data operations
+│   └── PlaylistRepository.kt    # Playlist CRUD + legacy JSON migration
 ├── service/
-│   └── PlaybackService.kt    # Background audio service
+│   └── PlaybackService.kt       # Media3 MediaSessionService
 ├── ui/
-│   ├── MainScreen.kt         # Main app scaffold
-│   ├── components/           # Reusable UI components
-│   ├── navigation/           # NavHost configurations
-│   ├── screens/              # Feature screens
-│   └── theme/                # Colors, typography, themes
+│   ├── MainScreen.kt            # Main scaffold, 5 tabs, navigation
+│   ├── common/
+│   │   └── FormatUtils.kt       # Duration, size formatting
+│   ├── components/
+│   │   ├── Dialogs.kt           # Reusable dialog composables
+│   │   ├── MediaPropertiesDialog.kt  # Media info dialog
+│   │   ├── MiniPlayer.kt        # Global mini player bar
+│   │   └── SearchComponents.kt  # Animated search bar
+│   ├── navigation/
+│   │   ├── AudioNavigationHost.kt  # Audio tab NavHost
+│   │   └── VideoNavigationHost.kt  # Video tab NavHost
+│   ├── screens/                 # 15 Feature Screens
+│   │   ├── AccessibilityGuideScreen.kt
+│   │   ├── AlbumDetailScreen.kt
+│   │   ├── AlbumListScreen.kt (grid/list + sorting)
+│   │   ├── AudioLibraryScreen.kt
+│   │   ├── AudioListScreen.kt
+│   │   ├── ImageListScreen.kt (gallery + viewer + deletion)
+│   │   ├── MeScreen.kt (analytics dashboard)
+│   │   ├── NowPlayingScreen.kt
+│   │   ├── PermissionScreens.kt
+│   │   ├── PlaylistDetailScreen.kt
+│   │   ├── PlaylistListScreen.kt
+│   │   ├── VideoFolderScreen.kt
+│   │   ├── VideoListScreen.kt (multi-select + delete)
+│   │   ├── VideoPlayerScreen.kt (gestures, PiP, bookmarks)
+│   │   └── VideoPlaylistDetailScreen.kt
+│   └── theme/
+│       ├── Color.kt, Theme.kt, Type.kt
+│       └── Headers/             # 5 per-tab header composables
 └── viewmodel/
-    └── MainViewModel.kt      # Central state holder
+    └── MainViewModel.kt         # Central ViewModel (2063 lines, 123 functions)
 ```
 
 ---
@@ -129,10 +158,12 @@ data class MediaFile(
     val isImage: Boolean = false,     // Default parameter
     val albumArtUri: Uri? = null,
     val albumId: Long = -1,
-    val bucketId: String = "",
+    val bucketId: String = "",        // Folder grouping
     val bucketName: String = "",
     val size: Long = 0,
-    val resolution: String = ""
+    val resolution: String = "",
+    val dateModified: Long = 0,       // For thumbnail cache invalidation
+    val thumbnailPath: String? = null  // Cached video thumbnail path
 )
 ```
 
@@ -495,7 +526,8 @@ class MainViewModel : ViewModel() {
 class MainViewModel @Inject constructor(
     private val app: Application,
     private val playlistRepository: PlaylistRepository,
-    private val mediaDao: MediaDao
+    private val mediaDao: MediaDao,
+    private val thumbnailManager: ThumbnailManager
 ) : AndroidViewModel(app) {
     // Dependencies injected - EASY TO TEST
 }
@@ -534,13 +566,19 @@ object DatabaseModule {
             AppDatabase::class.java,
             "mediaplayer_db"
         )
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(false)
             .build()
     }
 
     @Provides
     fun provideMediaDao(database: AppDatabase): MediaDao {
         return database.mediaDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideThumbnailManager(@ApplicationContext context: Context): ThumbnailManager {
+        return ThumbnailManager(context)
     }
 }
 ```
@@ -550,10 +588,10 @@ object DatabaseModule {
 | Annotation | Purpose | FastBeat Usage |
 |------------|---------|----------------|
 | `@HiltAndroidApp` | Application entry point | MediaPlayerApp.kt |
-| `@AndroidEntryPoint` | Enable injection in Activity/Fragment | MainActivity.kt |
+| `@AndroidEntryPoint` | Enable injection in Activity/Fragment | MainActivity.kt, PlaybackService.kt |
 | `@HiltViewModel` | ViewModel injection support | MainViewModel.kt |
-| `@Singleton` | Single instance across app | AppDatabase |
-| `@Inject constructor` | Constructor injection | PlaylistRepository |
+| `@Singleton` | Single instance across app | AppDatabase, ThumbnailManager |
+| `@Inject constructor` | Constructor injection | PlaylistRepository, ThumbnailManager |
 | `@Module` + `@Provides` | Custom object creation | DatabaseModule |
 
 ### 4.4 Hilt in Compose
@@ -598,7 +636,7 @@ Room is an **SQLite abstraction layer** that provides:
         DailyPlaytime::class,
         PlayEvent::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -617,7 +655,9 @@ data class PlaybackHistory(
     val position: Long,
     val duration: Long = 0,
     val timestamp: Long,
-    val mediaType: String // "AUDIO" or "VIDEO"
+    val mediaType: String,              // "AUDIO" or "VIDEO"
+    val audioTrackIndex: Int = -1,      // Persists selected audio track
+    val subtitleTrackIndex: Int = -1    // Persists selected subtitle track
 )
 ```
 
@@ -895,6 +935,7 @@ Media3 is Android's modern media library that provides:
 
 ```kotlin
 // PlaybackService.kt
+@OptIn(UnstableApi::class)
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
 
@@ -911,9 +952,21 @@ class PlaybackService : MediaSessionService() {
                 true  // handleAudioFocus = true
             )
             .setHandleAudioBecomingNoisy(true)  // Pause when headphones disconnected
+            .setWakeMode(C.WAKE_MODE_LOCAL)     // Keep CPU awake during playback
             .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        // Notification tap opens Now Playing screen
+        val sessionActivityPendingIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                putExtra("open_player", true)
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivityPendingIntent)
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -924,6 +977,7 @@ class PlaybackService : MediaSessionService() {
         mediaSession?.run {
             player.release()
             release()
+            mediaSession = null
         }
         super.onDestroy()
     }
@@ -1411,9 +1465,249 @@ private fun queryMedia(isVideo: Boolean): List<MediaFile> {
 
 ---
 
-## 13. Advanced Patterns & Best Practices
+## 13. Video Player & Advanced Media Features
 
-### 13.1 Heartbeat Pattern for Realtime Updates
+### 13.1 Picture-in-Picture (PiP)
+
+**Allows video playback in a floating window while using other apps:**
+
+```kotlin
+// Manifest Configuration
+<activity
+    android:supportsPictureInPicture="true"
+    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
+
+// ViewModel logic
+fun shouldEnterPipMode(): Boolean {
+    return _isVideoPlayerVisible.value && _isPlaying.value
+}
+
+fun setPipMode(isPip: Boolean) {
+    _isInPipMode.value = isPip
+}
+
+// MainActivity responds to home button
+override fun onUserLeaveHint() {
+    if (viewModel.shouldEnterPipMode()) {
+        enterPictureInPictureMode(pipParams)
+    }
+}
+```
+
+### 13.2 Audio/Subtitle Track Selection
+
+```kotlin
+// Data class for track info
+data class TrackInfo(
+    val groupIndex: Int,
+    val trackIndex: Int,
+    val label: String,
+    val language: String?,
+    val isSelected: Boolean
+)
+
+// Get available audio tracks
+fun getAudioTracks(): List<TrackInfo> {
+    val tracks = _player.value?.currentTracks ?: return emptyList()
+    // Iterate groups, filter C.TRACK_TYPE_AUDIO, build TrackInfo list
+}
+
+// Select a track using TrackSelectionOverride
+fun selectAudioTrack(groupIndex: Int, trackIndex: Int) {
+    _player.value?.let { player ->
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setOverrideForType(
+                TrackSelectionOverride(
+                    player.currentTracks.groups[groupIndex].mediaTrackGroup,
+                    listOf(trackIndex)
+                )
+            )
+            .build()
+    }
+}
+```
+
+### 13.3 Video Bookmarks
+
+```kotlin
+// Save a timestamp bookmark
+fun addBookmark(timestamp: Long, label: String) {
+    _currentTrack.value?.let { track ->
+        viewModelScope.launch(Dispatchers.IO) {
+            mediaDao.addBookmark(BookmarkEntity(
+                mediaId = track.id,
+                timestamp = timestamp,
+                label = label
+            ))
+        }
+    }
+}
+
+// Observed reactively via flatMapLatest
+val currentBookmarks = _currentTrack.flatMapLatest { track ->
+    if (track != null) mediaDao.getBookmarks(track.id)
+    else flowOf(emptyList())
+}.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+```
+
+### 13.4 Audio/Video State Preservation
+
+**Saves audio session before playing video, restores when video closes:**
+
+```kotlin
+data class AudioPlayerState(
+    val queue: List<MediaFile>,
+    val currentIndex: Int,
+    val position: Long,
+    val isPlaying: Boolean,
+    val isShuffleEnabled: Boolean,
+    val repeatMode: Int
+)
+
+private var savedAudioState: AudioPlayerState? = null
+
+private fun playVideo(media: MediaFile) {
+    // Save current audio state before switching to video
+    if (_currentQueue.value.isNotEmpty() && _currentTrack.value?.isVideo != true) {
+        savedAudioState = AudioPlayerState(...)
+    }
+    // ... prepare and play video
+}
+
+fun closeVideo() {
+    // Save video position, then restore audio session
+    restoreAudioSession()
+}
+```
+
+---
+
+## 14. Image Gallery & Thumbnail Caching
+
+### 14.1 Image Scanning
+
+**Uses MediaStore to query all images on device:**
+
+```kotlin
+private fun queryImages(): List<MediaFile> {
+    val list = mutableListOf<MediaFile>()
+    val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+    val projection = arrayOf(
+        MediaStore.Images.Media._ID,
+        MediaStore.Images.Media.DISPLAY_NAME,
+        MediaStore.Images.Media.SIZE,
+        MediaStore.Images.Media.DATE_MODIFIED
+    )
+    app.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
+        while (cursor.moveToNext()) {
+            val id = cursor.getLong(idCol)
+            val uri = ContentUris.withAppendedId(collection, id)
+            list.add(MediaFile(id, uri, name, duration = 0, isVideo = false, isImage = true))
+        }
+    }
+    return list
+}
+```
+
+### 14.2 ThumbnailManager (Video Thumbnail Caching)
+
+**Generates and caches video thumbnails on disk with Flow-based progressive loading:**
+
+```kotlin
+@Singleton
+class ThumbnailManager @Inject constructor(private val context: Context) {
+    private val cacheDir: File by lazy {
+        File(context.filesDir, "video_thumbnails").also { it.mkdirs() }
+    }
+
+    // Cache key invalidates when video file changes
+    private fun cacheKey(video: MediaFile): String =
+        "thumb_${video.id}_${video.size}_${video.dateModified}.jpg"
+
+    // Emits (mediaId, path) as each thumbnail is generated
+    fun generateThumbnails(videos: List<MediaFile>): Flow<Pair<Long, String>> = flow {
+        for (video in videos) {
+            yield()  // Cooperative cancellation
+            val cached = File(cacheDir, cacheKey(video))
+            if (cached.exists()) { emit(video.id to cached.absolutePath); continue }
+            extractThumbnail(video, cached)?.let { emit(video.id to it) }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    // Removes orphaned thumbnails after media scan
+    fun cleanStaleThumbnails(currentVideos: List<MediaFile>) { ... }
+}
+```
+
+**Key Design Decisions:**
+- **Cache Key**: Uses `mediaId + size + dateModified` to auto-invalidate when video changes
+- **Extraction Strategy**: Tries embedded cover art first, then extracts frame at ~10% duration
+- **Scaling**: Max 360px wide, 75% JPEG quality for minimal disk usage
+- **Flow API**: Progressive emission allows UI to show thumbnails as they're generated
+
+---
+
+## 15. Media Deletion with Scoped Storage
+
+### 15.1 Android 11+ Scoped Storage Deletion
+
+**Uses `MediaStore.createDeleteRequest` for system-managed confirmation:**
+
+```kotlin
+fun deleteSelectedMedia() {
+    viewModelScope.launch(Dispatchers.IO) {
+        val uris = _selectedIds.value.mapNotNull { id ->
+            _videoList.value.find { it.id == id }?.uri
+        }
+        if (uris.isEmpty()) return@launch
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+: System shows confirmation dialog
+            val pendingIntent = MediaStore.createDeleteRequest(
+                app.contentResolver, uris
+            )
+            _deleteIntentEvent.emit(pendingIntent.intentSender)
+        } else {
+            // Android 10-: Direct deletion
+            uris.forEach { app.contentResolver.delete(it, null, null) }
+            onDeleteSuccess()
+        }
+    }
+}
+```
+
+### 15.2 SharedFlow for System Intent Events
+
+```kotlin
+// One-time event (no replay, no initial value)
+private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
+val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
+
+// Collected in Composable
+LaunchedEffect(Unit) {
+    viewModel.deleteIntentEvent.collect { intentSender ->
+        deleteLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+    }
+}
+```
+
+### 15.3 Post-Deletion State Update
+
+```kotlin
+fun onDeleteSuccess(ids: List<Long>) {
+    _videoList.value = _videoList.value.filterNot { it.id in ids }
+    _imageList.value = _imageList.value.filterNot { it.id in ids }
+    _selectedIds.value = emptySet()
+    _isSelectionMode.value = false
+}
+```
+
+---
+
+## 16. Advanced Patterns & Best Practices
+
+### 16.1 Heartbeat Pattern for Realtime Updates
 
 ```kotlin
 // Position update loop with heartbeat
@@ -1440,7 +1734,7 @@ private fun startPositionUpdates() {
 }
 ```
 
-### 13.2 Analytics with Threshold Validation
+### 16.2 Analytics with Threshold Validation
 
 ```kotlin
 // Only count as "played" if user listened for 30+ seconds or 50% of track
@@ -1457,7 +1751,7 @@ if (!hasLoggedCurrentTrack && _isPlaying.value) {
 }
 ```
 
-### 13.3 Legacy Data Migration
+### 16.3 Legacy Data Migration
 
 ```kotlin
 // PlaylistRepository.kt - Migrate from JSON to Room
@@ -1482,7 +1776,7 @@ suspend fun migrateLegacyData() {
 }
 ```
 
-### 13.4 Defensive Programming
+### 16.4 Defensive Programming
 
 ```kotlin
 // Null safety with sensible defaults
@@ -1498,7 +1792,7 @@ val progress = if (duration > 0) position / duration.toFloat() else 0f
 
 ---
 
-## 14. Interview-Ready Explanations
+## 17. Interview-Ready Explanations
 
 ### How would you explain the architecture?
 
