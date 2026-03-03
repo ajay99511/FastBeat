@@ -36,17 +36,20 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.viewmodel.AlbumSortOption
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
 fun AlbumListScreen(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
     onAlbumClick: (Long) -> Unit,
     isSearchVisible: Boolean
 ) {
-    val albums by viewModel.filteredAlbums.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.albumSearchQuery.collectAsStateWithLifecycle()
-    val sortOption by viewModel.albumSortOption.collectAsStateWithLifecycle()
+    val albums by libraryViewModel.filteredAlbums.collectAsStateWithLifecycle()
+    val searchQuery by libraryViewModel.albumSearchQuery.collectAsStateWithLifecycle()
+    val sortOption by libraryViewModel.albumSortOption.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
@@ -64,7 +67,7 @@ fun AlbumListScreen(
         CollapsibleSearchBox(
             isVisible = isSearchVisible,
             query = searchQuery,
-            onQueryChange = { viewModel.updateAlbumSearchQuery(it) },
+            onQueryChange = { libraryViewModel.updateAlbumSearchQuery(it) },
             placeholderText = "Search albums..."
         )
 
@@ -111,7 +114,7 @@ fun AlbumListScreen(
                         DropdownMenuItem(
                             text = { Text("Name (A-Z)") },
                             onClick = {
-                                viewModel.updateAlbumSortOption(AlbumSortOption.NAME_ASC)
+                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.NAME_ASC)
                                 showSortMenu = false
                             },
                             trailingIcon = {
@@ -127,7 +130,7 @@ fun AlbumListScreen(
                         DropdownMenuItem(
                             text = { Text("Artist (A-Z)") },
                             onClick = {
-                                viewModel.updateAlbumSortOption(AlbumSortOption.ARTIST_ASC)
+                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.ARTIST_ASC)
                                 showSortMenu = false
                             },
                              trailingIcon = {
@@ -143,7 +146,7 @@ fun AlbumListScreen(
                         DropdownMenuItem(
                             text = { Text("Year (Newest)") },
                             onClick = {
-                                viewModel.updateAlbumSortOption(AlbumSortOption.YEAR_DESC)
+                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.YEAR_DESC)
                                 showSortMenu = false
                             },
                              trailingIcon = {
@@ -159,7 +162,7 @@ fun AlbumListScreen(
                         DropdownMenuItem(
                             text = { Text("Song Count") },
                             onClick = {
-                                viewModel.updateAlbumSortOption(AlbumSortOption.SONG_COUNT_DESC)
+                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.SONG_COUNT_DESC)
                                 showSortMenu = false
                             },
                              trailingIcon = {

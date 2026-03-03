@@ -25,10 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
-fun MiniPlayer(viewModel: MainViewModel, onTap: () -> Unit, modifier: Modifier = Modifier) {
+fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifier = Modifier) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
     val primaryAccent = LocalAppTheme.current.primaryColor

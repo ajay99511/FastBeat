@@ -45,13 +45,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @Composable
 fun PlaylistListScreen(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onPlaylistClick: (String) -> Unit,
     onCreateClick: () -> Unit,
     isVideo: Boolean = false, // Added flag to distinguish list source
@@ -60,9 +63,9 @@ fun PlaylistListScreen(
 ) {
     // Observe specific list based on flag
     val playlists by if (isVideo) {
-        viewModel.videoPlaylists.collectAsStateWithLifecycle()
+        playlistViewModel.videoPlaylists.collectAsStateWithLifecycle()
     } else {
-        viewModel.audioPlaylists.collectAsStateWithLifecycle()
+        playlistViewModel.audioPlaylists.collectAsStateWithLifecycle()
     }
 
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()

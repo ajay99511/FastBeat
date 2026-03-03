@@ -39,12 +39,12 @@ import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
     onBack: () -> Unit
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()

@@ -104,7 +104,7 @@ data class TrackInfo(
 
 @OptIn(UnstableApi::class)
 @HiltViewModel
-class MainViewModel
+class PlaybackViewModel
 @Inject
 constructor(
         private val app: Application,

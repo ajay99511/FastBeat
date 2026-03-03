@@ -46,40 +46,43 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioListScreen(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
     onAudioClick: (MediaFile) -> Unit,
     onAddToPlaylist: (MediaFile) -> Unit,
     isSearchVisible: Boolean
 ) {
     // Observe Filtered List
-    val audioList by viewModel.filteredAudioList.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+    val audioList by libraryViewModel.filteredAudioList.collectAsStateWithLifecycle()
+    val searchQuery by libraryViewModel.searchQuery.collectAsStateWithLifecycle()
+    val sortOption by libraryViewModel.sortOption.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
     // Selection State
-    val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
-    val selectedIds by viewModel.selectedMediaIds.collectAsStateWithLifecycle()
+    val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedIds by libraryViewModel.selectedMediaIds.collectAsStateWithLifecycle()
 
     // Deletion Flow
     val intentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.onDeleteSuccess()
+            libraryViewModel.onDeleteSuccess()
         }
     }
 
     LaunchedEffect(Unit) {
-        viewModel.deleteIntentEvent.collect { intentSender ->
+        libraryViewModel.deleteIntentEvent.collect { intentSender ->
             intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
         }
     }
@@ -93,16 +96,16 @@ fun AudioListScreen(
     val cardBg = MaterialTheme.colorScheme.surface
 
     // Refresh State
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isRefreshing by libraryViewModel.isRefreshing.collectAsStateWithLifecycle()
 
     // Back Handler for Selection Mode
     BackHandler(enabled = isSelectionMode) {
-        viewModel.toggleSelectionMode(false)
+        libraryViewModel.toggleSelectionMode(false)
     }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
-        onRefresh = { viewModel.scanMedia() },
+        onRefresh = { libraryViewModel.scanMedia() },
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
@@ -114,7 +117,7 @@ fun AudioListScreen(
                 CollapsibleSearchBox(
                     isVisible = isSearchVisible && !isSelectionMode,
                     query = searchQuery,
-                    onQueryChange = { viewModel.updateSearchQuery(it) },
+                    onQueryChange = { libraryViewModel.updateSearchQuery(it) },
                     placeholderText = "Search tracks..."
                 )
             }
@@ -128,7 +131,7 @@ fun AudioListScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { viewModel.toggleSelectionMode(false) }) {
+                            IconButton(onClick = { libraryViewModel.toggleSelectionMode(false) }) {
                                 Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Text(
@@ -220,11 +223,11 @@ fun AudioListScreen(
                                     onDismissRequest = { showSortMenu = false },
                                     modifier = Modifier.background(cardBg)
                                 ) {
-                                    SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, viewModel) { showSortMenu = false }
-                                    SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, viewModel) { showSortMenu = false }
-                                    SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, viewModel) { showSortMenu = false }
-                                    SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, viewModel) { showSortMenu = false }
-                                    SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, viewModel) { showSortMenu = false }
+                                    SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, libraryViewModel) { showSortMenu = false }
                                 }
                             }
                         }
@@ -265,7 +268,7 @@ fun AudioListScreen(
                             )
                             if (searchQuery.isEmpty()) {
                                 Button(
-                                    onClick = { viewModel.scanMedia() },
+                                    onClick = { libraryViewModel.scanMedia() },
                                     colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
                                 ) {
                                     Text("Rescan Library")
@@ -280,19 +283,19 @@ fun AudioListScreen(
                     AudioListItemStyled(
                         song = song,
                         onClick = {
-                            if (isSelectionMode) viewModel.toggleSelection(song.id)
+                            if (isSelectionMode) libraryViewModel.toggleSelection(song.id)
                             else onAudioClick(song)
                         },
                         onLongClick = {
-                            viewModel.toggleSelectionMode(true)
-                            viewModel.toggleSelection(song.id)
+                            libraryViewModel.toggleSelectionMode(true)
+                            libraryViewModel.toggleSelection(song.id)
                         },
                         onAddToPlaylist = onAddToPlaylist,
                         isSelectionMode = isSelectionMode,
                         isSelected = isSelected,
                         onDelete = {
-                            viewModel.toggleSelectionMode(true)
-                            viewModel.selectAll(listOf(song.id))
+                            libraryViewModel.toggleSelectionMode(true)
+                            libraryViewModel.selectAll(listOf(song.id))
                             showDeleteConfirmDialog = true
                         },
                         onPlayNext = { viewModel.playNext(it) },
@@ -307,7 +310,7 @@ fun AudioListScreen(
     if (showDeleteConfirmDialog) {
         DeleteConfirmationDialog(
             count = selectedIds.size,
-            onConfirm = { viewModel.deleteSelectedMedia() },
+            onConfirm = { libraryViewModel.deleteSelectedMedia() },
             onDismiss = { showDeleteConfirmDialog = false }
         )
     }
@@ -440,13 +443,13 @@ private fun AudioListItemStyled(
 private fun SortMenuItem(
     label: String,
     option: SortOption,
-    viewModel: MainViewModel,
+    libraryViewModel: LibraryViewModel,
     onSelect: () -> Unit
 ) {
     DropdownMenuItem(
         text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
         onClick = {
-            viewModel.updateSortOption(option)
+            libraryViewModel.updateSortOption(option)
             onSelect()
         }
     )

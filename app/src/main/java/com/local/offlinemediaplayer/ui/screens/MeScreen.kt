@@ -29,31 +29,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.AnalyticsViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.ThemeViewModel
 
 @Composable
 fun MeScreen(
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
+        themeViewModel: ThemeViewModel = hiltViewModel(),
+        analyticsViewModel: AnalyticsViewModel = hiltViewModel(),
+        libraryViewModel: LibraryViewModel = hiltViewModel(),
         onPlayMedia: (MediaFile) -> Unit,
         onNavigateToAccessibilityGuide: () -> Unit,
         isSearchVisible: Boolean
 ) {
         val theme = LocalAppTheme.current
-        val currentTheme by viewModel.currentTheme.collectAsStateWithLifecycle()
-        val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
-        val audioList by viewModel.audioList.collectAsStateWithLifecycle()
+        val currentTheme by themeViewModel.currentTheme.collectAsStateWithLifecycle()
+        val isDarkTheme by themeViewModel.isDarkTheme.collectAsStateWithLifecycle()
+        val audioList by libraryViewModel.audioList.collectAsStateWithLifecycle()
 
         // Realtime Analytics
-        val analytics by viewModel.realtimeAnalytics.collectAsStateWithLifecycle()
+        val analytics by analyticsViewModel.realtimeAnalytics.collectAsStateWithLifecycle()
 
         // Continue Watching Data
-        val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
+        val continueWatchingList by analyticsViewModel.continueWatchingList.collectAsStateWithLifecycle()
 
         // Simple local search state for MeScreen
         var searchQuery by remember { mutableStateOf("") }
@@ -101,21 +108,21 @@ fun MeScreen(
                                 icon = Icons.Filled.Bolt,
                                 color = Color(0xFFFF5500),
                                 isActive = currentTheme.id == "orange",
-                                onClick = { viewModel.updateTheme("orange") }
+                                onClick = { themeViewModel.updateTheme("orange") }
                         )
                         Spacer(modifier = Modifier.width(24.dp))
                         ThemeButton(
                                 icon = Icons.Filled.Star,
                                 color = Color(0xFF00E5FF),
                                 isActive = currentTheme.id == "blue",
-                                onClick = { viewModel.updateTheme("blue") }
+                                onClick = { themeViewModel.updateTheme("blue") }
                         )
                         Spacer(modifier = Modifier.width(24.dp))
                         ThemeButton(
                                 icon = Icons.Filled.OpenWith,
                                 color = Color(0xFF22C55E),
                                 isActive = currentTheme.id == "green",
-                                onClick = { viewModel.updateTheme("green") }
+                                onClick = { themeViewModel.updateTheme("green") }
                         )
                 }
 

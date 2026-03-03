@@ -57,12 +57,15 @@ import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoListScreen(
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
+        playlistViewModel: PlaylistViewModel = hiltViewModel(),
         onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
         videoListOverride: List<MediaFile>? = null,
         title: String? = null,
@@ -513,14 +516,13 @@ fun VideoListScreen(
         if (showCreatePlaylistDialog) {
                 CreatePlaylistDialog(
                         onDismiss = { showCreatePlaylistDialog = false },
-                        onCreate = { name -> viewModel.createPlaylist(name, isVideo = true) }
+                        onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = true) }
                 )
         }
 
         if (showAddToPlaylistDialog && selectedVideoForPlaylist != null) {
                 AddToPlaylistDialog(
                         song = selectedVideoForPlaylist!!,
-                        viewModel = viewModel,
                         onDismiss = { showAddToPlaylistDialog = false },
                         onCreateNew = { showCreatePlaylistDialog = true }
                 )

@@ -38,12 +38,12 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageListScreen(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
     isSearchVisible: Boolean
 ) {
     val images by viewModel.imageList.collectAsStateWithLifecycle()
@@ -180,7 +180,7 @@ fun ImageItem(image: MediaFile, onClick: () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageViewer(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
     images: List<MediaFile>,
     initialIndex: Int,
     onBack: () -> Unit,

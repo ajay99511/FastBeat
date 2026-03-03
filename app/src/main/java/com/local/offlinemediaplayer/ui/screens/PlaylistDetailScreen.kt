@@ -27,17 +27,22 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @Composable
 fun PlaylistDetailScreen(
         playlistId: String,
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
+        libraryViewModel: LibraryViewModel = hiltViewModel(),
+        playlistViewModel: PlaylistViewModel = hiltViewModel(),
         onBack: () -> Unit,
         onNavigateToPlayer: () -> Unit
 ) {
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
-    val allAudio by viewModel.audioList.collectAsStateWithLifecycle()
+    val playlists by playlistViewModel.audioPlaylists.collectAsStateWithLifecycle()
+    val allAudio by libraryViewModel.audioList.collectAsStateWithLifecycle()
     
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
@@ -132,7 +137,7 @@ fun PlaylistDetailScreen(
                                 text = { Text("Delete", color = Color(0xFFFF8A80)) },
                                 onClick = {
                                     showMenu = false
-                                    viewModel.deletePlaylist(playlistId)
+                                    playlistViewModel.deletePlaylist(playlistId)
                                     onBack()
                                 },
                                 leadingIcon = {
@@ -286,7 +291,7 @@ fun PlaylistDetailScreen(
                                     viewModel.setQueue(songs, index, false)
                                 },
                                 onRemove = {
-                                    viewModel.removeSongFromPlaylist(playlistId, song.id)
+                                    playlistViewModel.removeSongFromPlaylist(playlistId, song.id)
                                 },
                                 onPlayNext = { viewModel.playNext(song) },
                                 onAddToQueue = { viewModel.addToQueue(song) }
@@ -300,7 +305,7 @@ fun PlaylistDetailScreen(
             RenamePlaylistDialog(
                     currentName = playlist.name,
                     onDismiss = { showRenameDialog = false },
-                    onRename = { newName -> viewModel.renamePlaylist(playlistId, newName) }
+                    onRename = { newName -> playlistViewModel.renamePlaylist(playlistId, newName) }
             )
         }
 

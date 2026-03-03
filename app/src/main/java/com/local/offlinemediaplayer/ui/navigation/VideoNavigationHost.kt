@@ -12,11 +12,11 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
 import com.local.offlinemediaplayer.ui.screens.VideoListScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
 fun VideoNavigationHost(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
     navController: NavHostController,
     onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
     isSearchVisible: Boolean

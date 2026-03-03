@@ -27,12 +27,15 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun AudioLibraryScreen(
-    viewModel: MainViewModel,
+    viewModel: PlaybackViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onNavigateToPlayer: () -> Unit,
     onNavigateToPlaylist: (String) -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
@@ -149,18 +152,16 @@ fun AudioLibraryScreen(
         }
     }
 
-    // Dialogs
     if (showCreateDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreateDialog = false },
-            onCreate = { name -> viewModel.createPlaylist(name, isVideo = false) }
+            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) }
         )
     }
 
     if (showAddToPlaylistDialog && songToAdd != null) {
         AddToPlaylistDialog(
             song = songToAdd!!,
-            viewModel = viewModel,
             onDismiss = { showAddToPlaylistDialog = false },
             onCreateNew = { showCreateDialog = true } // Stack dialogs
         )

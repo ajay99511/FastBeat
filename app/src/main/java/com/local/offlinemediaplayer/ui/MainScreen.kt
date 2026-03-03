@@ -51,13 +51,13 @@ import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
 import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 // import androidx.compose.ui.Alignment
 // import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
+fun MainScreen(viewModel: PlaybackViewModel = hiltViewModel()) {
     val context = LocalContext.current
 
     // Define permissions based on Android version
@@ -143,7 +143,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun MediaPlayerAppContent(viewModel: MainViewModel) {
+fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
     // 0 = Videos, 1 = Music, 2 = Images, 3 = Stats
     var selectedTab by remember { mutableIntStateOf(0) }
 

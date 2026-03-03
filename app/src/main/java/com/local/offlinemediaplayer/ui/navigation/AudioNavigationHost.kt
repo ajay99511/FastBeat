@@ -10,11 +10,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.local.offlinemediaplayer.ui.screens.*
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
 fun AudioNavigationHost(
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
         navController: NavHostController,
         isSearchVisible: Boolean
 ) {

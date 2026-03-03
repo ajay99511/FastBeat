@@ -1,6 +1,5 @@
 package com.local.offlinemediaplayer
 
-// import androidx.lifecycle.viewmodel.compose.viewModel
 import android.app.PictureInPictureParams
 import android.os.Build
 import android.os.Bundle
@@ -8,19 +7,20 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels // Use activity viewModels for shared state
+import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.ui.MainScreen
 import com.local.offlinemediaplayer.ui.theme.OfflineMediaPlayerTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val viewModel: MainViewModel by viewModels()
+    private val viewModel: PlaybackViewModel by viewModels()
+    private val themeViewModel: ThemeViewModel by viewModels()
 
-    // State to track if PiP was active, to distinguish "Close" vs "Restore"
     private var wasInPipMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,8 +28,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            val currentThemeConfig by viewModel.currentTheme.collectAsStateWithLifecycle()
-            val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
+            val currentThemeConfig by themeViewModel.currentTheme.collectAsStateWithLifecycle()
+            val isDarkTheme by themeViewModel.isDarkTheme.collectAsStateWithLifecycle()
 
             OfflineMediaPlayerTheme(
                     currentThemeConfig = currentThemeConfig,
@@ -37,7 +37,6 @@ class MainActivity : ComponentActivity() {
             ) { MainScreen(viewModel = viewModel) }
         }
 
-        // Handle intent on launch
         viewModel.handleIntent(intent)
     }
 

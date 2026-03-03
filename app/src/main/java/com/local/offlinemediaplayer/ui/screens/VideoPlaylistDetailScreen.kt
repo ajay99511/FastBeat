@@ -27,18 +27,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import java.io.File
 
 @Composable
 fun VideoPlaylistDetailScreen(
         playlistId: String,
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
+        libraryViewModel: LibraryViewModel = hiltViewModel(),
+        playlistViewModel: PlaylistViewModel = hiltViewModel(),
         onBack: () -> Unit,
         onNavigateToPlayer: (MediaFile, List<MediaFile>) -> Unit
 ) {
-    val playlists by viewModel.videoPlaylists.collectAsStateWithLifecycle()
-    val allVideos by viewModel.videoList.collectAsStateWithLifecycle()
+    val playlists by playlistViewModel.videoPlaylists.collectAsStateWithLifecycle()
+    val allVideos by libraryViewModel.videoList.collectAsStateWithLifecycle()
 
     val playlist = playlists.find { it.id == playlistId }
 
@@ -81,7 +86,7 @@ fun VideoPlaylistDetailScreen(
 
                 IconButton(
                         onClick = {
-                            viewModel.deletePlaylist(playlistId)
+                            playlistViewModel.deletePlaylist(playlistId)
                             onBack()
                         },
                         modifier =
@@ -251,7 +256,7 @@ fun VideoPlaylistDetailScreen(
                                     onNavigateToPlayer(video, videos)
                                 },
                                 onRemove = {
-                                    viewModel.removeSongFromPlaylist(playlistId, video.id)
+                                    playlistViewModel.removeSongFromPlaylist(playlistId, video.id)
                                 }
                         )
                     }

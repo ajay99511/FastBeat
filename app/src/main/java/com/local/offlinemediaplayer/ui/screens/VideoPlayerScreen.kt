@@ -58,7 +58,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.ResizeMode
 import com.local.offlinemediaplayer.viewmodel.TrackInfo
 import kotlin.math.abs
@@ -73,7 +73,7 @@ private enum class GestureMode {
 
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     val activity = context as? Activity
     val player by viewModel.player.collectAsStateWithLifecycle()
@@ -467,7 +467,7 @@ fun VideoPlayerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
 @Composable
 fun BookmarksDialog(
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
         currentPosition: Long,
         onDismiss: () -> Unit,
         onSeek: (Long) -> Unit
@@ -631,7 +631,7 @@ private fun CenterGestureOverlay(
 
 @Composable
 fun VideoPlayerControls(
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
         isVisible: Boolean,
         onBack: () -> Unit,
         onPip: () -> Unit,

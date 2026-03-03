@@ -29,12 +29,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
 fun AlbumDetailScreen(
         albumId: Long,
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
         onBack: () -> Unit,
         onNavigateToPlayer: () -> Unit
 ) {

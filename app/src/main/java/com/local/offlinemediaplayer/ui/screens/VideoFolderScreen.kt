@@ -45,14 +45,19 @@ import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoFolderScreen(
-        viewModel: MainViewModel,
+        viewModel: PlaybackViewModel,
+        libraryViewModel: LibraryViewModel = hiltViewModel(),
+        playlistViewModel: PlaylistViewModel = hiltViewModel(),
         onFolderClick: (String) -> Unit,
         onPlaylistClick: (String) -> Unit,
         onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
@@ -69,12 +74,12 @@ fun VideoFolderScreen(
     // Movies Tab Specific State
     var isMoviesGridView by rememberSaveable { mutableStateOf(true) }
 
-    val folders by viewModel.videoFolders.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.folderSearchQuery.collectAsStateWithLifecycle()
+    val folders by libraryViewModel.videoFolders.collectAsStateWithLifecycle()
+    val searchQuery by libraryViewModel.folderSearchQuery.collectAsStateWithLifecycle()
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     // Refresh State
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isRefreshing by libraryViewModel.isRefreshing.collectAsStateWithLifecycle()
 
     // Deletion Flow Handling
     val intentLauncher =
@@ -82,12 +87,12 @@ fun VideoFolderScreen(
                     contract = ActivityResultContracts.StartIntentSenderForResult()
             ) { result ->
                 if (result.resultCode == Activity.RESULT_OK) {
-                    viewModel.onDeleteSuccess()
+                    libraryViewModel.onDeleteSuccess()
                 }
             }
 
     LaunchedEffect(Unit) {
-        viewModel.deleteIntentEvent.collect { intentSender ->
+        libraryViewModel.deleteIntentEvent.collect { intentSender ->
             intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
         }
     }
@@ -97,7 +102,7 @@ fun VideoFolderScreen(
         CollapsibleSearchBox(
                 isVisible = isSearchVisible,
                 query = searchQuery,
-                onQueryChange = { viewModel.updateFolderSearchQuery(it) },
+                onQueryChange = { libraryViewModel.updateFolderSearchQuery(it) },
                 placeholderText =
                         "Search ${if (pagerState.currentPage == 0) "folders" else if (pagerState.currentPage == 1) "movies" else "playlists"}..."
         )
@@ -174,7 +179,7 @@ fun VideoFolderScreen(
         // 3. Content
         PullToRefreshBox(
                 isRefreshing = isRefreshing,
-                onRefresh = { viewModel.scanMedia() },
+                onRefresh = { libraryViewModel.scanMedia() },
                 modifier = Modifier.weight(1f)
         ) {
             androidx.compose.foundation.pager.HorizontalPager(
@@ -232,7 +237,7 @@ fun VideoFolderScreen(
                     1 -> {
                         // MOVIES VIEW (Videos > 1h)
                         MoviesListContent(
-                                viewModel = viewModel,
+                                libraryViewModel = libraryViewModel,
                                 onVideoClick = onVideoClick,
                                 isGridView = isMoviesGridView,
                                 onToggleView = { isMoviesGridView = !isMoviesGridView }
@@ -241,12 +246,12 @@ fun VideoFolderScreen(
                     2 -> {
                         // PLAYLISTS LIST
                         PlaylistListScreen(
-                                viewModel = viewModel,
+                                viewModel = viewModel, // Keep PlaybackViewModel for now if required by child components
                                 onPlaylistClick = onPlaylistClick,
                                 onCreateClick = { showCreateDialog = true },
                                 isVideo = true, // Show video playlists
-                                onRename = { id, newName -> viewModel.renamePlaylist(id, newName) },
-                                onDelete = { id -> viewModel.deletePlaylist(id) }
+                                onRename = { id, newName -> playlistViewModel.renamePlaylist(id, newName) },
+                                onDelete = { id -> playlistViewModel.deletePlaylist(id) }
                         )
                     }
                 }
@@ -257,22 +262,22 @@ fun VideoFolderScreen(
     if (showCreateDialog) {
         CreatePlaylistDialog(
                 onDismiss = { showCreateDialog = false },
-                onCreate = { name -> viewModel.createPlaylist(name, isVideo = true) }
+                onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = true) }
         )
     }
 }
 
 @Composable
 private fun MoviesListContent(
-        viewModel: MainViewModel,
+        libraryViewModel: LibraryViewModel,
         onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
         isGridView: Boolean,
         onToggleView: () -> Unit
 ) {
-    val movies by viewModel.sortedMovies.collectAsStateWithLifecycle()
-    val sortOption by viewModel.movieSortOption.collectAsStateWithLifecycle()
+    val movies by libraryViewModel.sortedMovies.collectAsStateWithLifecycle()
+    val sortOption by libraryViewModel.movieSortOption.collectAsStateWithLifecycle()
     val searchQuery by
-            viewModel.folderSearchQuery.collectAsStateWithLifecycle() // Reuse existing search query
+            libraryViewModel.folderSearchQuery.collectAsStateWithLifecycle() // Reuse existing search query
 
     // Properties Dialog State
     var showPropertiesDialog by remember { mutableStateOf(false) }
@@ -327,7 +332,7 @@ private fun MoviesListContent(
                                     )
                                 },
                                 onClick = {
-                                    viewModel.updateMovieSortOption(SortOption.DATE_ADDED_DESC)
+                                    libraryViewModel.updateMovieSortOption(SortOption.DATE_ADDED_DESC)
                                     showSortMenu = false
                                 }
                         )
@@ -336,7 +341,7 @@ private fun MoviesListContent(
                                     Text("Longest", color = MaterialTheme.colorScheme.onSurface)
                                 },
                                 onClick = {
-                                    viewModel.updateMovieSortOption(SortOption.DURATION_DESC)
+                                    libraryViewModel.updateMovieSortOption(SortOption.DURATION_DESC)
                                     showSortMenu = false
                                 }
                         )
@@ -345,21 +350,21 @@ private fun MoviesListContent(
                                     Text("Shortest", color = MaterialTheme.colorScheme.onSurface)
                                 },
                                 onClick = {
-                                    viewModel.updateMovieSortOption(SortOption.DURATION_ASC)
+                                    libraryViewModel.updateMovieSortOption(SortOption.DURATION_ASC)
                                     showSortMenu = false
                                 }
                         )
                         DropdownMenuItem(
                                 text = { Text("A-Z", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
-                                    viewModel.updateMovieSortOption(SortOption.TITLE_ASC)
+                                    libraryViewModel.updateMovieSortOption(SortOption.TITLE_ASC)
                                     showSortMenu = false
                                 }
                         )
                         DropdownMenuItem(
                                 text = { Text("Z-A", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
-                                    viewModel.updateMovieSortOption(SortOption.TITLE_DESC)
+                                    libraryViewModel.updateMovieSortOption(SortOption.TITLE_DESC)
                                     showSortMenu = false
                                 }
                         )
@@ -409,8 +414,8 @@ private fun MoviesListContent(
                                 isSelectionMode = false,
                                 isSelected = false,
                                 onDelete = {
-                                    viewModel.toggleSelectionMode(true)
-                                    viewModel.selectAll(listOf(movie.id))
+                                    libraryViewModel.toggleSelectionMode(true)
+                                    libraryViewModel.selectAll(listOf(movie.id))
                                     showDeleteConfirmDialog = true
                                 },
                                 onProperties = {
@@ -436,8 +441,8 @@ private fun MoviesListContent(
                                 isSelectionMode = false,
                                 isSelected = false,
                                 onDelete = {
-                                    viewModel.toggleSelectionMode(true)
-                                    viewModel.selectAll(listOf(movie.id))
+                                    libraryViewModel.toggleSelectionMode(true)
+                                    libraryViewModel.selectAll(listOf(movie.id))
                                     showDeleteConfirmDialog = true
                                 },
                                 onProperties = {
@@ -459,10 +464,10 @@ private fun MoviesListContent(
     }
 
     if (showDeleteConfirmDialog) {
-        val selectedIds by viewModel.selectedMediaIds.collectAsStateWithLifecycle()
+        val selectedIds by libraryViewModel.selectedMediaIds.collectAsStateWithLifecycle()
         DeleteConfirmationDialog(
                 count = selectedIds.size,
-                onConfirm = { viewModel.deleteSelectedMedia() },
+                onConfirm = { libraryViewModel.deleteSelectedMedia() },
                 onDismiss = { showDeleteConfirmDialog = false }
         )
     }

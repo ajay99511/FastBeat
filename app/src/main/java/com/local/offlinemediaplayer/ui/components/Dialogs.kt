@@ -16,7 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
-import com.local.offlinemediaplayer.viewmodel.MainViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @Composable
 fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
@@ -81,12 +82,12 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
 @Composable
 fun AddToPlaylistDialog(
     song: MediaFile,
-    viewModel: MainViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onDismiss: () -> Unit,
     onCreateNew: () -> Unit
 ) {
     // Collect all playlists
-    val allPlaylists by viewModel.playlists.collectAsStateWithLifecycle()
+    val allPlaylists by playlistViewModel.playlists.collectAsStateWithLifecycle()
 
     // Filter based on the media type being added
     val filteredPlaylists = remember(allPlaylists, song) {
@@ -122,7 +123,7 @@ fun AddToPlaylistDialog(
                             headlineContent = { Text(playlist.name) },
                             trailingContent = { if (isAdded) Icon(Icons.Default.Check, null) },
                             modifier = Modifier.clickable(enabled = !isAdded) {
-                                viewModel.addSongToPlaylist(playlist.id, song.id)
+                                playlistViewModel.addSongToPlaylist(playlist.id, song.id)
                                 onDismiss()
                             }
                         )
