@@ -34,6 +34,7 @@ import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
 import com.local.offlinemediaplayer.model.VideoFolder
+import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import com.local.offlinemediaplayer.service.PlaybackService
 import com.local.offlinemediaplayer.ui.theme.AppThemeConfig
@@ -110,7 +111,8 @@ constructor(
         private val app: Application,
         private val playlistRepository: PlaylistRepository,
         private val mediaDao: MediaDao,
-        private val thumbnailManager: ThumbnailManager
+        private val thumbnailManager: ThumbnailManager,
+        private val mediaRepository: MediaRepository
 ) : AndroidViewModel(app) {
 
     // --- STATE PRESERVATION ---
@@ -995,18 +997,14 @@ constructor(
         viewModelScope.launch(Dispatchers.IO) {
             _isRefreshing.value = true
             try {
-                val videos = queryMedia(isVideo = true)
-                val audio = queryMedia(isVideo = false)
-                // Attach any already-cached thumbnails before publishing the list
-                val videosWithCachedThumbs =
-                        videos.map { v ->
-                            val cached = thumbnailManager.getCachedPath(v)
-                            if (cached != null) v.copy(thumbnailPath = cached) else v
-                        }
-                _videoList.value = videosWithCachedThumbs
+                // Delegate to MediaRepository which handles querying & thumbnail caching
+                val (videos, audio) = mediaRepository.scanMedia()
+
+                // Sync local state from repository
+                _videoList.value = mediaRepository.videoList.value
                 _audioList.value = audio
-                _imageList.value = queryImages()
-                _albums.value = queryAlbums()
+                _imageList.value = mediaRepository.imageList.value
+                _albums.value = mediaRepository.albums.value
 
                 // RESTORE QUEUE AFTER LOADING
                 // Only restore if queue is empty to avoid disrupting playback on refresh
@@ -1019,20 +1017,6 @@ constructor(
             } finally {
                 _isRefreshing.value = false
             }
-
-            // Generate missing thumbnails in background (after refreshing flag is cleared)
-            val uncachedVideos = _videoList.value.filter { it.thumbnailPath == null }
-            if (uncachedVideos.isNotEmpty()) {
-                thumbnailManager.generateThumbnails(uncachedVideos).collect { (id, path) ->
-                    _videoList.value =
-                            _videoList.value.map {
-                                if (it.id == id) it.copy(thumbnailPath = path) else it
-                            }
-                }
-            }
-
-            // Clean up thumbnails for deleted videos
-            thumbnailManager.cleanStaleThumbnails(_videoList.value)
         }
     }
 
@@ -1111,237 +1095,7 @@ constructor(
         sharedPrefs.edit { putInt("last_queue_index", index) }
     }
 
-    // --- Query Methods (Unchanged) ---
-    private fun queryMedia(isVideo: Boolean): List<MediaFile> {
-        val mediaList = mutableListOf<MediaFile>()
-        val collection =
-                if (Build.VERSION.SDK_INT >= 29) {
-                    if (isVideo) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-                    else MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-                } else {
-                    if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                    else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                }
 
-        val projection =
-                if (isVideo) {
-                    arrayOf(
-                            MediaStore.Video.Media._ID,
-                            MediaStore.Video.Media.DISPLAY_NAME,
-                            MediaStore.Video.Media.DURATION,
-                            MediaStore.Video.Media.BUCKET_ID,
-                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
-                            MediaStore.Video.Media.SIZE,
-                            MediaStore.Video.Media.WIDTH,
-                            MediaStore.Video.Media.HEIGHT,
-                            MediaStore.Video.Media.DATE_MODIFIED
-                    )
-                } else {
-                    arrayOf(
-                            MediaStore.Audio.Media._ID,
-                            MediaStore.Audio.Media.TITLE,
-                            MediaStore.Audio.Media.ARTIST,
-                            MediaStore.Audio.Media.DURATION,
-                            MediaStore.Audio.Media.ALBUM_ID
-                    )
-                }
-        val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0" else null
-
-        try {
-            app.contentResolver.query(collection, projection, selection, null, null)?.use { cursor
-                ->
-                val idColumn =
-                        cursor.getColumnIndexOrThrow(
-                                if (isVideo) MediaStore.Video.Media._ID
-                                else MediaStore.Audio.Media._ID
-                        )
-                val nameColumn =
-                        cursor.getColumnIndexOrThrow(
-                                if (isVideo) MediaStore.Video.Media.DISPLAY_NAME
-                                else MediaStore.Audio.Media.TITLE
-                        )
-                val durationColumn =
-                        cursor.getColumnIndexOrThrow(
-                                if (isVideo) MediaStore.Video.Media.DURATION
-                                else MediaStore.Audio.Media.DURATION
-                        )
-                val artistColumn =
-                        if (!isVideo) cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-                        else -1
-                val albumIdColumn =
-                        if (!isVideo) cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-                        else -1
-
-                val bucketIdColumn =
-                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_ID) else -1
-                val bucketNameColumn =
-                        if (isVideo)
-                                cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
-                        else -1
-                val sizeColumn =
-                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.SIZE) else -1
-                val widthColumn =
-                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.WIDTH) else -1
-                val heightColumn =
-                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT) else -1
-                val dateModifiedColumn =
-                        if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED)
-                        else -1
-
-                while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idColumn)
-                    val name = cursor.getString(nameColumn)
-                    val duration = cursor.getLong(durationColumn)
-                    val contentUri = ContentUris.withAppendedId(collection, id)
-
-                    var artist = ""
-                    var albumArtUri: Uri? = null
-                    var albumId: Long = -1
-
-                    var bucketId = ""
-                    var bucketName = ""
-                    var size: Long = 0
-                    var resolution = ""
-                    var dateModified: Long = 0
-
-                    if (isVideo) {
-                        bucketId =
-                                if (bucketIdColumn != -1) cursor.getString(bucketIdColumn) ?: ""
-                                else ""
-                        bucketName =
-                                if (bucketNameColumn != -1)
-                                        cursor.getString(bucketNameColumn) ?: "Unknown"
-                                else "Unknown"
-                        size = if (sizeColumn != -1) cursor.getLong(sizeColumn) else 0
-                        dateModified =
-                                if (dateModifiedColumn != -1) cursor.getLong(dateModifiedColumn)
-                                else 0
-
-                        val width = if (widthColumn != -1) cursor.getInt(widthColumn) else 0
-                        val height = if (heightColumn != -1) cursor.getInt(heightColumn) else 0
-
-                        resolution =
-                                if (height >= 2160) "4K"
-                                else if (height >= 1080) "1080P"
-                                else if (height >= 720) "720P"
-                                else if (height >= 480) "480P"
-                                else if (height > 0) "${height}P" else ""
-                    } else {
-                        artist = cursor.getString(artistColumn) ?: "Unknown Artist"
-                        albumId = cursor.getLong(albumIdColumn)
-                        val sArtworkUri = "content://media/external/audio/albumart".toUri()
-                        albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId)
-                    }
-
-                    mediaList.add(
-                            MediaFile(
-                                    id,
-                                    contentUri,
-                                    name,
-                                    artist,
-                                    duration,
-                                    isVideo,
-                                    false,
-                                    albumArtUri,
-                                    albumId,
-                                    bucketId,
-                                    bucketName,
-                                    size,
-                                    resolution,
-                                    dateModified
-                            )
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return mediaList
-    }
-
-    private fun queryImages(): List<MediaFile> {
-        val imageList = mutableListOf<MediaFile>()
-        val collection =
-                if (Build.VERSION.SDK_INT >= 29)
-                        MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-                else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME)
-        try {
-            app.contentResolver.query(
-                            collection,
-                            projection,
-                            null,
-                            null,
-                            "${MediaStore.Images.Media.DATE_ADDED} DESC"
-                    )
-                    ?.use { cursor ->
-                        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                        val nameColumn =
-                                cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                        while (cursor.moveToNext()) {
-                            val id = cursor.getLong(idColumn)
-                            val name = cursor.getString(nameColumn) ?: "Unknown Image"
-                            val contentUri = ContentUris.withAppendedId(collection, id)
-                            imageList.add(
-                                    MediaFile(
-                                            id = id,
-                                            uri = contentUri,
-                                            title = name,
-                                            artist = null,
-                                            duration = 0,
-                                            isVideo = false,
-                                            isImage = true,
-                                            albumArtUri = null,
-                                            albumId = -1
-                                    )
-                            )
-                        }
-                    }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return imageList
-    }
-
-    private fun queryAlbums(): List<Album> {
-        val albumList = mutableListOf<Album>()
-        val collection =
-                if (Build.VERSION.SDK_INT >= 29)
-                        MediaStore.Audio.Albums.getContentUri(MediaStore.VOLUME_EXTERNAL)
-                else MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI
-        val projection =
-                arrayOf(
-                        MediaStore.Audio.Albums._ID,
-                        MediaStore.Audio.Albums.ALBUM,
-                        MediaStore.Audio.Albums.ARTIST,
-                        MediaStore.Audio.Albums.NUMBER_OF_SONGS,
-                        MediaStore.Audio.Albums.FIRST_YEAR
-                )
-        try {
-            app.contentResolver.query(collection, projection, null, null, null)?.use { cursor ->
-                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums._ID)
-                val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.ALBUM)
-                val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.ARTIST)
-                val countColumn =
-                        cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.NUMBER_OF_SONGS)
-                val yearColumn = cursor.getColumnIndex(MediaStore.Audio.Albums.FIRST_YEAR)
-                while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idColumn)
-                    val name = cursor.getString(albumColumn) ?: "Unknown Album"
-                    val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
-                    val count = cursor.getInt(countColumn)
-                    val year = if (yearColumn != -1) cursor.getInt(yearColumn) else null
-                    val finalYear = if (year != null && year > 1900) year else null
-                    val sArtworkUri = "content://media/external/audio/albumart".toUri()
-                    val albumArtUri = ContentUris.withAppendedId(sArtworkUri, id)
-                    albumList.add(Album(id, name, artist, count, finalYear, albumArtUri))
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return albumList
-    }
 
     // --- Playlist Management ---
     fun createPlaylist(name: String, isVideo: Boolean = false) {
