@@ -1,0 +1,28 @@
+name: CodeWiki Documentation Sync
+
+on:
+  push:
+    branches:
+      - main # Only run on main branch pushes to save Gemini API credits
+
+jobs:
+  codewiki-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Important: Fetch all history for diff generation
+          
+      - name: CodeWiki Sync Action
+        # Assuming the use of the standard CodeWiki CLI or provided action. 
+        # (Replace with the exact official action repo when the preview goes GA)
+        uses: google/codewiki-sync-action@v1 # Placeholder for the official action
+        with:
+          project_id: "your-google-cloud-project-id" # Need to configure if using Google Cloud directly
+          config_path: "codewiki.yaml"
+        env:
+          # This requires generating a Gemini API key from AI Studio
+          # and adding it to your GitHub Repository Secrets
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

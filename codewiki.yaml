@@ -1,0 +1,29 @@
+# CodeWiki Configuration for FastBeat (OfflineMediaPlayer)
+
+# The project language
+language: kotlin
+
+# The primary branch to map
+branch: main
+
+# Directories and files to explicitly include for documentation parsing
+include:
+  - "app/src/main/java/"
+  - "README.md"
+  - "SENIOR_KOTLIN_DEVELOPER_GUIDE.md"
+  - "MusicPlayer_Dev_Guide.md"
+
+# Directories to exclude from LLM processing to save API quotas
+exclude:
+  - ".gradle/"
+  - ".idea/"
+  - ".vscode/"
+  - "build/"
+  - "app/build/"
+  - "*.apk"
+  - "*.aab"
+  - "*.keystore"
+  - "gradle/"
+  - "gradlew"
+  - "gradlew.bat"
+  - "local.properties"
