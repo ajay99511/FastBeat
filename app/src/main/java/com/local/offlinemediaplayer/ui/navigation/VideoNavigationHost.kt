@@ -12,11 +12,15 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
 import com.local.offlinemediaplayer.ui.screens.VideoListScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
 fun VideoNavigationHost(
     viewModel: PlaybackViewModel,
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
     navController: NavHostController,
     onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
     isSearchVisible: Boolean
@@ -53,7 +57,7 @@ fun VideoNavigationHost(
 
         composable("video_list/{bucketId}") { backStackEntry ->
             val bucketId = backStackEntry.arguments?.getString("bucketId") ?: ""
-            val allVideos by viewModel.videoList.collectAsState()
+            val allVideos by libraryViewModel.videoList.collectAsStateWithLifecycle()
             val folderVideos = allVideos.filter { it.bucketId == bucketId }
 
             // Video List has its own header with search toggle, but we can pass initial state if needed.
@@ -62,6 +66,7 @@ fun VideoNavigationHost(
 
             VideoListScreen(
                 viewModel = viewModel,
+                libraryViewModel = libraryViewModel,
                 onVideoClick = onVideoClick,
                 videoListOverride = folderVideos,
                 title = folderVideos.firstOrNull()?.bucketName ?: "Videos",

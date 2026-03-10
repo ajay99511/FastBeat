@@ -828,7 +828,11 @@ fun MeScreen(
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                         Button(
-                                                onClick = { viewModel.playAll(false) },
+                                                onClick = {
+                                                    if (audioList.isNotEmpty()) {
+                                                        viewModel.setQueue(audioList, 0, false)
+                                                    }
+                                                },
                                                 modifier = Modifier.weight(1f).height(48.dp),
                                                 colors =
                                                         ButtonDefaults.buttonColors(
@@ -850,7 +854,12 @@ fun MeScreen(
                                         }
 
                                         Button(
-                                                onClick = { viewModel.playAll(true) },
+                                                onClick = {
+                                                    if (audioList.isNotEmpty()) {
+                                                        val randomIndex = (audioList.indices).random()
+                                                        viewModel.setQueue(audioList, randomIndex, true)
+                                                    }
+                                                },
                                                 modifier =
                                                         Modifier.weight(1f)
                                                                 .height(48.dp)
@@ -930,7 +939,12 @@ fun MeScreen(
                                                                                 )
                                                                         )
                                                                         .clickable {
-                                                                                onPlayMedia(song)
+                                                                                val startIndex = audioList.indexOfFirst { it.id == song.id }
+                                                                                if (startIndex >= 0) {
+                                                                                        viewModel.setQueue(audioList, startIndex, false)
+                                                                                } else {
+                                                                                        onPlayMedia(song)
+                                                                                }
                                                                         }
                                                                         .padding(
                                                                                 vertical = 8.dp,

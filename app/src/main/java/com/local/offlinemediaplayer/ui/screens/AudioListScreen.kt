@@ -55,7 +55,7 @@ import com.local.offlinemediaplayer.viewmodel.SortOption
 @Composable
 fun AudioListScreen(
     viewModel: PlaybackViewModel,
-    libraryViewModel: LibraryViewModel = hiltViewModel(),
+    libraryViewModel: LibraryViewModel,
     onAudioClick: (MediaFile) -> Unit,
     onAddToPlaylist: (MediaFile) -> Unit,
     isSearchVisible: Boolean
@@ -158,7 +158,11 @@ fun AudioListScreen(
                         ) {
                             // Play All (Filled Theme Color)
                             Button(
-                                onClick = { viewModel.playAll(false) },
+                                onClick = {
+                                    if (audioList.isNotEmpty()) {
+                                        viewModel.setQueue(audioList, 0, false)
+                                    }
+                                },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(48.dp),
@@ -172,7 +176,12 @@ fun AudioListScreen(
 
                             // Shuffle (Outlined Dark)
                             Button(
-                                onClick = { viewModel.playAll(true) },
+                                onClick = {
+                                    if (audioList.isNotEmpty()) {
+                                        val randomIndex = (audioList.indices).random()
+                                        viewModel.setQueue(audioList, randomIndex, true)
+                                    }
+                                },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(48.dp)
@@ -283,8 +292,14 @@ fun AudioListScreen(
                     AudioListItemStyled(
                         song = song,
                         onClick = {
-                            if (isSelectionMode) libraryViewModel.toggleSelection(song.id)
-                            else onAudioClick(song)
+                            if (isSelectionMode) {
+                                libraryViewModel.toggleSelection(song.id)
+                            } else {
+                                val startIndex = audioList.indexOfFirst { it.id == song.id }
+                                if (startIndex >= 0) {
+                                    viewModel.setQueue(audioList, startIndex, false)
+                                }
+                            }
                         },
                         onLongClick = {
                             libraryViewModel.toggleSelectionMode(true)

@@ -171,8 +171,6 @@ constructor(
     }
 
     // Media Lists
-    private val _videoList = MutableStateFlow<List<MediaFile>>(emptyList())
-    val videoList = _videoList.asStateFlow()
 
     private val _audioList = MutableStateFlow<List<MediaFile>>(emptyList())
     val audioList = _audioList.asStateFlow()
@@ -191,7 +189,7 @@ constructor(
     private val _analyticsUpdateTrigger = MutableStateFlow(0L) // Used to force refresh logic
 
     val realtimeAnalytics =
-            combine(_analyticsUpdateTrigger, _audioList, _videoList) { _, audio, videos ->
+            combine(_analyticsUpdateTrigger, _audioList, mediaRepository.videoList) { _, audio, videos ->
                         calculateAnalytics(audio + videos)
                     }
                     .stateIn(
@@ -200,33 +198,6 @@ constructor(
                             RealtimeAnalytics()
                     )
 
-    // --- MOVIES TAB STATE (Videos > 1 Hour) ---
-    private val _movieSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
-    val movieSortOption = _movieSortOption.asStateFlow()
-
-    val moviesList =
-            _videoList
-                    .map { list ->
-                        list.filter { it.duration >= 3600000 } // 1 Hour = 3,600,000 ms
-                    }
-                    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val sortedMovies =
-            combine(moviesList, _movieSortOption) { list, sort ->
-                        when (sort) {
-                            SortOption.TITLE_ASC -> list.sortedBy { it.title }
-                            SortOption.TITLE_DESC -> list.sortedByDescending { it.title }
-                            SortOption.DURATION_ASC -> list.sortedBy { it.duration }
-                            SortOption.DURATION_DESC -> list.sortedByDescending { it.duration }
-                            SortOption.DATE_ADDED_DESC ->
-                                    list.sortedByDescending { it.id } // Proxy for latest
-                        }
-                    }
-                    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun updateMovieSortOption(option: SortOption) {
-        _movieSortOption.value = option
-    }
 
     // --- QUEUE STATE ---
     private val _currentQueue = MutableStateFlow<List<MediaFile>>(emptyList())
@@ -241,7 +212,7 @@ constructor(
 
     // --- CONTINUE WATCHING FLOW ---
     val continueWatchingList =
-            combine(_videoList, mediaDao.getContinueWatching()) { videos, historyItems ->
+            combine(mediaRepository.videoList, mediaDao.getContinueWatching()) { videos, historyItems ->
                         historyItems.mapNotNull { history ->
                             val video = videos.find { it.id == history.mediaId }
                             if (video != null) {
@@ -251,29 +222,6 @@ constructor(
                     }
                     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Derived State: Video Folders
-    val videoFolders =
-            _videoList
-                    .map { videos ->
-                        videos
-                                .groupBy { it.bucketId }
-                                .map { (bucketId, bucketVideos) ->
-                                    VideoFolder(
-                                            id = bucketId,
-                                            name = bucketVideos.firstOrNull()?.bucketName
-                                                            ?: "Unknown",
-                                            videoCount = bucketVideos.size,
-                                            thumbnailUri = bucketVideos.firstOrNull()?.uri
-                                                            ?: Uri.EMPTY
-                                    )
-                                }
-                                .sortedBy { it.name }
-                    }
-                    .stateIn(
-                            scope = viewModelScope,
-                            started = SharingStarted.WhileSubscribed(5000),
-                            initialValue = emptyList()
-                    )
 
     // Playlist State
     val playlists =
@@ -532,7 +480,7 @@ constructor(
         if (idsToDelete.isEmpty()) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val allMedia = _videoList.value + _audioList.value
+            val allMedia = mediaRepository.videoList.value + _audioList.value
             val filesToDelete = allMedia.filter { idsToDelete.contains(it.id) }
             val uris = filesToDelete.map { it.uri }
 
@@ -558,7 +506,6 @@ constructor(
 
     private fun onDeleteSuccess(ids: List<Long>) {
         viewModelScope.launch {
-            _videoList.value = _videoList.value.filter { !ids.contains(it.id) }
             _audioList.value = _audioList.value.filter { !ids.contains(it.id) }
             _imageList.value = _imageList.value.filter { !ids.contains(it.id) }
             val currentPlaylists = playlists.value
@@ -772,7 +719,7 @@ constructor(
         val id = currentMediaItem.mediaId.toLongOrNull()
         if (id != null) {
             val track =
-                    _audioList.value.find { it.id == id } ?: _videoList.value.find { it.id == id }
+                    _audioList.value.find { it.id == id } ?: mediaRepository.videoList.value.find { it.id == id }
             _currentTrack.value = track
             _currentIndex.value = controller.currentMediaItemIndex
 
@@ -1001,7 +948,6 @@ constructor(
                 val (videos, audio) = mediaRepository.scanMedia()
 
                 // Sync local state from repository
-                _videoList.value = mediaRepository.videoList.value
                 _audioList.value = audio
                 _imageList.value = mediaRepository.imageList.value
                 _albums.value = mediaRepository.albums.value
@@ -1169,7 +1115,7 @@ constructor(
         // Then, load the rest of the folder in the background to enable "Next/Prev"
         queueUpdateJob =
                 viewModelScope.launch(Dispatchers.IO) {
-                    val folderVideos = _videoList.value.filter { it.bucketId == media.bucketId }
+                    val folderVideos = mediaRepository.videoList.value.filter { it.bucketId == media.bucketId }
                     if (folderVideos.size > 1) {
                         // Determine start index for the FULL list
                         val newStartIndex =
@@ -1300,7 +1246,7 @@ constructor(
     }
 
     fun playPlaylist(playlist: Playlist, shuffle: Boolean) {
-        val allMedia = if (playlist.isVideo) _videoList.value else _audioList.value
+        val allMedia = if (playlist.isVideo) mediaRepository.videoList.value else _audioList.value
         val playlistMedia = playlist.mediaIds.mapNotNull { id -> allMedia.find { it.id == id } }
         if (playlistMedia.isNotEmpty()) {
             val startIndex = if (shuffle) (playlistMedia.indices).random() else 0
@@ -1643,7 +1589,18 @@ constructor(
             } else if (it.hasPreviousMediaItem()) {
                 it.seekToPrevious()
             } else {
-                autoFillQueue(playPrevious = true)
+                if (_currentTrack.value?.isVideo == true) {
+                    it.seekTo(0)
+                } else {
+                    // Start of queue, skip to end if looping/shuffled? Or autoFillQueue.
+                    // Actually if we want to play previous and there's no previous item,
+                    // we seek to the end of the queue.
+                    if (it.mediaItemCount > 0 && !it.shuffleModeEnabled) {
+                        it.seekTo(it.mediaItemCount - 1, 0L)
+                    } else {
+                        autoFillQueue(playPrevious = true)
+                    }
+                }
             }
         }
     }
@@ -1659,8 +1616,6 @@ constructor(
             val newMode = !it.shuffleModeEnabled
             it.shuffleModeEnabled = newMode
             _isShuffleEnabled.value = newMode
-            // No need to rebuild/reorder queue visual list
-            // usage: The queue remains in original order, but playback order changes internally
         }
     }
     fun toggleRepeat() {
@@ -1682,7 +1637,13 @@ constructor(
         _player.value?.let { it.seekTo((it.currentPosition - 10000).coerceAtLeast(0)) }
     }
     fun forward() {
-        _player.value?.let { it.seekTo((it.currentPosition + 10000).coerceAtMost(it.duration)) }
+        _player.value?.let {
+            if (it.duration != androidx.media3.common.C.TIME_UNSET && it.duration > 0) {
+                it.seekTo((it.currentPosition + 10000).coerceAtMost(it.duration))
+            } else {
+                it.seekTo(it.currentPosition + 10000)
+            }
+        }
     }
     fun hasNext(): Boolean {
         return _player.value?.hasNextMediaItem() ?: false

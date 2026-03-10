@@ -43,7 +43,7 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 @Composable
 fun AlbumListScreen(
     viewModel: PlaybackViewModel,
-    libraryViewModel: LibraryViewModel = hiltViewModel(),
+    libraryViewModel: LibraryViewModel,
     onAlbumClick: (Long) -> Unit,
     isSearchVisible: Boolean
 ) {

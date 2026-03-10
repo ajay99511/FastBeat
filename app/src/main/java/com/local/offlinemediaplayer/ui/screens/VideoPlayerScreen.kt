@@ -200,9 +200,20 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
-                if (activity?.isInPictureInPictureMode == true) viewModel.setPipMode(true)
+                if (activity?.isInPictureInPictureMode == true) {
+                    viewModel.setPipMode(true)
+                }
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                if (activity?.isInPictureInPictureMode == true) {
+                    // In PiP mode, let it keep playing
+                } else {
+                    // Not in PiP mode, explicitly pause video so audio doesn't leak into background
+                    viewModel.pauseVideo()
+                }
             } else if (event == Lifecycle.Event.ON_RESUME) {
-                if (activity?.isInPictureInPictureMode == false) viewModel.setPipMode(false)
+                if (activity?.isInPictureInPictureMode == false) {
+                    viewModel.setPipMode(false)
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

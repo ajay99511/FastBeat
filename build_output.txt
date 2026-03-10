@@ -1,6 +1,3 @@
-To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
-Daemon JVM discovery is an incubating feature.
-Daemon will be stopped at the end of the build 
 
 > Configure project :app
 WARNING: The option setting 'android.usesSdkInManifest.disallowed=false' is deprecated.
@@ -78,11 +75,48 @@ This mode is not recommended for production use,
 as no stability/compatibility guarantees are given on
 compiler or generated code. Use it at your own risk!
 
-e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoFolderScreen.kt:335:37 Unresolved reference 'viewModel'.
-e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoFolderScreen.kt:344:37 Unresolved reference 'viewModel'.
-e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoFolderScreen.kt:353:37 Unresolved reference 'viewModel'.
-e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoFolderScreen.kt:360:37 Unresolved reference 'viewModel'.
-e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoFolderScreen.kt:367:37 Unresolved reference 'viewModel'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:68:27 Unresolved reference 'LibraryViewModel'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:68:46 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:75:25 Property delegate must have a 'getValue(Nothing?, KProperty0<ERROR CLASS: Cannot infer argument for type parameter T>)' method. None of the following functions is applicable:
+fun <T> State<T>.getValue(thisObj: Any?, property: KProperty<*>): T
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:75:28 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:75:45 Unresolved reference 'videoList'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:75:55 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:80:29 Property delegate must have a 'getValue(Nothing?, KProperty0<ERROR CLASS: Cannot infer argument for type parameter T>)' method. None of the following functions is applicable:
+fun <T> State<T>.getValue(thisObj: Any?, property: KProperty<*>): T
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:80:32 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:80:49 Unresolved reference 'isSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:80:65 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:81:25 Property delegate must have a 'getValue(Nothing?, KProperty0<ERROR CLASS: Cannot infer argument for type parameter T>)' method. None of the following functions is applicable:
+fun <T> State<T>.getValue(thisObj: Any?, property: KProperty<*>): T
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:81:28 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:81:45 Unresolved reference 'selectedMediaIds'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:81:62 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:89:50 Unresolved reference 'onDeleteSuccess'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:94:34 Unresolved reference 'deleteIntentEvent'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:94:62 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:95:89 Unresolved reference 'build'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:118:67 Unresolved reference 'toggleSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:145:82 Unresolved reference 'toggleSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:168:79 Function invocation 'size(...)' expected.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:319:56 Unresolved reference 'not' for operator '!'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:369:94 Unresolved reference 'scanMedia'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:397:90 Unresolved reference 'toggleSelection'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:408:82 Unresolved reference 'toggleSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:411:90 Unresolved reference 'toggleSelection'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:426:82 Unresolved reference 'toggleSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:429:90 Unresolved reference 'selectAll'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:458:90 Unresolved reference 'toggleSelection'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:469:82 Unresolved reference 'toggleSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:472:90 Unresolved reference 'toggleSelection'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:486:82 Unresolved reference 'toggleSelectionMode'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:489:90 Unresolved reference 'selectAll'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:511:45 Function invocation 'size(...)' expected.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt:512:56 Unresolved reference 'deleteSelectedMedia'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt:1118:40 Unresolved reference '_videoList'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt:1118:66 Unresolved reference 'it'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt:1119:38 Unresolved reference 'size'.
+e: file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt:1122:61 Unresolved reference 'it'.
 
 FAILURE: Build failed with an exception.
 
@@ -97,5 +131,5 @@ Execution failed for task ':app:compileDebugKotlin'.
 > Run with --scan to generate a Build Scan (Powered by Develocity).
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 37s
+BUILD FAILED in 8s
 30 actionable tasks: 1 executed, 29 up-to-date

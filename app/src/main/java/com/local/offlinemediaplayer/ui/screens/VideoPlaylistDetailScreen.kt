@@ -45,6 +45,14 @@ fun VideoPlaylistDetailScreen(
     val playlists by playlistViewModel.videoPlaylists.collectAsStateWithLifecycle()
     val allVideos by libraryViewModel.videoList.collectAsStateWithLifecycle()
 
+    // Show loading state if playlists haven't hydrated from DB yet
+    if (playlists.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+        return
+    }
+
     val playlist = playlists.find { it.id == playlistId }
 
     // Safety check if playlist was deleted

@@ -28,14 +28,18 @@ import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import kotlinx.coroutines.launch
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun AudioLibraryScreen(
     viewModel: PlaybackViewModel,
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
     onNavigateToPlayer: () -> Unit,
     onNavigateToPlaylist: (String) -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
@@ -45,7 +49,17 @@ fun AudioLibraryScreen(
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
 
-    // Add to Playlist Dialog State
+    // Lifted state observation
+    val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+
+    // Reset selection mode when swiping away from TRACKS tab (page 0)
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != 0 && isSelectionMode) {
+            libraryViewModel.toggleSelectionMode(false)
+        }
+    }
+
+    // Modal Dialog States
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var songToAdd by remember { mutableStateOf<MediaFile?>(null) }
 
@@ -112,6 +126,7 @@ fun AudioLibraryScreen(
                         // TRACKS VIEW
                         AudioListScreen(
                             viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
                             onAudioClick = { file ->
                                 viewModel.playMedia(file)
                             },
@@ -126,6 +141,7 @@ fun AudioLibraryScreen(
                         // ALBUMS VIEW
                         AlbumListScreen(
                             viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
                             onAlbumClick = onNavigateToAlbum,
                             isSearchVisible = isSearchVisible
                         )

@@ -48,6 +48,14 @@ fun PlaylistDetailScreen(
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 120.dp else 16.dp
 
+    // Show loading state if playlists haven't hydrated from DB yet
+    if (playlists.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+        return
+    }
+
     val playlist = playlists.find { it.id == playlistId }
 
     // Safety check if playlist was deleted

@@ -59,25 +59,27 @@ import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoListScreen(
         viewModel: PlaybackViewModel,
+        libraryViewModel: LibraryViewModel = hiltViewModel(),
         playlistViewModel: PlaylistViewModel = hiltViewModel(),
         onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
         videoListOverride: List<MediaFile>? = null,
         title: String? = null,
         onBack: (() -> Unit)? = null
 ) {
-        val videosState by viewModel.videoList.collectAsStateWithLifecycle()
+        val videosState by libraryViewModel.videoList.collectAsStateWithLifecycle()
         val videos = videoListOverride ?: videosState
         val primaryAccent = LocalAppTheme.current.primaryColor
 
         // Selection State
-        val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
-        val selectedIds by viewModel.selectedMediaIds.collectAsStateWithLifecycle()
+        val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+        val selectedIds by libraryViewModel.selectedMediaIds.collectAsStateWithLifecycle()
 
         // Deletion Flow Handling
         val intentLauncher =
@@ -85,12 +87,12 @@ fun VideoListScreen(
                         contract = ActivityResultContracts.StartIntentSenderForResult()
                 ) { result ->
                         if (result.resultCode == Activity.RESULT_OK) {
-                                viewModel.onDeleteSuccess()
+                                libraryViewModel.onDeleteSuccess()
                         }
                 }
 
         LaunchedEffect(Unit) {
-                viewModel.deleteIntentEvent.collect { intentSender ->
+                libraryViewModel.deleteIntentEvent.collect { intentSender ->
                         intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
                 }
         }
@@ -114,7 +116,7 @@ fun VideoListScreen(
         var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
         // Back Handler to exit selection mode
-        BackHandler(enabled = isSelectionMode) { viewModel.toggleSelectionMode(false) }
+        BackHandler(enabled = isSelectionMode) { libraryViewModel.toggleSelectionMode(false) }
 
         val filteredVideos =
                 if (searchQuery.isEmpty()) {
@@ -141,7 +143,7 @@ fun VideoListScreen(
                                                 // SELECTION MODE HEADER
                                                 IconButton(
                                                         onClick = {
-                                                                viewModel.toggleSelectionMode(false)
+                                                                libraryViewModel.toggleSelectionMode(false)
                                                         },
                                                         modifier =
                                                                 Modifier.background(
@@ -365,7 +367,7 @@ fun VideoListScreen(
                                                 )
                                                 if (searchQuery.isEmpty()) {
                                                         Button(
-                                                                onClick = { viewModel.scanMedia() },
+                                                                onClick = { libraryViewModel.scanMedia() },
                                                                 colors =
                                                                         ButtonDefaults.buttonColors(
                                                                                 containerColor =
@@ -392,7 +394,7 @@ fun VideoListScreen(
                                                                 video = video,
                                                                 onVideoClick = {
                                                                         if (isSelectionMode)
-                                                                                viewModel
+                                                                                libraryViewModel
                                                                                         .toggleSelection(
                                                                                                 video.id
                                                                                         )
@@ -403,11 +405,11 @@ fun VideoListScreen(
                                                                                 )
                                                                 },
                                                                 onLongClick = {
-                                                                        viewModel
+                                                                        libraryViewModel
                                                                                 .toggleSelectionMode(
                                                                                         true
                                                                                 )
-                                                                        viewModel.toggleSelection(
+                                                                        libraryViewModel.toggleSelection(
                                                                                 video.id
                                                                         )
                                                                 },
@@ -421,11 +423,11 @@ fun VideoListScreen(
                                                                 isSelectionMode = isSelectionMode,
                                                                 isSelected = isSelected,
                                                                 onDelete = {
-                                                                        viewModel
+                                                                        libraryViewModel
                                                                                 .toggleSelectionMode(
                                                                                         true
                                                                                 )
-                                                                        viewModel.selectAll(
+                                                                        libraryViewModel.selectAll(
                                                                                 listOf(video.id)
                                                                         )
                                                                         showDeleteConfirmDialog =
@@ -453,7 +455,7 @@ fun VideoListScreen(
                                                                 video = video,
                                                                 onVideoClick = {
                                                                         if (isSelectionMode)
-                                                                                viewModel
+                                                                                libraryViewModel
                                                                                         .toggleSelection(
                                                                                                 video.id
                                                                                         )
@@ -464,11 +466,11 @@ fun VideoListScreen(
                                                                                 )
                                                                 },
                                                                 onLongClick = {
-                                                                        viewModel
+                                                                        libraryViewModel
                                                                                 .toggleSelectionMode(
                                                                                         true
                                                                                 )
-                                                                        viewModel.toggleSelection(
+                                                                        libraryViewModel.toggleSelection(
                                                                                 video.id
                                                                         )
                                                                 },
@@ -481,11 +483,11 @@ fun VideoListScreen(
                                                                 isSelectionMode = isSelectionMode,
                                                                 isSelected = isSelected,
                                                                 onDelete = {
-                                                                        viewModel
+                                                                        libraryViewModel
                                                                                 .toggleSelectionMode(
                                                                                         true
                                                                                 )
-                                                                        viewModel.selectAll(
+                                                                        libraryViewModel.selectAll(
                                                                                 listOf(video.id)
                                                                         )
                                                                         showDeleteConfirmDialog =
@@ -508,7 +510,7 @@ fun VideoListScreen(
         if (showDeleteConfirmDialog) {
                 DeleteConfirmationDialog(
                         count = selectedIds.size,
-                        onConfirm = { viewModel.deleteSelectedMedia() },
+                        onConfirm = { libraryViewModel.deleteSelectedMedia() },
                         onDismiss = { showDeleteConfirmDialog = false }
                 )
         }
