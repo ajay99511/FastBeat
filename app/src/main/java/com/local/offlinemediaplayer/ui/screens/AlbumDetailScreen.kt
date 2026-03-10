@@ -255,7 +255,7 @@ fun AlbumDetailScreen(
                             index = index + 1,
                             song = song,
                             onClick = {
-                                viewModel.playMedia(song)
+                                viewModel.setQueue(albumSongs, index, false)
                             },
                             onPlayNext = { viewModel.playNext(song) },
                             onAddToQueue = { viewModel.addToQueue(song) }
