@@ -11,8 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
-//import androidx.compose.material.icons.filled.PlaylistPlay
-//import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
@@ -25,16 +24,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @Composable
 fun AlbumDetailScreen(
         albumId: Long,
         viewModel: PlaybackViewModel,
+        playlistViewModel: PlaylistViewModel = hiltViewModel(),
         onBack: () -> Unit,
         onNavigateToPlayer: () -> Unit
 ) {
@@ -54,6 +58,11 @@ fun AlbumDetailScreen(
             if (favPlaylist != null && albumSongs.isNotEmpty()) {
                 albumSongs.all { favPlaylist.mediaIds.contains(it.id) }
             } else false
+
+    // Modal Dialog States
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var songToAdd by remember { mutableStateOf<MediaFile?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
 
     if (album == null) {
         onBack()
@@ -254,11 +263,16 @@ fun AlbumDetailScreen(
                     AlbumSongRow(
                             index = index + 1,
                             song = song,
+                            isPlaying = song.id == currentTrack?.id,
                             onClick = {
                                 viewModel.setQueue(albumSongs, index, false)
                             },
                             onPlayNext = { viewModel.playNext(song) },
-                            onAddToQueue = { viewModel.addToQueue(song) }
+                            onAddToQueue = { viewModel.addToQueue(song) },
+                            onAddToPlaylist = {
+                                songToAdd = song
+                                showAddToPlaylistDialog = true
+                            }
                     )
                 }
             }
@@ -269,15 +283,33 @@ fun AlbumDetailScreen(
                 modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
+
+    if (showCreateDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) }
+        )
+    }
+
+    if (showAddToPlaylistDialog && songToAdd != null) {
+        AddToPlaylistDialog(
+            song = songToAdd!!,
+            playlistViewModel = playlistViewModel,
+            onDismiss = { showAddToPlaylistDialog = false },
+            onCreateNew = { showCreateDialog = true } // Stack dialogs
+        )
+    }
 }
 
 @Composable
 fun AlbumSongRow(
         index: Int,
         song: MediaFile,
+        isPlaying: Boolean = false,
         onClick: () -> Unit,
         onPlayNext: () -> Unit,
-        onAddToQueue: () -> Unit
+        onAddToQueue: () -> Unit,
+        onAddToPlaylist: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -300,7 +332,7 @@ fun AlbumSongRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                     text = song.title,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -368,16 +400,22 @@ fun AlbumSongRow(
                             )
                         }
                 )
-                // Commenting out Add to Playlist for this iteration as strictly requested
-                // `AlbumDetailScreen` doesn't have the callback wired yet
-                // and I want to avoid breaking the helper signature chain right now.
-                // Wait, I can't just ignore it if the user asked for it.
-                // "Implement add to queue option ... from all the above screen"
-                // The explicit request was "Play Next" and "Add to Queue". "Add to Playlist" was
-                // already in my plan but might be scope creep if not careful.
-                // I will add the menu item but leaving the callback empty or TODO if I can't easily
-                // wire it.
-                // Actually, let's just implement Play Next and Add to Queue as PRIMARY requests.
+                DropdownMenuItem(
+                        text = {
+                            Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface)
+                        },
+                        onClick = {
+                            showMenu = false
+                            onAddToPlaylist()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.PlaylistAdd,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                )
             }
         }
     }

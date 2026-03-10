@@ -301,6 +301,7 @@ fun AudioListScreen(
                                 }
                             }
                         },
+                        isPlaying = song.id == currentTrack?.id,
                         onLongClick = {
                             libraryViewModel.toggleSelectionMode(true)
                             libraryViewModel.toggleSelection(song.id)
@@ -340,6 +341,7 @@ private fun AudioListItemStyled(
     onAddToPlaylist: (MediaFile) -> Unit,
     isSelectionMode: Boolean,
     isSelected: Boolean,
+    isPlaying: Boolean = false,
     onDelete: () -> Unit,
     onPlayNext: (MediaFile) -> Unit,
     onAddToQueue: (MediaFile) -> Unit
@@ -388,7 +390,7 @@ private fun AudioListItemStyled(
                 text = song.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
