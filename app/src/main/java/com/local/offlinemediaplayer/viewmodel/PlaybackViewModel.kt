@@ -552,6 +552,84 @@ constructor(
         _pendingImageDeleteId.value = null
     }
 
+    // --- Delete Current Track ---
+    private val _pendingDeleteTrackId = MutableStateFlow<Long?>(null)
+    private val _onDeleteTrackComplete = MutableSharedFlow<Unit>()
+    val onDeleteTrackComplete = _onDeleteTrackComplete.asSharedFlow()
+
+    fun deleteCurrentTrack() {
+        val track = _currentTrack.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            _pendingDeleteTrackId.value = track.id
+            val uris = listOf(track.uri)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val pendingIntent: PendingIntent =
+                        MediaStore.createDeleteRequest(app.contentResolver, uris)
+                _deleteIntentEvent.emit(pendingIntent.intentSender)
+            } else {
+                try {
+                    app.contentResolver.delete(track.uri, null, null)
+                    onCurrentTrackDeleteSuccess()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _pendingDeleteTrackId.value = null
+                }
+            }
+        }
+    }
+
+    fun onCurrentTrackDeleteSuccess() {
+        val id = _pendingDeleteTrackId.value ?: return
+        viewModelScope.launch {
+            // Remove from lists
+            _audioList.value = _audioList.value.filter { it.id != id }
+            val currentPlaylists = playlists.value
+            currentPlaylists.forEach { pl ->
+                if (pl.mediaIds.contains(id)) {
+                    playlistRepository.updatePlaylistTracks(
+                            pl.id,
+                            pl.mediaIds.filter { it != id }
+                    )
+                }
+            }
+
+            // Handle queue: if deleted track is in queue, move to next or stop
+            val queue = _currentQueue.value
+            val currentIndex = _currentIndex.value ?: -1
+            val deletedIndex = queue.indexOfFirst { it.id == id }
+
+            if (deletedIndex >= 0) {
+                // Determine next track to play
+                val nextIndex = if (deletedIndex < queue.size - 1) deletedIndex + 1 else deletedIndex - 1
+
+                if (nextIndex >= 0 && nextIndex < queue.size) {
+                    // Play next track
+                    val nextTrack = queue[nextIndex]
+                    withContext(Dispatchers.Main) {
+                        player.value?.let { p ->
+                            val mediaItem = MediaItem.fromUri(nextTrack.uri)
+                            p.setMediaItem(mediaItem, 0)
+                            p.prepare()
+                            p.play()
+                        }
+                    }
+                } else {
+                    // No more tracks, stop playback
+                    withContext(Dispatchers.Main) {
+                        player.value?.stop()
+                        player.value?.clearMediaItems()
+                        _currentTrack.value = null
+                        _isPlaying.value = false
+                    }
+                }
+            }
+
+            _pendingDeleteTrackId.value = null
+            _onDeleteTrackComplete.emit(Unit)
+        }
+    }
+
     // --- Bookmark Management ---
     fun addBookmark(timestamp: Long, label: String) {
         val track = _currentTrack.value ?: return

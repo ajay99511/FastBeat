@@ -1,6 +1,10 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 //import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LibraryMusic
@@ -30,6 +36,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +45,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
@@ -49,8 +58,6 @@ fun NowPlayingScreen(
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
-    // Current position isn't needed at the top level anymore, passed directly to progress bar
-    // val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsStateWithLifecycle()
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
@@ -63,6 +70,34 @@ fun NowPlayingScreen(
     // Bottom Sheet State
     var showQueueSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+
+    // Menu and Dialog State
+    var showMenu by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    // Delete Intent Launcher
+    val context = LocalContext.current
+    val intentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onCurrentTrackDeleteSuccess()
+        }
+    }
+
+    // Listen for delete completion to navigate back
+    LaunchedEffect(Unit) {
+        viewModel.onDeleteTrackComplete.collect {
+            onBack()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
 
     // Colors from Theme
     val primaryAccent = LocalAppTheme.current.primaryColor
@@ -128,12 +163,49 @@ fun NowPlayingScreen(
                     )
                 }
 
-                IconButton(onClick = { /* More options */ }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                // More Options Menu (3-dots)
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add to Playlist") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showAddToPlaylistDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showDeleteConfirmDialog = true
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -298,6 +370,30 @@ fun NowPlayingScreen(
                 }
             )
         }
+    }
+
+    // Add to Playlist Dialog
+    if (showAddToPlaylistDialog && currentTrack != null) {
+        AddToPlaylistDialog(
+            song = currentTrack!!,
+            onDismiss = { showAddToPlaylistDialog = false },
+            onCreateNew = {
+                // Create new playlist and add current track
+                viewModel.createPlaylist("New Playlist", currentTrack!!.isVideo)
+                showAddToPlaylistDialog = false
+            }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirmDialog) {
+        DeleteConfirmationDialog(
+            count = 1,
+            onConfirm = {
+                viewModel.deleteCurrentTrack()
+            },
+            onDismiss = { showDeleteConfirmDialog = false }
+        )
     }
 }
 
