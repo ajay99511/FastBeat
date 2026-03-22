@@ -39,6 +39,9 @@ interface MediaDao {
     @Query("SELECT * FROM media_analytics WHERE mediaId = :mediaId")
     suspend fun getAnalytics(mediaId: Long): MediaAnalytics?
 
+    @Query("SELECT * FROM media_analytics WHERE mediaId IN (:mediaIds)")
+    suspend fun getAnalyticsForIds(mediaIds: List<Long>): List<MediaAnalytics>
+
     @Query("SELECT mediaId FROM media_analytics ORDER BY playCount DESC LIMIT 1")
     suspend fun getOverallFavoriteMediaId(): Long?
 

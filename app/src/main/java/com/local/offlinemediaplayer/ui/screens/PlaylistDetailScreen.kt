@@ -8,9 +8,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
@@ -35,6 +36,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
+
+// Sort options for audio playlist
+enum class AudioSortOption(val label: String) {
+    DEFAULT("Default"),
+    TITLE("Title"),
+    ARTIST("Artist"),
+    DURATION("Duration"),
+    SIZE("Size"),
+    DATE_MODIFIED("Date Modified"),
+    MOST_PLAYED("Most Played")
+}
 
 @Composable
 fun PlaylistDetailScreen(
@@ -77,12 +89,37 @@ fun PlaylistDetailScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var selectedSort by remember { mutableStateOf(AudioSortOption.DEFAULT) }
+    var sortAscending by remember { mutableStateOf(true) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
-    // Filter songs by search query
-    val filteredSongs = if (searchQuery.isEmpty()) {
-        songs
-    } else {
-        songs.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    // Fetch analytics for Most Played sort
+    var playCountMap by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
+    LaunchedEffect(songs) {
+        if (songs.isNotEmpty()) {
+            val analytics = playlistViewModel.getAnalyticsForIds(songs.map { it.id })
+            playCountMap = analytics.associate { it.mediaId to it.playCount }
+        }
+    }
+
+    // Sort + Filter
+    val sortedAndFilteredSongs = remember(songs, searchQuery, selectedSort, sortAscending, playCountMap) {
+        val filtered = if (searchQuery.isEmpty()) songs
+        else songs.filter { it.title.contains(searchQuery, ignoreCase = true) }
+
+        val sorted = when (selectedSort) {
+            AudioSortOption.DEFAULT -> filtered
+            AudioSortOption.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            AudioSortOption.ARTIST -> filtered.sortedBy { (it.artist ?: "Unknown").lowercase() }
+            AudioSortOption.DURATION -> filtered.sortedBy { it.duration }
+            AudioSortOption.SIZE -> filtered.sortedBy { it.size }
+            AudioSortOption.DATE_MODIFIED -> filtered.sortedBy { it.dateModified }
+            AudioSortOption.MOST_PLAYED -> filtered.sortedByDescending { playCountMap[it.id] ?: 0 }
+        }
+
+        if (selectedSort != AudioSortOption.DEFAULT && selectedSort != AudioSortOption.MOST_PLAYED && !sortAscending) {
+            sorted.reversed()
+        } else sorted
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -104,7 +141,7 @@ fun PlaylistDetailScreen(
 
         // CONTENT
         Column(modifier = Modifier.fillMaxSize()) {
-            // ── Top Bar: Back + Search + Options Menu ──
+            // ── Top Bar: Back + Search + Sort + Options Menu ──
             Row(
                     modifier = Modifier
                             .fillMaxWidth()
@@ -181,6 +218,64 @@ fun PlaylistDetailScreen(
                                 )
                 )
 
+                // Sort Toggle
+                Box {
+                    IconButton(
+                            onClick = { showSortMenu = true },
+                            modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = "Sort",
+                                tint = if (selectedSort != AudioSortOption.DEFAULT) primaryAccent
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        AudioSortOption.entries.forEach { option ->
+                            DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                    option.label,
+                                                    color = if (selectedSort == option) primaryAccent
+                                                    else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (selectedSort == option && option != AudioSortOption.DEFAULT) {
+                                                Icon(
+                                                        if (option == AudioSortOption.MOST_PLAYED || !sortAscending)
+                                                            Icons.Default.ArrowDownward
+                                                        else Icons.Default.ArrowUpward,
+                                                        contentDescription = null,
+                                                        tint = primaryAccent,
+                                                        modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        if (selectedSort == option && option != AudioSortOption.DEFAULT && option != AudioSortOption.MOST_PLAYED) {
+                                            sortAscending = !sortAscending
+                                        } else {
+                                            selectedSort = option
+                                            sortAscending = true
+                                        }
+                                        showSortMenu = false
+                                    }
+                            )
+                        }
+                    }
+                }
+
                 // Options Menu (Rename / Delete)
                 Box {
                     IconButton(
@@ -245,7 +340,7 @@ fun PlaylistDetailScreen(
                 }
             }
 
-            // ── Header Row: Playlist Name + Count + Add Button ──
+            // ── Header Row: Playlist Name + Count + Play/Shuffle ──
             Row(
                     modifier = Modifier
                             .fillMaxWidth()
@@ -253,7 +348,7 @@ fun PlaylistDetailScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                             text = playlist.name,
                             style = MaterialTheme.typography.headlineSmall.copy(
@@ -263,35 +358,90 @@ fun PlaylistDetailScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                            text = "${songs.size} Song${if (songs.size != 1) "s" else ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                                text = "${songs.size} Song${if (songs.size != 1) "s" else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // Sort indicator chip
+                        if (selectedSort != AudioSortOption.DEFAULT) {
+                            AssistChip(
+                                    onClick = {
+                                        selectedSort = AudioSortOption.DEFAULT
+                                    },
+                                    label = {
+                                        Text(
+                                                selectedSort.label,
+                                                style = MaterialTheme.typography.labelSmall
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Clear Sort",
+                                                modifier = Modifier.size(14.dp)
+                                        )
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = primaryAccent.copy(alpha = 0.15f),
+                                            labelColor = primaryAccent
+                                    ),
+                                    border = null
+                            )
+                        }
+                    }
                 }
 
-                Button(
-                        onClick = {
-                            if (songs.isNotEmpty()) {
-                                viewModel.playPlaylist(playlist, false)
-                            }
-                        },
-                        shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.buttonColors(
-                                containerColor = primaryAccent
-                        ),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                            "Add Songs",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                    )
+                // Play / Shuffle Buttons
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Play All
+                    FilledIconButton(
+                            onClick = {
+                                if (songs.isNotEmpty()) {
+                                    viewModel.playPlaylist(playlist, false)
+                                }
+                            },
+                            modifier = Modifier.size(42.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = primaryAccent,
+                                    contentColor = Color.White
+                            )
+                    ) {
+                        Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = "Play All",
+                                modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Shuffle
+                    FilledIconButton(
+                            onClick = {
+                                if (songs.isNotEmpty()) {
+                                    viewModel.playPlaylist(playlist, true)
+                                }
+                            },
+                            modifier = Modifier.size(42.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                    ) {
+                        Icon(
+                                Icons.Outlined.Shuffle,
+                                contentDescription = "Shuffle",
+                                modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
             // ── Song List ──
-            if (filteredSongs.isEmpty()) {
+            if (sortedAndFilteredSongs.isEmpty()) {
                 Box(
                         modifier = Modifier
                                 .fillMaxWidth()
@@ -316,12 +466,16 @@ fun PlaylistDetailScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    itemsIndexed(filteredSongs) { index, song ->
+                    itemsIndexed(sortedAndFilteredSongs) { index, song ->
                         AudioPlaylistItemCard(
                                 song = song,
                                 accentColor = primaryAccent,
                                 onClick = {
-                                    viewModel.setQueue(songs, index, false)
+                                    // Use the original songs list for queue, not filtered
+                                    val originalIndex = songs.indexOfFirst { it.id == song.id }
+                                    if (originalIndex >= 0) {
+                                        viewModel.setQueue(songs, originalIndex, false)
+                                    }
                                 },
                                 onRemove = {
                                     playlistViewModel.removeSongFromPlaylist(playlistId, song.id)

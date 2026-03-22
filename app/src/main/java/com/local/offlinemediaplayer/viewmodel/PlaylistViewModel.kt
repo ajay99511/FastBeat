@@ -2,6 +2,8 @@ package com.local.offlinemediaplayer.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.offlinemediaplayer.data.db.MediaAnalytics
+import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,7 +16,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val mediaDao: MediaDao
 ) : ViewModel() {
 
     val playlists = playlistRepository.playlistsFlow.stateIn(
@@ -54,6 +57,9 @@ class PlaylistViewModel @Inject constructor(
 
     fun removeSongFromPlaylist(playlistId: String, mediaId: Long) =
         viewModelScope.launch(Dispatchers.IO) { playlistRepository.removeSongFromPlaylist(playlistId, mediaId) }
+
+    suspend fun getAnalyticsForIds(ids: List<Long>): List<MediaAnalytics> =
+        mediaDao.getAnalyticsForIds(ids)
 
     fun toggleAlbumInFavorites(albumSongs: List<MediaFile>) {
         val favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo } ?: return
