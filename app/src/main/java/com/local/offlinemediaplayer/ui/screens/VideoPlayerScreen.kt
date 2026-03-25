@@ -659,6 +659,8 @@ fun VideoPlayerControls(
     val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
     val resizeMode by viewModel.resizeMode.collectAsStateWithLifecycle()
 
+    var showRemainingTime by remember { mutableStateOf(false) }
+
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -848,9 +850,14 @@ fun VideoPlayerControls(
                                 style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                                FormatUtils.formatDuration(duration),
+                                if (showRemainingTime) {
+                                    "-${FormatUtils.formatDuration(duration - position)}"
+                                } else {
+                                    FormatUtils.formatDuration(duration)
+                                },
                                 color = Color.White,
-                                style = MaterialTheme.typography.labelMedium
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
                         )
                     }
                     Slider(
