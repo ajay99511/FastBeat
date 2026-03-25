@@ -1,112 +1,273 @@
-# 🎵 FastBeat
+# ⏱️ FastBeat
 
-## The Ultimate Premium Offline Media Player for Android
+<div align="center">
 
-**FastBeat** is a powerful, modern, and beautifully designed offline media player built from the ground up to deliver a premium experience for both video and audio. Built with the latest Android technologies (Kotlin, Jetpack Compose, Media3, Room, Hilt).
+[![Android](https://img.shields.io/badge/Platform-Android-green.svg?logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-7F52FF.svg?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose-4285F4.svg?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**The Ultimate Premium Offline Media Player for Android**
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Documentation](#-documentation) • [Contributing](#-contributing)
+
+</div>
 
 ---
 
-## 🚀 Features
+## 🌟 What is FastBeat?
+
+FastBeat is a powerful, modern, and beautifully designed offline media player built from the ground up to deliver a premium experience for both video and audio. Built with the latest Android technologies (Kotlin, Jetpack Compose, Media3, Room, Hilt), it provides a seamless and immersive way to enjoy your local media without any internet connection.
+
+Whether you're watching high-definition movies with advanced gesture controls and Picture-in-Picture mode, or listening to your music library with a smart queue system and rich analytics, FastBeat is designed to be your all-in-one media companion. It respects your privacy by remaining 100% offline, ensuring your data never leaves your device.
+
+### Why FastBeat?
+
+| Traditional Media Players | FastBeat Solution |
+|---------------------|------------------------|
+| Clunky, outdated UI | **Modern, Fluid Jetpack Compose UI** |
+| Ad-heavy and online-focused | **100% Offline & Ad-Free Experience** |
+| Basic playback controls | **Advanced Gestures, PiP, & Smart Queue** |
+| No insights into habits | **Rich Analytics & Activity Dashboard** |
+
+---
+
+## ✨ Features
 
 ### 🎬 Advanced Video Player
-* **High-Performance Playback:** Smooth offline video playback powered by AndroidX Media3 (ExoPlayer).
-* **Intuitive Gestures:** Swipe left/right sides for brightness and volume control, swipe horizontally to seek.
-* **Picture-in-Picture (PiP):** Seamlessly continue watching videos in a floating window while using other apps.
-* **Multi-Track Support:** Select from available audio tracks (dual-audio) and subtitle tracks.
-* **Video Bookmarks:** Create custom timestamp chapters to jump to your favorite scenes.
-* **Customizable View:** Fit, Fill, or Zoom modes. Adjustable playback speed (0.5x to 2.0x).
-* **Screen Lock:** Prevent accidental touches during playback.
-* **Smart Organization:** Videos automatically grouped by folder. "Continue Watching" row for unfinished videos.
-* **Thumbnail Generation:** Fast, background-cached video thumbnails.
+- **High-Performance Playback** — Smooth offline video playback powered by AndroidX Media3 (ExoPlayer).
+- **Intuitive Gestures** — Swipe left/right for brightness/volume, swipe horizontally to seek.
+- **Picture-in-Picture (PiP)** — Continue watching in a floating window while using other apps.
+- **Multi-Track Support** — Easily switch between audio tracks and subtitle tracks.
 
 ### 🎧 Immersive Audio Experience
-* **Library Management:** Powerful sorting (A-Z, duration, date added) and real-time search across tracks, albums, and playlists.
-* **Smart Queue System:** Persistent playback queue that remembers your position across app restarts.
-* **Infinite Playback:** Auto-refill with shuffled tracks when your queue ends.
-* **Album Views:** Toggle between beautiful grid or list representations with advanced sorting (Release Year, Song Count).
-* **Mini Player:** Always-visible persistent player bar across the app with gradient progress.
+- **Smart Queue System** — Persistent playback queue that remembers your position across restarts.
+- **Infinite Playback** — Auto-refills with shuffled tracks when your queue ends.
+- **Rich Library Management** — Advanced sorting and real-time search across tracks, albums, and playlists.
+- **Mini Player** — Always-visible persistent player bar with gradient progress.
+
+### 📊 "Me" Dashboard (Analytics)
+- **Real-time Stats** — Track your daily, weekly, and monthly listening time.
+- **Activity Streaks** — Maintain your daily listening streak.
+- **Smart Insights** — Discover your most played tracks and current obsessions.
+- **Playback History** — Complete log of your recently played media.
 
 ### 🖼️ Rich Image Gallery
-* **Instant Gallery:** View all local device images in a sleek staggered grid.
-* **Fullscreen Viewer:** Swipeable, edge-to-edge image viewing.
-* **Media Management:** Multi-select functionality to safely delete unwanted videos or images with Android 11+ Scoped Storage support.
+- **Instant Gallery** — View all device images in a sleek, staggered grid.
+- **Fullscreen Viewer** — Edge-to-edge, swipeable image viewing experience.
+- **Scoped Storage Support** — Safely delete or manage media with Android 11+ compatibility.
 
-### 📊 "Me" Dashboard (Advanced Analytics)
-* **Real-time Stats:** Track your daily, weekly, and monthly listening time.
-* **Activity Streaks:** Maintain your daily listening streak.
-* **Smart Insights:** Discover your "Current Obsession" (most played this week) versus your "All-Time #1".
-* **Playback History:** Complete log of your recently played media.
-* **Theming:** Choose from curated premium themes (Amber Horizon, Digital Waves, Eco Frequency) with full Dark/Light mode support.
+### 🎨 Premium Theming
+- **Curated Themes** — Choose from Amber Horizon, Digital Waves, or Eco Frequency.
+- **Dynamic Dark Mode** — Full support for Light and Dark modes across all themes.
+- **Animated Transitions** — Smooth navigation and UI interactions.
 
----
-
-## 🏗️ Architecture & Tech Stack
-
-FastBeat follows modern Android architecture guidelines, implementing the **MVVM (Model-View-ViewModel) pattern** with a robust **Repository layer**.
-
-* **Language:** Kotlin (100%)
-* **UI Framework:** Jetpack Compose (Material 3)
-* **Dependency Injection:** Dagger Hilt (with KSP)
-* **Local Persistence:** Room Database v2.7.0 (8 Entities) & SharedPreferences
-* **Media Engine:** AndroidX Media3 (ExoPlayer & MediaSessionService)
-* **Asynchronous Operations:** Kotlin Coroutines & Flow
-* **Image Loading:** Coil
-* **Navigation:** Compose Navigation with animated transitions
+### 📁 Smart Organization
+- **Auto-Grouping** — Videos automatically organized by folders.
+- **Continue Watching** — Resume unfinished videos exactly where you left off.
+- **Fast Thumbnails** — Background-cached video thumbnails for instant browsing.
 
 ---
 
-## 📁 Project Structure
+## 📸 Screenshots
 
-```text
-com.local.offlinemediaplayer/
-├── MainActivity.kt              # Setup, PiP, Permissions, Compose entry
-├── MediaPlayerApp.kt            # Application scope (Hilt)
-├── data/                        # Room DB (8 entities + DAOs), ThumbnailManager, DI modules
-├── model/                       # Domain models (MediaFile, Album, Playlist, etc.)
-├── repository/                  # Repositories for data operations (PlaylistRepository)
-├── service/                     # Background playback service (MediaSessionService)
-├── ui/
-│   ├── MainScreen.kt            # App Scaffold and Bottom Navigation
-│   ├── components/              # Reusable UI parts (MiniPlayer, SearchBars, Dialogs)
-│   ├── navigation/              # Audio & Video NavHosts
-│   ├── screens/                 # 15 distinct feature screens (Video, Audio, Gallery, Analytics)
-│   └── theme/                   # Colors, Typography, AppThemeConfig
-└── viewmodel/                   # MainViewModel (Central StateFlow manager, 120+ functions)
+<div align="center">
+
+| Video Player | Audio Library |
+|:---:|:---:|
+| ![Video Player](docs/screenshots/video_player.png) | ![Audio Library](docs/screenshots/audio_library.png) |
+| *Advanced Gestures & PiP* | *Smart Search & Sorting* |
+
+| Analytics Dashboard | Image Gallery |
+|:---:|:---:|
+| ![Analytics](docs/screenshots/analytics.png) | ![Gallery](docs/screenshots/gallery.png) |
+| *Listening Habits & Streaks* | *Staggered Grid View* |
+
+</div>
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+Ensure you have the following installed:
+
+- **Android Studio** (Iguana / Jellyfish or newer)
+- **JDK 11+**
+- **Android SDK 35** (Target API 35)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/FastBeat.git
+   cd FastBeat
+   ```
+
+2. **Sync Project**
+   Open the project in Android Studio and let Gradle sync.
+
+3. **Install Dependencies**
+   The project uses a Version Catalog (`gradle/libs.versions.toml`).
+   ```bash
+   ./gradlew build
+   ```
+
+4. **Run the application**
+   Press **Shift + F10** or the Play button in Android Studio with an emulator or physical device (API 26+) connected.
+
+### Build for Production
+
+```bash
+# Generate Debug APK
+./gradlew assembleDebug
+
+# Generate Release APK
+./gradlew assembleRelease
 ```
 
 ---
 
-## 🔒 Permissions Explained
+## 🏗️ Architecture
 
-FastBeat is designed for **100% offline use**. We only ask for what's necessary to play your local files:
-* `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_IMAGES` (API 33+) or `READ_EXTERNAL_STORAGE` (Legacy): To scan your local device for media.
-* `FOREGROUND_SERVICE` & `FOREGROUND_SERVICE_MEDIA_PLAYBACK`: To keep music playing when you minimize the app.
-* `POST_NOTIFICATIONS`: To show the media playback controls in your notification panel.
-* `WAKE_LOCK`: To prevent the CPU from sleeping during uninterrupted video playback.
+FastBeat follows the **MVVM (Model-View-ViewModel)** architectural pattern with a clean separation of concerns and a robust **Repository layer**.
 
-*Note: No internet permissions are requested. Your data never leaves your device.*
+```
+[ UI Layer (Compose) ]
+         |
+         v
+[ ViewModel (StateFlow) ] <---> [ Media3 Playback Service ]
+         |
+         v
+[ Repository Layer ]
+         |
+         +-----------------------+
+         |                       |
+[ Room Database ]       [ MediaStore (Local) ]
+```
+
+### Key Design Decisions
+
+| Pattern/Decision | Purpose | Benefit |
+|-----------------|---------|---------|
+| **Jetpack Compose** | UI Framework | Declarative UI, faster development, and modern animations. |
+| **AndroidX Media3** | Media Engine | Unified API for playback and sessions, replacing legacy ExoPlayer. |
+| **Dagger Hilt** | Dependency Injection | Compile-time validation and easy management of scoped dependencies. |
+| **Room DB** | Local Persistence | Type-safe database access for playlists, history, and stats. |
 
 ---
 
-## 🛠️ Getting Started & Build Instructions
+## 📦 Tech Stack
 
-### Prerequisites
-* Android Studio Iguana / Jellyfish (or newer)
-* Kotlin 1.9.0+
-* JDK 11+
-* Android SDK 35 (Target API 35)
+### Core Technologies
 
-### Building
-1. Clone the repository.
-2. Open the project in Android Studio.
-3. Sync project with Gradle files.
-4. Run the app on an emulator or physical device (API 26+).
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Kotlin** | 2.2.10 | Core programming language. |
+| **Jetpack Compose** | 1.7.x | Declarative UI framework. |
+| **AndroidX Media3** | 1.2.1 | Playback engine and media session management. |
+| **Room** | 2.7.0-alpha11 | Local database for offline storage. |
+| **Dagger Hilt** | 2.58 | Dependency injection framework. |
+
+### Key Packages
+
+```toml
+[libraries]
+androidx-media3-exoplayer = "1.2.1"
+androidx-room-runtime = "2.7.0-alpha11"
+hilt-android = "2.58"
+coil-compose = "2.6.0"  # Image Loading
+gson = "2.10.1"        # JSON Persistence
+```
+
+---
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/GETTING_STARTED.md) | Detailed installation and developer onboarding. |
+| [Features Guide](docs/FEATURES.md) | Deep dive into all available features and roadmap. |
+| [Contributing](CONTRIBUTING.md) | Guidelines for contributing to the project. |
+| [License](LICENSE) | MIT License details. |
+
+---
+
+## 🛠️ Development
+
+### Project Structure
+
+```text
+app/src/main/java/com/local/offlinemediaplayer/
+├── data/           # Room DB, ThumbnailManager, DI modules
+├── model/          # Domain models (MediaFile, Album, Playlist)
+├── repository/     # Data repositories (Playlist, Media)
+├── service/        # Background playback service (Media3)
+├── ui/             # Compose Screens, Navigation, Themes
+└── viewmodel/      # Central StateFlow managers (Playback, Analytics)
+```
+
+### Running Tests
+
+```bash
+# Run all Unit Tests
+./gradlew test
+
+# Run Instrumentation Tests
+./gradlew connectedAndroidTest
+```
+
+---
+
+## 🔮 Roadmap
+
+### Coming Soon
+- [ ] **Equalizer** — Advanced 10-band equalizer with presets (Q2 2026).
+- [ ] **Lyrics Support** — Local .lrc file parsing and synchronized display (Q3 2026).
+- [ ] **Chromecast Support** — Cast your local media to large screens (Q4 2026).
+
+### Under Consideration
+- [ ] DLNA/UPnP streaming from local servers.
+- [ ] Custom sound profiles per device.
+- [ ] AI-powered smart playlists based on mood.
 
 ---
 
 ## 🤝 Contributing
-Contributions, issues, and feature requests are welcome!
-Feel free to check the issues page.
 
-## 📝 License
-This project is licensed under the MIT License.
+Contributions are welcome! Please follow these steps:
+
+1. **Fork** the repository.
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`).
+3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`).
+4. **Push** to the branch (`git push origin feature/amazing-feature`).
+5. **Open** a Pull Request.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [AndroidX Media3 Team](https://developer.android.com/guide/topics/media/media3) for the robust playback engine.
+- [Material Design 3](https://m3.material.io/) for the beautiful UI components.
+- [Coil](https://coil-kt.github.io/coil/) for the efficient image loading library.
+
+---
+
+<div align="center">
+
+**Made with ❤️ using Jetpack Compose**
+
+[Report Bug](https://github.com/yourusername/FastBeat/issues) • [Request Feature](https://github.com/yourusername/FastBeat/issues)
+
+</div>
