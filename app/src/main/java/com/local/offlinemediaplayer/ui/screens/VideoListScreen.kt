@@ -243,7 +243,7 @@ fun VideoListScreen(
                                                                 imageVector =
                                                                         Icons.Default.ChevronRight,
                                                                 contentDescription = null,
-                                                                tint = Color.Gray,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 modifier = Modifier.size(20.dp)
                                                         )
                                                         Text(
@@ -285,7 +285,7 @@ fun VideoListScreen(
                                                                 tint =
                                                                         if (isSearchVisible)
                                                                                 primaryAccent
-                                                                        else Color(0xFF475569)
+                                                                        else MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                 }
 
@@ -301,7 +301,7 @@ fun VideoListScreen(
                                                                         else Icons.Default.GridView,
                                                                 // Alt to viewlist icon
                                                                 contentDescription = "Change View",
-                                                                tint = Color(0xFF475569),
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 modifier = Modifier.size(28.dp)
                                                         )
                                                 }
@@ -353,7 +353,7 @@ fun VideoListScreen(
                                                                         Icons.Outlined.VideoLibrary,
                                                                 contentDescription = null,
                                                                 modifier = Modifier.size(48.dp),
-                                                                tint = Color(0xFF475569)
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                 }
                                                 Text(
@@ -363,7 +363,7 @@ fun VideoListScreen(
                                                         style =
                                                                 MaterialTheme.typography
                                                                         .titleMedium,
-                                                        color = Color(0xFF475569)
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 if (searchQuery.isEmpty()) {
                                                         Button(
@@ -583,10 +583,10 @@ fun VideoListItem(
 
                 Box(
                         modifier =
-                                Modifier.width(80.dp)
-                                        .height(45.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.Gray)
+                                Modifier.width(96.dp)
+                                        .height(56.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                         AsyncImage(
                                 model = video.thumbnailPath?.let { File(it) } ?: video.uri,
@@ -608,14 +608,14 @@ fun VideoListItem(
                         Text(
                                 text = FormatUtils.formatDuration(video.duration),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                 }
 
                 if (!isSelectionMode) {
                         Box {
                                 IconButton(onClick = { showMenu = true }) {
-                                        Icon(Icons.Default.MoreVert, "More", tint = Color.Gray)
+                                        Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 DropdownMenu(
                                         expanded = showMenu,
@@ -710,8 +710,8 @@ fun VideoCardItem(
                         modifier =
                                 Modifier.fillMaxWidth()
                                         .aspectRatio(16f / 9f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surface)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                         AsyncImage(
                                 model = video.thumbnailPath?.let { File(it) } ?: video.uri,
@@ -785,7 +785,7 @@ fun VideoCardItem(
                                                 Text(
                                                         text = FormatUtils.formatSize(video.size),
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        color = Color.Gray
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                         }
                                 }

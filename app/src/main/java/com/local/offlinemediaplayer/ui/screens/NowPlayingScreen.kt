@@ -123,7 +123,8 @@ fun NowPlayingScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 48.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
+                    .statusBarsPadding()
+                    .padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
@@ -219,12 +220,17 @@ fun NowPlayingScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Album Art
+            // Album Art with drop shadow
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.92f)
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(24.dp))
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = RoundedCornerShape(28.dp),
+                        spotColor = primaryAccent.copy(alpha = 0.25f)
+                    )
+                    .clip(RoundedCornerShape(28.dp))
             ) {
                 AsyncImage(
                     model = currentTrack?.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
@@ -306,11 +312,11 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Play/Pause (Gradient Circle)
+                // Play/Pause (Gradient Circle with premium glow)
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
-                        .shadow(16.dp, CircleShape, spotColor = primaryAccent)
+                        .size(76.dp)
+                        .shadow(24.dp, CircleShape, spotColor = primaryAccent.copy(alpha = 0.5f))
                         .clip(CircleShape)
                         .background(playButtonGradient)
                         .clickable(
@@ -322,8 +328,8 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play",
-                        tint = Color.White, // Always white on gradient
-                        modifier = Modifier.size(40.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(42.dp)
                     )
                 }
 
@@ -493,18 +499,21 @@ fun PlaybackControlsWithProgress(
 ) {
     val currentPosition by currentPositionFlow.collectAsStateWithLifecycle()
 
+    val thumbColor = MaterialTheme.colorScheme.primary
+
     Column {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(20.dp),
+                .height(28.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp))
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
 
             val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
@@ -524,7 +533,7 @@ fun PlaybackControlsWithProgress(
                 onValueChange = { onSeek(it.toLong()) },
                 valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                 colors = SliderDefaults.colors(
-                    thumbColor = Color.Transparent,
+                    thumbColor = thumbColor,
                     activeTrackColor = Color.Transparent,
                     inactiveTrackColor = Color.Transparent
                 ),

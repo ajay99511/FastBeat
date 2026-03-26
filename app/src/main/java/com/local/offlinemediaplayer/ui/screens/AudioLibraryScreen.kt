@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-//import androidx.compose.material3.Divider
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -83,7 +84,8 @@ fun AudioLibraryScreen(
                         Modifier
                             .tabIndicatorOffset(tabPositions[pagerState.currentPage])
                             .height(3.dp)
-                            .background(primaryAccent)
+                            .padding(horizontal = 24.dp)
+                            .background(primaryAccent, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                     )
                 },
                 divider = {

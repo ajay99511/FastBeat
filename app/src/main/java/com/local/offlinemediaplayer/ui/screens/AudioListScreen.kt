@@ -165,11 +165,12 @@ fun AudioListScreen(
                                 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(48.dp),
+                                    .height(50.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                                shape = RoundedCornerShape(50)
+                                shape = RoundedCornerShape(50),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                             ) {
-                                Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary) // Black icon on bright accent
+                                Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Play All", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                             }
@@ -184,12 +185,13 @@ fun AudioListScreen(
                                 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(48.dp)
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
+                                    .height(50.dp)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50)),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
-                                shape = RoundedCornerShape(50)
+                                shape = RoundedCornerShape(50),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                             ) {
-                                Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent) // Accent Icon
+                                Icon(Icons.Outlined.Shuffle, null, tint = primaryAccent)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Shuffle", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                             }
@@ -356,7 +358,7 @@ private fun AudioListItemStyled(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isSelectionMode) {
@@ -370,9 +372,10 @@ private fun AudioListItemStyled(
 
         // Album Art
         Card(
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.size(56.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             AsyncImage(
                 model = song.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
@@ -453,7 +456,7 @@ private fun AudioListItemStyled(
     }
 
     // Thin divider
-    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }
 
 @Composable

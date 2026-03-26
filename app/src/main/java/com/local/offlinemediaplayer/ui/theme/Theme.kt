@@ -66,20 +66,50 @@ fun OfflineMediaPlayerTheme(
             primary = activeTheme.primaryColor,
             secondary = activeTheme.primaryColor,
             tertiary = Pink80,
-            background = Color(0xFF0B0B0F), // Deep Dark
-            surface = Color(0xFF1E1E24),
-            onBackground = Color.White,
-            onSurface = Color.White
+            background = DarkSurfaceBase,
+            surface = DarkSurfaceContainer,
+            surfaceVariant = DarkSurfaceContainerHigh,
+            surfaceContainer = DarkSurfaceContainerHigh,
+            surfaceContainerLow = DarkSurfaceContainer,
+            surfaceContainerHigh = DarkSurfaceContainerHighest,
+            surfaceDim = DarkSurfaceDim,
+            surfaceBright = DarkSurfaceBright,
+            onBackground = DarkTextPrimary,
+            onSurface = DarkTextPrimary,
+            onSurfaceVariant = DarkTextSecondary,
+            outline = DarkOutline,
+            outlineVariant = DarkOutlineVariant,
+            inverseSurface = LightSurfaceBase,
+            inverseOnSurface = LightTextPrimary,
+            primaryContainer = activeTheme.primaryColor.copy(alpha = 0.12f),
+            onPrimaryContainer = activeTheme.primaryColor,
+            error = Color(0xFFFF6B6B),
+            onError = Color.White
         )
     } else {
         lightColorScheme(
             primary = activeTheme.primaryColor,
             secondary = activeTheme.primaryColor,
             tertiary = Pink40,
-            background = Color(0xFFF2F2F7), // Light Gray (iOS style)
-            surface = Color(0xFFFFFFFF),    // Pure White
-            onBackground = Color(0xFF1C1B1F),
-            onSurface = Color(0xFF1C1B1F)
+            background = LightSurfaceBase,
+            surface = LightSurfaceBright,
+            surfaceVariant = LightSurfaceContainer,
+            surfaceContainer = LightSurfaceContainerHigh,
+            surfaceContainerLow = LightSurfaceContainer,
+            surfaceContainerHigh = LightSurfaceContainerHighest,
+            surfaceDim = LightSurfaceDim,
+            surfaceBright = LightSurfaceBright,
+            onBackground = LightTextPrimary,
+            onSurface = LightTextPrimary,
+            onSurfaceVariant = LightTextSecondary,
+            outline = LightOutline,
+            outlineVariant = LightOutlineVariant,
+            inverseSurface = DarkSurfaceBase,
+            inverseOnSurface = DarkTextPrimary,
+            primaryContainer = activeTheme.primaryColor.copy(alpha = 0.10f),
+            onPrimaryContainer = activeTheme.primaryColor,
+            error = Color(0xFFDC3545),
+            onError = Color.White
         )
     }
 
@@ -88,8 +118,10 @@ fun OfflineMediaPlayerTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
             // If light theme, status bar icons should be dark
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

@@ -1,12 +1,6 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
-import android.app.Activity
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
@@ -27,8 +22,16 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.app.Activity
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -143,9 +146,9 @@ fun ImageListScreen(
                 } else {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 100.dp),
-                        contentPadding = PaddingValues(2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        contentPadding = PaddingValues(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         itemsIndexed(filteredImages) { index, image ->
@@ -165,6 +168,7 @@ fun ImageItem(image: MediaFile, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .aspectRatio(1f)
+            .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick)
     ) {

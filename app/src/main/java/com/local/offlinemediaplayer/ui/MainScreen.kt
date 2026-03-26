@@ -18,6 +18,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -235,11 +236,16 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                     val inactiveIconColor =
                             MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
 
-                    NavigationBar(
-                            containerColor = navContainerColor,
-                            contentColor = MaterialTheme.colorScheme.onBackground,
-                            tonalElevation = 0.dp
-                    ) {
+                    Column {
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        NavigationBar(
+                                containerColor = navContainerColor,
+                                contentColor = MaterialTheme.colorScheme.onBackground,
+                                tonalElevation = 0.dp
+                        ) {
                         // 0. Videos
                         NavigationBarItem(
                                 icon = {
@@ -367,6 +373,7 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                                                 unselectedTextColor = inactiveIconColor
                                         )
                         )
+                    }
                     }
                 }
             }

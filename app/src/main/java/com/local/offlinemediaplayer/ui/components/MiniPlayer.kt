@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -39,22 +40,25 @@ fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifi
                     colors = listOf(primaryAccent, Color(0xFF9656CE), Color(0xFFE44CD8))
             )
 
-    // Current position isn't needed at the top level anymore, we pass the flow directly to the progress bar to isolate recomposition
-    // val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
-
     currentTrack?.let { track ->
         // Architecture Fix: MiniPlayer should never show video tracks
         if (track.isVideo) return
 
-        // In order to not observe currentPosition here, we'll only compute progress in the extracted component.
-        // We'll leave `progress` calculation to the progress bar exclusively.
-
         Surface(
-                modifier = modifier.fillMaxWidth().height(80.dp).clickable(onClick = onTap),
+                modifier = modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                        clip = false,
+                        spotColor = Color.Black.copy(alpha = 0.3f)
+                    )
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .clickable(onClick = onTap),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 // 1. Top Gradient Progress Bar
                 MiniPlayerProgressBar(
                     currentPositionFlow = viewModel.currentPosition,
@@ -64,18 +68,20 @@ fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifi
 
                 // 2. Main Content
                 Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                 ) {
                     Card(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.size(48.dp),
                             colors =
                                     CardDefaults.cardColors(
                                             containerColor =
                                                     MaterialTheme.colorScheme.surfaceVariant
                                     ),
-                            elevation = CardDefaults.cardElevation(0.dp)
+                            elevation = CardDefaults.cardElevation(2.dp)
                     ) {
                         AsyncImage(
                                 model = track.albumArtUri
@@ -90,7 +96,7 @@ fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifi
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
 
                     Column(
                             modifier = Modifier.weight(1f),
@@ -107,7 +113,7 @@ fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifi
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                                 text = track.artist ?: "Unknown Artist",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -118,25 +124,27 @@ fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifi
 
                     Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         // Previous Button
                         IconButton(
                                 onClick = { viewModel.playPrevious() },
-                                enabled = viewModel.hasPrevious()
+                                enabled = viewModel.hasPrevious(),
+                                modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                     imageVector = Icons.Default.SkipPrevious,
                                     contentDescription = "Previous",
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(32.dp)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(28.dp)
                             )
                         }
 
                         // Play/Pause Button (Gradient Circle)
                         Box(
                                 modifier =
-                                        Modifier.size(48.dp)
+                                        Modifier.size(44.dp)
+                                                .shadow(6.dp, CircleShape, spotColor = primaryAccent.copy(alpha = 0.4f))
                                                 .clip(CircleShape)
                                                 .background(gradientBrush)
                                                 .clickable { viewModel.togglePlayPause() },
@@ -148,19 +156,20 @@ fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -> Unit, modifier: Modifi
                                             else Icons.Default.PlayArrow,
                                     contentDescription = if (isPlaying) "Pause" else "Play",
                                     tint = Color.White,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(26.dp)
                             )
                         }
 
                         IconButton(
                                 onClick = { viewModel.playNext() },
-                                enabled = viewModel.hasNext()
+                                enabled = viewModel.hasNext(),
+                                modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
                                     imageVector = Icons.Default.SkipNext,
                                     contentDescription = "Next",
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(32.dp)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(28.dp)
                             )
                         }
                     }
@@ -182,9 +191,9 @@ fun MiniPlayerProgressBar(
     Box(
         modifier =
             Modifier.fillMaxWidth()
-                .height(2.dp)
+                .height(3.dp)
                 .background(
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                 )
     ) {
         Box(

@@ -46,9 +46,9 @@ fun CollapsibleSearchBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .height(50.dp)
+                .height(52.dp)
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xFF1E1E24)) // Modern Surface Color
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             TextField(
                 value = query,
@@ -56,7 +56,7 @@ fun CollapsibleSearchBox(
                 placeholder = {
                     Text(
                         placeholderText,
-                        color = Color(0xFF475569),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
@@ -64,13 +64,17 @@ fun CollapsibleSearchBox(
                     Icon(
                         Icons.Outlined.Search,
                         contentDescription = null,
-                        tint = Color(0xFF475569)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { onQueryChange("") }) {
-                            Icon(Icons.Default.Close, null, tint = Color.Gray)
+                            Icon(
+                                Icons.Default.Close,
+                                null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 },
@@ -80,8 +84,8 @@ fun CollapsibleSearchBox(
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                     cursorColor = primaryAccent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
