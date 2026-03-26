@@ -1,5 +1,6 @@
 package com.local.offlinemediaplayer.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,11 +22,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +42,8 @@ import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.AnalyticsViewModel
+import com.local.offlinemediaplayer.viewmodel.DailyActivity
+import com.local.offlinemediaplayer.viewmodel.LibraryStats
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.ThemeViewModel
@@ -61,6 +68,10 @@ fun MeScreen(
 
         // Continue Watching Data
         val continueWatchingList by analyticsViewModel.continueWatchingList.collectAsStateWithLifecycle()
+
+        // Library Stats & Activity Trends
+        val libraryStats by analyticsViewModel.libraryStats.collectAsStateWithLifecycle()
+        val weeklyActivity by analyticsViewModel.weeklyActivity.collectAsStateWithLifecycle()
 
         // Simple local search state for MeScreen
         var searchQuery by remember { mutableStateOf("") }
@@ -279,6 +290,36 @@ fun MeScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
                 }
+
+                // --- SHUFFLE ALL AUDIO BUTTON ---
+                ShuffleAllButton(
+                        audioList = audioList,
+                        primaryColor = theme.primaryColor,
+                        onShuffle = { list ->
+                                if (list.isNotEmpty()) {
+                                        val randomIndex = list.indices.random()
+                                        viewModel.setQueue(list, randomIndex, true)
+                                }
+                        }
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- LIBRARY STATS SECTION ---
+                LibraryStatsSection(
+                        stats = libraryStats,
+                        primaryColor = theme.primaryColor
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- ACTIVITY TRENDS SECTION ---
+                ActivityTrendsSection(
+                        weeklyActivity = weeklyActivity,
+                        primaryColor = theme.primaryColor
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // 3. Analytics Dashboard (Real-time)
                 Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -1273,6 +1314,292 @@ fun AnalyticsCard(
                                 text = subtext,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
+                        )
+                }
+        }
+}
+
+// --- NEW COMPOSABLES ---
+
+@Composable
+private fun ShuffleAllButton(
+        audioList: List<MediaFile>,
+        primaryColor: Color,
+        onShuffle: (List<MediaFile>) -> Unit
+) {
+        Button(
+                onClick = { onShuffle(audioList) },
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                                .height(56.dp),
+                colors =
+                        ButtonDefaults.buttonColors(
+                                containerColor = primaryColor
+                        ),
+                shape = RoundedCornerShape(16.dp),
+                enabled = audioList.isNotEmpty()
+        ) {
+                Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                        "Shuffle All Audio",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                )
+        }
+}
+
+@Composable
+private fun LibraryStatsSection(
+        stats: LibraryStats,
+        primaryColor: Color
+) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                // Header
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Bar chart icon using stacked bars
+                        Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.Bottom,
+                                modifier = Modifier.height(18.dp)
+                        ) {
+                                listOf(10.dp, 18.dp, 14.dp).forEach { height ->
+                                        Box(
+                                                modifier = Modifier
+                                                        .width(4.dp)
+                                                        .height(height)
+                                                        .background(
+                                                                primaryColor,
+                                                                RoundedCornerShape(1.dp)
+                                                        )
+                                        )
+                                }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                                text = "LIBRARY STATS",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Stats Row
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatCard(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Outlined.MusicNote,
+                                count = stats.songCount,
+                                label = "SONGS"
+                        )
+                        StatCard(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Outlined.VideoLibrary,
+                                count = stats.videoCount,
+                                label = "VIDEOS"
+                        )
+                        StatCard(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Filled.Star,
+                                count = stats.playlistCount,
+                                label = "PLAYLISTS"
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Total Storage Row
+                Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                ) {
+                        Row(
+                                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Text(
+                                        text = "Total Storage Used",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                        text = FormatUtils.formatSize(stats.totalStorageBytes),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                )
+                        }
+                }
+        }
+}
+
+@Composable
+private fun StatCard(
+        modifier: Modifier = Modifier,
+        icon: ImageVector,
+        count: Int,
+        label: String
+) {
+        Card(
+                modifier = modifier,
+                colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                ),
+                shape = RoundedCornerShape(16.dp)
+        ) {
+                Column(
+                        modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                        Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                                text = "$count",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.sp
+                        )
+                }
+        }
+}
+
+@Composable
+private fun ActivityTrendsSection(
+        weeklyActivity: List<DailyActivity>,
+        primaryColor: Color
+) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                // Header
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                                Icons.Outlined.Speed,
+                                null,
+                                tint = primaryColor,
+                                modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                                text = "ACTIVITY TRENDS",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                        )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Chart Card
+                Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                ) {
+                        Column(
+                                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp)
+                        ) {
+                                // Bar Chart
+                                ActivityBarChart(
+                                        data = weeklyActivity,
+                                        primaryColor = primaryColor,
+                                        modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(140.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Day Labels
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                        weeklyActivity.forEach { day ->
+                                                Text(
+                                                        text = day.dayLabel,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (day.isToday) primaryColor
+                                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        textAlign = TextAlign.Center,
+                                                        modifier = Modifier.weight(1f)
+                                                )
+                                        }
+                                }
+                        }
+                }
+        }
+}
+
+@Composable
+private fun ActivityBarChart(
+        data: List<DailyActivity>,
+        primaryColor: Color,
+        modifier: Modifier = Modifier
+) {
+        val maxMinutes = data.maxOfOrNull { it.playtimeMinutes } ?: 0
+        val barColor = primaryColor
+        val emptyBarColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+
+        Canvas(modifier = modifier) {
+                val barCount = data.size
+                if (barCount == 0) return@Canvas
+
+                val totalSpacing = size.width * 0.4f
+                val barWidth = (size.width - totalSpacing) / barCount
+                val spacing = totalSpacing / (barCount + 1)
+                val cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
+                val minBarHeight = 4.dp.toPx()
+
+                data.forEachIndexed { index, day ->
+                        val x = spacing + index * (barWidth + spacing)
+                        val barHeight = if (maxMinutes > 0) {
+                                val ratio = day.playtimeMinutes.toFloat() / maxMinutes
+                                (ratio * (size.height - minBarHeight)) + minBarHeight
+                        } else {
+                                minBarHeight
+                        }
+
+                        val color = if (day.playtimeMinutes > 0) barColor else emptyBarColor
+
+                        drawRoundRect(
+                                color = color,
+                                topLeft = Offset(x, size.height - barHeight),
+                                size = Size(barWidth, barHeight),
+                                cornerRadius = cornerRadius
                         )
                 }
         }

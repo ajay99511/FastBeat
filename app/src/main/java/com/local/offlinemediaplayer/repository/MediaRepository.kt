@@ -115,7 +115,8 @@ class MediaRepository @Inject constructor(
                             MediaStore.Audio.Media.TITLE,
                             MediaStore.Audio.Media.ARTIST,
                             MediaStore.Audio.Media.DURATION,
-                            MediaStore.Audio.Media.ALBUM_ID
+                            MediaStore.Audio.Media.ALBUM_ID,
+                            MediaStore.Audio.Media.SIZE
                     )
                 }
         val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0" else null
@@ -127,6 +128,7 @@ class MediaRepository @Inject constructor(
                 val durationColumn = cursor.getColumnIndexOrThrow(if (isVideo) MediaStore.Video.Media.DURATION else MediaStore.Audio.Media.DURATION)
                 val artistColumn = if (!isVideo) cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST) else -1
                 val albumIdColumn = if (!isVideo) cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID) else -1
+                val audioSizeColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.SIZE) else -1
 
                 val bucketIdColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_ID) else -1
                 val bucketNameColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME) else -1
@@ -169,6 +171,7 @@ class MediaRepository @Inject constructor(
                     } else {
                         artist = cursor.getString(artistColumn) ?: "Unknown Artist"
                         albumId = cursor.getLong(albumIdColumn)
+                        size = if (audioSizeColumn != -1) cursor.getLong(audioSizeColumn) else 0
                         val sArtworkUri = "content://media/external/audio/albumart".toUri()
                         albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId)
                     }

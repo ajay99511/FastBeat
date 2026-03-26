@@ -18,6 +18,21 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// --- Data classes for UI consumption ---
+
+data class LibraryStats(
+    val songCount: Int = 0,
+    val videoCount: Int = 0,
+    val playlistCount: Int = 0,
+    val totalStorageBytes: Long = 0
+)
+
+data class DailyActivity(
+    val dayLabel: String,
+    val playtimeMinutes: Int = 0,
+    val isToday: Boolean = false
+)
+
 @HiltViewModel
 class AnalyticsViewModel @Inject constructor(
     private val mediaDao: MediaDao,
@@ -54,6 +69,86 @@ class AnalyticsViewModel @Inject constructor(
             } else null
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // --- Library Stats Flow ---
+    val libraryStats = combine(
+        mediaRepository.audioList,
+        mediaRepository.videoList,
+        mediaDao.getPlaylistCountFlow()
+    ) { audio, videos, playlistCount ->
+        val totalStorage = audio.sumOf { it.size } + videos.sumOf { it.size }
+        LibraryStats(
+            songCount = audio.size,
+            videoCount = videos.size,
+            playlistCount = playlistCount,
+            totalStorageBytes = totalStorage
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryStats())
+
+    // --- Weekly Activity Trends Flow ---
+    val weeklyActivity = combine(
+        _analyticsUpdateTrigger,
+        getWeekBoundsFlow()
+    ) { _, bounds ->
+        calculateWeeklyActivity(bounds.first, bounds.second)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        generateEmptyWeek()
+    )
+
+    /** Returns a flow that emits the (mondayMidnight, sundayMidnight) for the current week. */
+    private fun getWeekBoundsFlow() = _analyticsUpdateTrigger.combine(
+        MutableStateFlow(Unit)
+    ) { _, _ ->
+        val cal = Calendar.getInstance()
+        // Get current day of week (Calendar.MONDAY=2 .. Calendar.SUNDAY=1)
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        // Calculate offset to Monday (Monday=0, Tuesday=1, ..., Sunday=6)
+        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+
+        // Move to Monday midnight
+        cal.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val mondayMs = cal.timeInMillis
+
+        // Sunday is Monday + 6 days
+        val sundayMs = mondayMs + (6L * 24 * 60 * 60 * 1000)
+        Pair(mondayMs, sundayMs)
+    }
+
+    private suspend fun calculateWeeklyActivity(
+        mondayMs: Long,
+        sundayMs: Long
+    ): List<DailyActivity> = withContext(Dispatchers.IO) {
+        val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+        val todayMs = getNormalizedToday()
+        val records = mediaDao.getWeekDailyPlaytimes(mondayMs, sundayMs).firstOrNull() ?: emptyList()
+        val playtimeMap = records.associate { it.date to it.totalPlaytimeMs }
+
+        labels.mapIndexed { index, label ->
+            val dayMs = mondayMs + (index.toLong() * 24 * 60 * 60 * 1000)
+            val minutesPlayed = ((playtimeMap[dayMs] ?: 0L) / 60000).toInt()
+            DailyActivity(
+                dayLabel = label,
+                playtimeMinutes = minutesPlayed,
+                isToday = dayMs == todayMs
+            )
+        }
+    }
+
+    private fun generateEmptyWeek(): List<DailyActivity> {
+        val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+        val cal = Calendar.getInstance()
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        val todayIndex = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+        return labels.mapIndexed { index, label ->
+            DailyActivity(dayLabel = label, isToday = index == todayIndex)
+        }
+    }
 
     private fun getNormalizedToday(): Long {
         val c = Calendar.getInstance()

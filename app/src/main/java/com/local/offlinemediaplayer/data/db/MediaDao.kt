@@ -64,6 +64,10 @@ interface MediaDao {
     @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
     fun getActiveDays(): Flow<List<Long>>
 
+    // Get daily playtime records for a date range (Activity Trends)
+    @Query("SELECT * FROM daily_playtime WHERE date >= :startDate AND date <= :endDate ORDER BY date ASC")
+    fun getWeekDailyPlaytimes(startDate: Long, endDate: Long): Flow<List<DailyPlaytime>>
+
     // Play Events
     @Insert
     suspend fun logPlayEvent(event: PlayEvent)
@@ -98,6 +102,10 @@ interface MediaDao {
     // New methods for Playlist management
     @Query("SELECT COUNT(*) FROM playlists WHERE name = :name AND isVideo = :isVideo")
     suspend fun getPlaylistCount(name: String, isVideo: Boolean): Int
+
+    // Reactive playlist count for Library Stats
+    @Query("SELECT COUNT(*) FROM playlists")
+    fun getPlaylistCountFlow(): Flow<Int>
 
     @Query("UPDATE playlists SET name = :newName WHERE id = :id")
     suspend fun updatePlaylistName(id: String, newName: String)
