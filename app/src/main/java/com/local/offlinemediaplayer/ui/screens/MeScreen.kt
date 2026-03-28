@@ -48,6 +48,18 @@ import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.ThemeViewModel
 
+// Activity Trends Imports
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.graphics.PathEffect
+
 @Composable
 fun MeScreen(
         viewModel: PlaybackViewModel,
@@ -1161,7 +1173,8 @@ fun MeScreen(
 
                                 Switch(
                                         checked = isDarkTheme,
-                                        onCheckedChange = { viewModel.toggleThemeMode() },
+                                        onCheckedChange = { themeViewModel.toggleThemeMode() },
+                                        //onCheckedChange = { viewModel.toggleThemeMode() },
                                         colors =
                                                 SwitchDefaults.colors(
                                                         checkedThumbColor = theme.primaryColor,
@@ -1537,7 +1550,7 @@ private fun ActivityTrendsSection(
                                         primaryColor = primaryColor,
                                         modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(140.dp)
+                                                .height(180.dp) // Adjusted height for tooltips and grid
                                 )
 
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -1571,36 +1584,187 @@ private fun ActivityBarChart(
         modifier: Modifier = Modifier
 ) {
         val maxMinutes = data.maxOfOrNull { it.playtimeMinutes } ?: 0
-        val barColor = primaryColor
         val emptyBarColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        val gridLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+        val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+        val tooltipBgColor = MaterialTheme.colorScheme.surfaceVariant
+        val tooltipTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-        Canvas(modifier = modifier) {
+        // Animation for bar heights
+        var animationPlayed by remember { mutableStateOf(false) }
+        val animationProgress by animateFloatAsState(
+                targetValue = if (animationPlayed) 1f else 0f,
+                animationSpec = tween(
+                        durationMillis = 1000,
+                        easing = FastOutSlowInEasing
+                ),
+                label = "barAnimation"
+        )
+
+        LaunchedEffect(data) {
+                animationPlayed = true
+        }
+
+        // Interactive tooltips
+        var selectedBarIndex by remember { mutableStateOf<Int?>(null) }
+        
+        val textMeasurer = rememberTextMeasurer()
+
+        Canvas(
+                modifier = modifier.pointerInput(data) {
+                        detectTapGestures { offset ->
+                                val barCount = data.size
+                                if (barCount == 0) return@detectTapGestures
+
+                                val totalSpacing = size.width * 0.4f
+                                val barWidth = (size.width - totalSpacing) / barCount
+                                val spacing = totalSpacing / (barCount + 1)
+                                
+                                // Find which bar was clicked
+                                for (i in 0 until barCount) {
+                                        val xStart = spacing + i * (barWidth + spacing)
+                                        val xEnd = xStart + barWidth
+                                        
+                                        // Allow a bit of leeway in tap target
+                                        if (offset.x >= xStart - spacing/2 && offset.x <= xEnd + spacing/2) {
+                                                selectedBarIndex = if (selectedBarIndex == i) null else i
+                                                return@detectTapGestures
+                                        }
+                                }
+                                selectedBarIndex = null // Clicked outside any bar
+                        }
+                }
+        ) {
                 val barCount = data.size
                 if (barCount == 0) return@Canvas
 
+                // Reserving space at top for tooltip
+                val topPadding = 40.dp.toPx()
+                val bottomPadding = 10.dp.toPx()
+                val chartHeight = size.height - topPadding - bottomPadding
+                
                 val totalSpacing = size.width * 0.4f
                 val barWidth = (size.width - totalSpacing) / barCount
                 val spacing = totalSpacing / (barCount + 1)
                 val cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
                 val minBarHeight = 4.dp.toPx()
 
+                // Draw Grid Lines (Y-Axis references)
+                val gridLines = 3 // 0, max/2, max
+                for (i in 0 until gridLines) {
+                        val y = topPadding + chartHeight - (chartHeight * (i.toFloat() / (gridLines - 1).coerceAtLeast(1)))
+                        drawLine(
+                                color = gridLineColor,
+                                start = Offset(0f, y),
+                                end = Offset(size.width, y),
+                                strokeWidth = 1.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                        )
+                        
+                        // Draw grid labels if there's data
+                        if (maxMinutes > 0 && i > 0) {
+                                val labelValue = (maxMinutes * (i.toFloat() / (gridLines - 1))).toInt()
+                                val labelText = FormatUtils.formatMinutesToHours(labelValue)
+                                val textLayoutResult = textMeasurer.measure(
+                                        text = AnnotatedString(labelText),
+                                        style = TextStyle(
+                                                color = textColor,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium
+                                        )
+                                )
+                                drawText(
+                                        textLayoutResult = textLayoutResult,
+                                        topLeft = Offset(
+                                                0f, // Left aligned
+                                                y - textLayoutResult.size.height - 4.dp.toPx()
+                                        )
+                                )
+                        }
+                }
+
+                // Draw Bars
                 data.forEachIndexed { index, day ->
                         val x = spacing + index * (barWidth + spacing)
-                        val barHeight = if (maxMinutes > 0) {
+                        
+                        val targetHeight = if (maxMinutes > 0) {
                                 val ratio = day.playtimeMinutes.toFloat() / maxMinutes
-                                (ratio * (size.height - minBarHeight)) + minBarHeight
+                                (ratio * (chartHeight - minBarHeight)) + minBarHeight
                         } else {
                                 minBarHeight
                         }
+                        
+                        val animatedHeight = targetHeight * animationProgress
+                        val yOffset = topPadding + chartHeight - animatedHeight
 
-                        val color = if (day.playtimeMinutes > 0) barColor else emptyBarColor
+                        // Determine colors based on selection
+                        val isSelected = selectedBarIndex == index
+                        val hasSelection = selectedBarIndex != null
+                        
+                        // Dim unselected bars if something is selected
+                        val alphaMultiplier = if (hasSelection && !isSelected) 0.3f else 1.0f
+                        
+                        val brush = if (day.playtimeMinutes > 0) {
+                                Brush.verticalGradient(
+                                        colors = listOf(
+                                                primaryColor.copy(alpha = alphaMultiplier),
+                                                primaryColor.copy(alpha = alphaMultiplier * 0.5f)
+                                        ),
+                                        startY = yOffset,
+                                        endY = yOffset + animatedHeight
+                                )
+                        } else {
+                                Brush.verticalGradient(
+                                        colors = listOf(
+                                                emptyBarColor.copy(alpha = alphaMultiplier),
+                                                emptyBarColor.copy(alpha = alphaMultiplier)
+                                        )
+                                )
+                        }
 
+                        // Draw the bar
                         drawRoundRect(
-                                color = color,
-                                topLeft = Offset(x, size.height - barHeight),
-                                size = Size(barWidth, barHeight),
+                                brush = brush,
+                                topLeft = Offset(x, yOffset),
+                                size = Size(barWidth, animatedHeight),
                                 cornerRadius = cornerRadius
                         )
+
+                        // Draw Tooltip for selected bar OR always show value if it's today
+                        if (isSelected || (day.isToday && !hasSelection && day.playtimeMinutes > 0 && animationProgress > 0.9f)) {
+                                val text = FormatUtils.formatMinutesToHours(day.playtimeMinutes)
+                                val textLayoutResult = textMeasurer.measure(
+                                        text = AnnotatedString(text),
+                                        style = TextStyle(
+                                                color = if (isSelected) primaryColor else tooltipTextColor,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                )
+                                
+                                val textWidth = textLayoutResult.size.width
+                                val textHeight = textLayoutResult.size.height
+                                
+                                // Center tooltip above bar
+                                val tooltipX = x + (barWidth / 2) - (textWidth / 2)
+                                val tooltipY = yOffset - textHeight - 8.dp.toPx()
+                                
+                                // Draw background pill for selected
+                                if (isSelected) {
+                                        val paddingParam = 6.dp.toPx()
+                                        drawRoundRect(
+                                                color = tooltipBgColor,
+                                                topLeft = Offset(tooltipX - paddingParam, tooltipY - paddingParam),
+                                                size = Size(textWidth.toFloat() + (paddingParam * 2), textHeight.toFloat() + (paddingParam * 2)),
+                                                cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
+                                        )
+                                }
+
+                                drawText(
+                                        textLayoutResult = textLayoutResult,
+                                        topLeft = Offset(tooltipX, tooltipY)
+                                )
+                        }
                 }
         }
 }

@@ -1,0 +1,411 @@
+Initialized native services in: C:\Users\ajaye\.gradle\native
+Initialized jansi services in: C:\Users\ajaye\.gradle\native
+Found daemon DaemonInfo{pid=1196, address=[dd47680a-2585-41f2-a763-0cbd3bfb10ca port:64667, addresses:[/127.0.0.1]], state=Idle, lastBusy=1774569489420, context=DefaultDaemonContext[uid=197da71b-a328-4499-957d-c88285535f8a,javaHome=C:\Program Files\Java\jdk-17,javaVersion=17,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\ajaye\.gradle\daemon,pid=1196,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=Compatible with Java 21, JetBrains, nativeImageCapable=false (from gradle/gradle-daemon-jvm.properties), daemonOpts=[-Xmx2048m, -Dfile.encoding=UTF-8, -Duser.country=US, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=197da71b-a328-4499-957d-c88285535f8a,javaHome=C:\Program Files\Java\jdk-17,javaVersion=17,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\ajaye\.gradle\daemon,pid=1196,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 19064). The daemon log file: C:\Users\ajaye\.gradle\daemon\9.1.0\daemon-19064.out.log
+Starting 16th build in daemon [uptime: 1 hrs 14 mins 45.56 secs, performance: 100%, GC rate: 0.00/s, heap usage: 0% of 2 GiB]
+Using 24 worker leases.
+Now considering [C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\build.gradle.kts'.
+Included projects: [root project 'Offline Media Player', project ':app']
+
+> Configure project :
+Evaluating root project 'Offline Media Player' using build file 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.0.0', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.android', version: '2.2.10', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.2.10', apply: false]
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.2.10-2.0.2', apply: false]
+
+> Configure project :app
+Evaluating project ':app' using build file 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.0.0']
+Resolved plugin [id: 'org.jetbrains.kotlin.android', version: '2.2.10']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.2.10']
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.2.10-2.0.2']
+Resolved plugin [id: 'com.google.dagger.hilt.android', version: '2.58']
+WARNING: The option setting 'android.usesSdkInManifest.disallowed=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.sdk.defaultTargetSdkToCompileSdkIfUnset=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.enableAppCompileTimeRClass=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.builtInKotlin=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.newDsl=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.r8.optimizedResourceShrinking=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.defaults.buildfeatures.resvalues=true' is deprecated.
+The current default is 'false'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+Using default execution profile
+Build 11bb4369-0852-4bf7-9065-d3d02bde8ac1 is started
+Using Kotlin Gradle Plugin gradle813 variant
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+WARNING: The property android.dependency.excludeLibraryComponentsFromConstraints improves project import performance for very large projects. It should be enabled to improve performance.
+To suppress this warning, add android.generateSyncIssueWhenLibraryConstraintsAreEnabled=false to gradle.properties
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+All projects evaluated.
+Task name matched 'assembleDebug'
+Selected primary task 'assembleDebug' from project :
+Adding -Xuse-inline-scopes-numbers Kotlin compiler flag for task :app:compileDebugKotlin
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:mergeDebugNativeDebugMetadata', task ':app:checkKotlinGradlePluginConfigurationErrors', task ':app:checkDebugAarMetadata', task ':app:processDebugNavigationResources', task ':app:compileDebugNavigationResources', task ':app:generateDebugResValues', task ':app:mapDebugSourceSetPaths', task ':app:generateDebugResources', task ':app:mergeDebugResources', task ':app:packageDebugResources', task ':app:parseDebugLocalResources', task ':app:createDebugCompatibleScreenManifests', task ':app:extractDeepLinksDebug', task ':app:processDebugMainManifest', task ':app:processDebugManifest', task ':app:processDebugManifestForPackage', task ':app:processDebugResources', task ':app:kspDebugKotlin', task ':app:compileDebugKotlin', task ':app:javaPreCompileDebug', task ':app:compileDebugJavaWithJavac', task ':app:generateDebugAssets', task ':app:mergeDebugAssets', task ':app:compressDebugAssets', task ':app:hiltAggregateDepsDebug', task ':app:hiltJavaCompileDebug', task ':app:processDebugJavaRes', task ':app:mergeDebugJavaResource', task ':app:checkDebugDuplicateClasses', task ':app:desugarDebugFileDependencies', task ':app:mergeExtDexDebug', task ':app:mergeLibDexDebug', task ':app:transformDebugClassesWithAsm', task ':app:dexBuilderDebug', task ':app:mergeProjectDexDebug', task ':app:mergeDebugJniLibFolders', task ':app:mergeDebugNativeLibs', task ':app:stripDebugDebugSymbols', task ':app:validateSigningDebug', task ':app:writeDebugAppMetadata', task ':app:writeDebugSigningConfigVersions', task ':app:packageDebug', task ':app:createDebugApkListingFileRedirect', task ':app:assembleDebug']
+Tasks that were excluded: []
+Resolve mutations for :app:preBuild (Thread[#3345,Execution worker,5,main]) started.
+:app:preBuild (Thread[#3345,Execution worker,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#3345,Execution worker,5,main]) started.
+:app:preDebugBuild (Thread[#3355,Execution worker Thread 11,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:mergeDebugNativeDebugMetadata (Thread[#3355,Execution worker Thread 11,5,main]) started.
+:app:mergeDebugNativeDebugMetadata (Thread[#3355,Execution worker Thread 11,5,main]) started.
+
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+Skipping task ':app:mergeDebugNativeDebugMetadata' as it has no source files and no previous output files.
+Resolve mutations for :app:checkKotlinGradlePluginConfigurationErrors (Thread[#3355,Execution worker Thread 11,5,main]) started.
+:app:checkKotlinGradlePluginConfigurationErrors (Thread[#3355,Execution worker Thread 11,5,main]) started.
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':app:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :app:checkDebugAarMetadata (Thread[#3355,Execution worker Thread 11,5,main]) started.
+:app:checkDebugAarMetadata (Thread[#3359,Execution worker Thread 15,5,main]) started.
+
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':app:checkDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :app:processDebugNavigationResources (Thread[#3359,Execution worker Thread 15,5,main]) started.
+:app:processDebugNavigationResources (Thread[#3359,Execution worker Thread 15,5,main]) started.
+
+> Task :app:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':app:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':app:processDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:compileDebugNavigationResources (Thread[#3359,Execution worker Thread 15,5,main]) started.
+:app:compileDebugNavigationResources (Thread[#3359,Execution worker Thread 15,5,main]) started.
+
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':app:compileDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':app:compileDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:generateDebugResValues (Thread[#3359,Execution worker Thread 15,5,main]) started.
+:app:generateDebugResValues (Thread[#3359,Execution worker Thread 15,5,main]) started.
+
+> Task :app:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':app:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :app:mapDebugSourceSetPaths (Thread[#3359,Execution worker Thread 15,5,main]) started.
+:app:mapDebugSourceSetPaths (Thread[#3346,Execution worker Thread 2,5,main]) started.
+
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+Caching disabled for task ':app:mapDebugSourceSetPaths' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:mapDebugSourceSetPaths' as it is up-to-date.
+Resolve mutations for :app:generateDebugResources (Thread[#3346,Execution worker Thread 2,5,main]) started.
+:app:generateDebugResources (Thread[#3354,Execution worker Thread 10,5,main]) started.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Caching disabled for task ':app:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+Resolve mutations for :app:mergeDebugResources (Thread[#3354,Execution worker Thread 10,5,main]) started.
+:app:mergeDebugResources (Thread[#3354,Execution worker Thread 10,5,main]) started.
+
+> Task :app:mergeDebugResources UP-TO-DATE
+Caching disabled for task ':app:mergeDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:mergeDebugResources' as it is up-to-date.
+Resolve mutations for :app:packageDebugResources (Thread[#3354,Execution worker Thread 10,5,main]) started.
+:app:packageDebugResources (Thread[#3363,Execution worker Thread 18,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Caching disabled for task ':app:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#3363,Execution worker Thread 18,5,main]) started.
+:app:parseDebugLocalResources (Thread[#3353,Execution worker Thread 9,5,main]) started.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Caching disabled for task ':app:parseDebugLocalResources' because:
+  Build cache is disabled
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :app:createDebugCompatibleScreenManifests (Thread[#3353,Execution worker Thread 9,5,main]) started.
+:app:createDebugCompatibleScreenManifests (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createDebugCompatibleScreenManifests' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:createDebugCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':app:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':app:extractDeepLinksDebug' as it is up-to-date.
+Resolve mutations for :app:processDebugMainManifest (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:processDebugMainManifest (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:processDebugMainManifest UP-TO-DATE
+Caching disabled for task ':app:processDebugMainManifest' because:
+  Build cache is disabled
+Skipping task ':app:processDebugMainManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifest (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:processDebugManifest (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:processDebugManifest UP-TO-DATE
+Caching disabled for task ':app:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':app:processDebugManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifestForPackage (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:processDebugManifestForPackage (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+Custom actions are attached to task ':app:processDebugManifestForPackage'.
+Caching disabled for task ':app:processDebugManifestForPackage' because:
+  Build cache is disabled
+Skipping task ':app:processDebugManifestForPackage' as it is up-to-date.
+Resolve mutations for :app:processDebugResources (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:processDebugResources (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:processDebugResources UP-TO-DATE
+Caching disabled for task ':app:processDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:processDebugResources' as it is up-to-date.
+Resolve mutations for :app:kspDebugKotlin (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:kspDebugKotlin (Thread[#3361,Execution worker Thread 17,5,main]) started.
+Resolve mutations for :app:javaPreCompileDebug (Thread[#3350,Execution worker Thread 6,5,main]) started.
+:app:javaPreCompileDebug (Thread[#3350,Execution worker Thread 6,5,main]) started.
+
+> Task :app:javaPreCompileDebug UP-TO-DATE
+Caching disabled for task ':app:javaPreCompileDebug' because:
+  Build cache is disabled
+Skipping task ':app:javaPreCompileDebug' as it is up-to-date.
+Resolve mutations for :app:generateDebugAssets (Thread[#3350,Execution worker Thread 6,5,main]) started.
+:app:generateDebugAssets (Thread[#3350,Execution worker Thread 6,5,main]) started.
+
+> Task :app:generateDebugAssets UP-TO-DATE
+Skipping task ':app:generateDebugAssets' as it has no actions.
+Resolve mutations for :app:mergeDebugAssets (Thread[#3350,Execution worker Thread 6,5,main]) started.
+:app:mergeDebugAssets (Thread[#3350,Execution worker Thread 6,5,main]) started.
+
+> Task :app:mergeDebugAssets UP-TO-DATE
+Caching disabled for task ':app:mergeDebugAssets' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':app:mergeDebugAssets' as it is up-to-date.
+Resolve mutations for :app:compressDebugAssets (Thread[#3350,Execution worker Thread 6,5,main]) started.
+:app:compressDebugAssets (Thread[#3350,Execution worker Thread 6,5,main]) started.
+
+> Task :app:compressDebugAssets UP-TO-DATE
+Caching disabled for task ':app:compressDebugAssets' because:
+  Build cache is disabled
+Skipping task ':app:compressDebugAssets' as it is up-to-date.
+Resolve mutations for :app:checkDebugDuplicateClasses (Thread[#3350,Execution worker Thread 6,5,main]) started.
+:app:checkDebugDuplicateClasses (Thread[#3350,Execution worker Thread 6,5,main]) started.
+
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+Caching disabled for task ':app:checkDebugDuplicateClasses' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugDuplicateClasses' as it is up-to-date.
+Resolve mutations for :app:desugarDebugFileDependencies (Thread[#3350,Execution worker Thread 6,5,main]) started.
+:app:desugarDebugFileDependencies (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+Caching disabled for task ':app:desugarDebugFileDependencies' because:
+  Build cache is disabled
+Skipping task ':app:desugarDebugFileDependencies' as it is up-to-date.
+Resolve mutations for :app:mergeExtDexDebug (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:mergeExtDexDebug (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:mergeExtDexDebug UP-TO-DATE
+Caching disabled for task ':app:mergeExtDexDebug' because:
+  Build cache is disabled
+Skipping task ':app:mergeExtDexDebug' as it is up-to-date.
+Resolve mutations for :app:mergeLibDexDebug (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:mergeLibDexDebug (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:mergeLibDexDebug UP-TO-DATE
+Caching disabled for task ':app:mergeLibDexDebug' because:
+  Build cache is disabled
+Skipping task ':app:mergeLibDexDebug' as it is up-to-date.
+Resolve mutations for :app:mergeDebugJniLibFolders (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:mergeDebugJniLibFolders (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+Caching disabled for task ':app:mergeDebugJniLibFolders' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':app:mergeDebugJniLibFolders' as it is up-to-date.
+Resolve mutations for :app:mergeDebugNativeLibs (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:mergeDebugNativeLibs (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+Caching disabled for task ':app:mergeDebugNativeLibs' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:mergeDebugNativeLibs' as it is up-to-date.
+Resolve mutations for :app:stripDebugDebugSymbols (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:stripDebugDebugSymbols (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+Caching disabled for task ':app:stripDebugDebugSymbols' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:stripDebugDebugSymbols' as it is up-to-date.
+Resolve mutations for :app:validateSigningDebug (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:validateSigningDebug (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:validateSigningDebug UP-TO-DATE
+Caching disabled for task ':app:validateSigningDebug' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:validateSigningDebug' as it is up-to-date.
+Resolve mutations for :app:writeDebugAppMetadata (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:writeDebugAppMetadata (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+Caching disabled for task ':app:writeDebugAppMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:writeDebugAppMetadata' as it is up-to-date.
+Resolve mutations for :app:writeDebugSigningConfigVersions (Thread[#3348,Execution worker Thread 4,5,main]) started.
+:app:writeDebugSigningConfigVersions (Thread[#3348,Execution worker Thread 4,5,main]) started.
+
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+Caching disabled for task ':app:writeDebugSigningConfigVersions' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:writeDebugSigningConfigVersions' as it is up-to-date.
+
+> Task :app:kspDebugKotlin
+Caching disabled for task ':app:kspDebugKotlin' because:
+  Build cache is disabled
+Task ':app:kspDebugKotlin' is not up-to-date because:
+  Value of input property 'kspConfig.logLevel' has changed for task ':app:kspDebugKotlin'
+The input changes require a full rebuild for incremental task ':app:kspDebugKotlin'.
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+i: [ksp] loaded provider(s): [dagger.hilt.processor.internal.uninstallmodules.KspUninstallModulesProcessor$Provider, dagger.hilt.android.processor.internal.viewmodel.KspViewModelProcessor$Provider, dagger.hilt.processor.internal.earlyentrypoint.KspEarlyEntryPointProcessor$Provider, dagger.hilt.android.processor.internal.androidentrypoint.KspAndroidEntryPointProcessor$Provider, dagger.hilt.processor.internal.definecomponent.KspDefineComponentProcessor$Provider, dagger.hilt.processor.internal.originatingelement.KspOriginatingElementProcessor$Provider, dagger.hilt.android.processor.internal.bindvalue.KspBindValueProcessor$Provider, dagger.hilt.processor.internal.root.KspComponentTreeDepsProcessor$Provider, dagger.hilt.processor.internal.root.KspRootProcessor$Provider, dagger.hilt.processor.internal.aliasof.KspAliasOfProcessor$Provider, dagger.hilt.processor.internal.aggregateddeps.KspAggregatedDepsProcessor$Provider, dagger.hilt.processor.internal.generatesrootinput.KspGeneratesRootInputProcessor$Provider, dagger.hilt.android.processor.internal.customtestapplication.KspCustomTestApplicationProcessor$Provider, androidx.room.RoomKspProcessor$Provider, dagger.internal.codegen.KspComponentProcessor$Provider]
+w: [ksp] Schema export directory was not provided to the annotation processor so Room cannot export the schema. You can either provide `room.schemaLocation` annotation processor argument by applying the Room Gradle plugin (id 'androidx.room') OR set exportSchema to false.
+Resolve mutations for :app:compileDebugKotlin (Thread[#3361,Execution worker Thread 17,5,main]) started.
+:app:compileDebugKotlin (Thread[#3361,Execution worker Thread 17,5,main]) started.
+
+> Task :app:compileDebugKotlin
+Adding -Xuse-inline-scopes-numbers Kotlin compiler flag for task :app:compileDebugAndroidTestKotlin
+GradleBuildProject.Builder should not be accessed through AnalyticsConfiguratorService after AnalyticsService is created. Analytics information of this build might be incomplete.
+Caching disabled for task ':app:compileDebugKotlin' because:
+  Build cache is disabled
+Task ':app:compileDebugKotlin' is not up-to-date because:
+  Input property 'sources' file C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\PlaylistDetailScreen.kt has changed.
+  Input property 'sources' file C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel.kt has changed.
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\java', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\kotlin', not found
+file or directory 'C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\debug\kotlin', not found
+Kotlin source files: C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\kotlin\com\local\offlinemediaplayer\data\db\AppDatabase_Impl.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\kotlin\com\local\offlinemediaplayer\data\db\MediaDao_Impl.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\data\db\AppDatabase.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\data\db\Entities.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\data\db\MediaDao.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\data\di\DatabaseModule.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\data\ThumbnailManager.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\MainActivity.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\MediaPlayerApp.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\model\Album.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\model\MediaFile.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\model\PlayerStates.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\model\Playlist.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\model\VideoFolder.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\repository\MediaRepository.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\repository\PlaylistRepository.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\service\PlaybackService.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\common\FormatUtils.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\components\Dialogs.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\components\MediaPropertiesDialog.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\components\MiniPlayer.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\components\SearchComponents.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\MainScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\navigation\AudioNavigationHost.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\navigation\VideoNavigationHost.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\AccessibilityGuideScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\AlbumDetailScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\AlbumListScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\AudioLibraryScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\AudioListScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\ImageListScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\MeScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\NowPlayingScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\PermissionScreens.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\PlaylistDetailScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\PlaylistListScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\VideoFolderScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\VideoListScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\VideoPlayerScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\screens\VideoPlaylistDetailScreen.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Color.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Headers\AppHeader.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Headers\AudioHeader.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Headers\FastBeatHeader.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Headers\ImageHeader.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Headers\VideoHeader.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Theme.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\ui\theme\Type.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\viewmodel\AnalyticsViewModel.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\viewmodel\LibraryViewModel.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\viewmodel\PlaylistViewModel.kt, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\src\main\java\com\local\offlinemediaplayer\viewmodel\ThemeViewModel.kt
+Java source files: C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\data\di\DatabaseModule_ProvideAppDatabaseFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\data\di\DatabaseModule_ProvideMediaDaoFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\data\di\DatabaseModule_ProvideThumbnailManagerFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\data\ThumbnailManager_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\Hilt_MainActivity.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\MainActivity_GeneratedInjector.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\MediaPlayerApp_GeneratedInjector.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\repository\MediaRepository_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\repository\PlaylistRepository_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\service\Hilt_PlaybackService.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\service\PlaybackService_GeneratedInjector.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\AnalyticsViewModel_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\AnalyticsViewModel_HiltModules.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\AnalyticsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\AnalyticsViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\AnalyticsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\LibraryViewModel_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\LibraryViewModel_HiltModules.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\LibraryViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\LibraryViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\LibraryViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel_HiltModules.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaybackViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaylistViewModel_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaylistViewModel_HiltModules.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaylistViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaylistViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\PlaylistViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\ThemeViewModel_Factory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\ThemeViewModel_HiltModules.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\ThemeViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\ThemeViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\com\local\offlinemediaplayer\viewmodel\ThemeViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\dagger\hilt\internal\aggregatedroot\codegen\_com_local_offlinemediaplayer_MediaPlayerApp.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_data_di_DatabaseModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_MainActivity_GeneratedInjector.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_MediaPlayerApp_GeneratedInjector.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_service_PlaybackService_GeneratedInjector.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_AnalyticsViewModel_HiltModules_BindsModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_AnalyticsViewModel_HiltModules_KeyModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_LibraryViewModel_HiltModules_BindsModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_LibraryViewModel_HiltModules_KeyModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_PlaybackViewModel_HiltModules_BindsModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_PlaybackViewModel_HiltModules_KeyModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_PlaylistViewModel_HiltModules_BindsModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_PlaylistViewModel_HiltModules_KeyModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_ThemeViewModel_HiltModules_BindsModule.java, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_local_offlinemediaplayer_viewmodel_ThemeViewModel_HiltModules_KeyModule.java
+Script source files: 
+Script file extensions: 
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: null
+Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0, 3], reportSeverity=2, requestedCompilationResults=[0], kotlinScriptExtensions=[]), sourceChanges=org.jetbrains.kotlin.buildtools.api.SourcesChanges$Known@197e505, classpathChanges=NoChanges, workingDir=C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\kotlin\compileDebugKotlin\cacheable, multiModuleICSettings=MultiModuleICSettings(buildHistoryFile=C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\kotlin\compileDebugKotlin\local-state\build-history.bin, useModuleDetection=true), icFeatures=IncrementalCompilationFeatures(usePreciseJavaTracking=true, withAbiSnapshot=false, preciseCompilationResultsBackup=true, keepIncrementalCompilationCachesInMemory=true, enableUnsafeIncrementalCompilationForMultiplatform=false, enableMonotonousIncrementalCompileSetExpansion=true), outputFiles=[C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\tmp\kotlin-classes\debug, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\kotlin\compileDebugKotlin\cacheable, C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer\app\build\kotlin\compileDebugKotlin\local-state])
+w: ATTENTION!
+This build uses unsafe internal compiler arguments:
+
+-XXLanguage:+PropertyParamAnnotationDefaultTargetMode
+
+This mode is not recommended for production use,
+as no stability/compatibility guarantees are given on
+compiler or generated code. Use it at your own risk!
+
+Finished executing kotlin compiler using DAEMON strategy
+Restoring task outputs to pre-compilation state
+
+> Task :app:compileDebugKotlin FAILED
+Build 11bb4369-0852-4bf7-9065-d3d02bde8ac1 is closed
+30 actionable tasks: 2 executed, 28 up-to-date
+Watched directory hierarchies: [C:\Users\ajaye\AndroidStudioProjects\OfflineMediaPlayer]

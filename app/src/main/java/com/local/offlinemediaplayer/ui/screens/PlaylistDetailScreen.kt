@@ -401,8 +401,8 @@ fun PlaylistDetailScreen(
                     // Play All
                     FilledIconButton(
                             onClick = {
-                                if (songs.isNotEmpty()) {
-                                    viewModel.playPlaylist(playlist, false)
+                                if (sortedAndFilteredSongs.isNotEmpty()) {
+                                    viewModel.playPlaylist(playlist, sortedAndFilteredSongs, false)
                                 }
                             },
                             modifier = Modifier.size(42.dp),
@@ -421,8 +421,8 @@ fun PlaylistDetailScreen(
                     // Shuffle
                     FilledIconButton(
                             onClick = {
-                                if (songs.isNotEmpty()) {
-                                    viewModel.playPlaylist(playlist, true)
+                                if (sortedAndFilteredSongs.isNotEmpty()) {
+                                    viewModel.playPlaylist(playlist, sortedAndFilteredSongs, true)
                                 }
                             },
                             modifier = Modifier.size(42.dp),

@@ -172,8 +172,7 @@ constructor(
 
     // Media Lists
 
-    private val _audioList = MutableStateFlow<List<MediaFile>>(emptyList())
-    val audioList = _audioList.asStateFlow()
+    val audioList = mediaRepository.audioList
 
     private val _imageList = MutableStateFlow<List<MediaFile>>(emptyList())
     val imageList = _imageList.asStateFlow()
@@ -189,7 +188,7 @@ constructor(
     private val _analyticsUpdateTrigger = MutableStateFlow(0L) // Used to force refresh logic
 
     val realtimeAnalytics =
-            combine(_analyticsUpdateTrigger, _audioList, mediaRepository.videoList) { _, audio, videos ->
+            combine(_analyticsUpdateTrigger, audioList, mediaRepository.videoList) { _, audio, videos ->
                         calculateAnalytics(audio + videos)
                     }
                     .stateIn(
@@ -205,6 +204,10 @@ constructor(
 
     private val _currentIndex = MutableStateFlow<Int?>(null)
     val currentIndex = _currentIndex.asStateFlow()
+    
+    // Tracks if current playback was initiated from a specific playlist (to prevent autoFill from adding random library songs)
+    private val _currentPlaylistContext = MutableStateFlow<String?>(null)
+    val currentPlaylistContext = _currentPlaylistContext.asStateFlow()
 
     // Display queue for UI - reflects shuffled order when shuffle is enabled
     private val _displayQueue = MutableStateFlow<List<MediaFile>>(emptyList())
@@ -258,7 +261,7 @@ constructor(
     val sortOption = _sortOption.asStateFlow()
 
     val filteredAudioList =
-            combine(_audioList, _searchQuery, _sortOption) { list, query, sort ->
+            combine(audioList, _searchQuery, _sortOption) { list, query, sort ->
                         var result = list
                         if (query.isNotEmpty()) {
                             result =
@@ -402,7 +405,7 @@ constructor(
 
     // --- LAST PLAYED AUDIO FLOW ---
     val lastPlayedAudio =
-            combine(_audioList, mediaDao.getLastPlayedAudioFlow()) { audioFiles, history ->
+            combine(audioList, mediaDao.getLastPlayedAudioFlow()) { audioFiles, history ->
                         if (history != null) {
                             audioFiles.find { it.id == history.mediaId }
                         } else null
@@ -480,7 +483,7 @@ constructor(
         if (idsToDelete.isEmpty()) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            val allMedia = mediaRepository.videoList.value + _audioList.value
+            val allMedia = mediaRepository.videoList.value + audioList.value
             val filesToDelete = allMedia.filter { idsToDelete.contains(it.id) }
             val uris = filesToDelete.map { it.uri }
 
@@ -506,7 +509,8 @@ constructor(
 
     private fun onDeleteSuccess(ids: List<Long>) {
         viewModelScope.launch {
-            _audioList.value = _audioList.value.filter { !ids.contains(it.id) }
+            // Note: LibraryViewModel handles actual media state cleanup now.
+            // We only need to clean up imageList and update playlists.
             _imageList.value = _imageList.value.filter { !ids.contains(it.id) }
             val currentPlaylists = playlists.value
             currentPlaylists.forEach { pl ->
@@ -582,8 +586,7 @@ constructor(
     fun onCurrentTrackDeleteSuccess() {
         val id = _pendingDeleteTrackId.value ?: return
         viewModelScope.launch {
-            // Remove from lists
-            _audioList.value = _audioList.value.filter { it.id != id }
+            // Note: LibraryViewModel handles actual audio list cleanup now.
             val currentPlaylists = playlists.value
             currentPlaylists.forEach { pl ->
                 if (pl.mediaIds.contains(id)) {
@@ -797,7 +800,7 @@ constructor(
         val id = currentMediaItem.mediaId.toLongOrNull()
         if (id != null) {
             val track =
-                    _audioList.value.find { it.id == id } ?: mediaRepository.videoList.value.find { it.id == id }
+                    audioList.value.find { it.id == id } ?: mediaRepository.videoList.value.find { it.id == id }
             _currentTrack.value = track
             _currentIndex.value = controller.currentMediaItemIndex
 
@@ -1025,8 +1028,7 @@ constructor(
                 // Delegate to MediaRepository which handles querying & thumbnail caching
                 val (videos, audio) = mediaRepository.scanMedia()
 
-                // Sync local state from repository
-                _audioList.value = audio
+                // Sync local state from repository for images/albums which are still internally managed
                 _imageList.value = mediaRepository.imageList.value
                 _albums.value = mediaRepository.albums.value
 
@@ -1175,8 +1177,9 @@ constructor(
         if (media.isVideo) {
             playVideo(media) // Redirect to new video handler
         } else if (!media.isImage) {
+            _currentPlaylistContext.value = null // clear context for generic playback
             val currentVisibleList =
-                    filteredAudioList.value.takeIf { it.isNotEmpty() } ?: _audioList.value
+                    filteredAudioList.value.takeIf { it.isNotEmpty() } ?: audioList.value
             val startIndex = currentVisibleList.indexOfFirst { it.id == media.id }
             if (startIndex >= 0) setQueue(currentVisibleList, startIndex, false)
         }
@@ -1323,31 +1326,32 @@ constructor(
         if (startIndex >= 0) setQueue(list, startIndex, false)
     }
 
-    fun playPlaylist(playlist: Playlist, shuffle: Boolean) {
-        val allMedia = if (playlist.isVideo) mediaRepository.videoList.value else _audioList.value
-        val playlistMedia = playlist.mediaIds.mapNotNull { id -> allMedia.find { it.id == id } }
-        if (playlistMedia.isNotEmpty()) {
-            val startIndex = if (shuffle) (playlistMedia.indices).random() else 0
+    fun playPlaylist(playlist: Playlist, songs: List<MediaFile>, shuffle: Boolean) {
+        if (songs.isNotEmpty()) {
+            _currentPlaylistContext.value = playlist.id // set context so we don't bleed into library
+            val startIndex = if (shuffle) (songs.indices).random() else 0
             if (playlist.isVideo) {
                 _isPlayerLocked.value = false
                 _playbackSpeed.value = 1.0f
                 _resizeMode.value = ResizeMode.FIT
                 _isVideoPlayerVisible.value = true // Explicitly show player for video playlists
             }
-            setQueue(playlistMedia, startIndex, shuffle)
+            setQueue(songs, startIndex, shuffle)
         }
     }
 
     fun playAlbum(album: Album, shuffle: Boolean) {
-        val albumSongs = _audioList.value.filter { it.albumId == album.id }
+        val albumSongs = audioList.value.filter { it.albumId == album.id }
         if (albumSongs.isNotEmpty()) {
+            _currentPlaylistContext.value = "ALBUM_${album.id}" // set context
             val startIndex = if (shuffle) (albumSongs.indices).random() else 0
             setQueue(albumSongs, startIndex, shuffle)
         }
     }
 
     fun playAll(shuffle: Boolean) {
-        val currentList = filteredAudioList.value.takeIf { it.isNotEmpty() } ?: _audioList.value
+        _currentPlaylistContext.value = null // library context
+        val currentList = filteredAudioList.value.takeIf { it.isNotEmpty() } ?: audioList.value
         if (currentList.isNotEmpty()) {
             val startIndex = if (shuffle) (currentList.indices).random() else 0
             setQueue(currentList, startIndex, shuffle)
@@ -1607,10 +1611,18 @@ constructor(
         if (currentTrack?.isVideo == true) return
 
         val controller = _player.value ?: return
-        val audioList = _audioList.value
-        if (audioList.isEmpty()) return
+        
+        // Check if we are playing a specific context (playlist, album)
+        // If so, do not automatically jump to random library songs when it finishes.
+        // It's confusing if you queue an album and end up listening to the whole library.
+        if (_currentPlaylistContext.value != null && !playPrevious) {
+            return
+        }
 
-        val shuffledAudio = audioList.shuffled()
+        val audioListSnapshot = audioList.value
+        if (audioListSnapshot.isEmpty()) return
+
+        val shuffledAudio = audioListSnapshot.shuffled()
         val newQueue = _currentQueue.value.toMutableList()
 
         if (playPrevious) {
