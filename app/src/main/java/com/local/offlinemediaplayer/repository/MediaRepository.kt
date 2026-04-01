@@ -119,7 +119,7 @@ class MediaRepository @Inject constructor(
                             MediaStore.Audio.Media.SIZE
                     )
                 }
-        val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0" else null
+        val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 45000" else null
 
         try {
             context.contentResolver.query(collection, projection, selection, null, null)?.use { cursor ->
