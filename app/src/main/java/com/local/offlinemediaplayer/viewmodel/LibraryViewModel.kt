@@ -125,6 +125,16 @@ class LibraryViewModel @Inject constructor(
     private val _isSelectionMode = MutableStateFlow(false)
     val isSelectionMode = _isSelectionMode.asStateFlow()
 
+    // --- ALBUM SELECTIONS ---
+    private val _selectedAlbumIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedAlbumIds = _selectedAlbumIds.asStateFlow()
+
+    private val _isAlbumSelectionMode = MutableStateFlow(false)
+    val isAlbumSelectionMode = _isAlbumSelectionMode.asStateFlow()
+    //Initializing the variables and setting state flow auto update state
+
+    private var pendingAlbumDeleteIds: List<Long>? = null
+
     private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
     val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
 
@@ -142,6 +152,23 @@ class LibraryViewModel @Inject constructor(
 
     fun selectAll(ids: List<Long>) {
         _selectedMediaIds.value = ids.toSet()
+    }
+
+    // --- ALBUM SELECTION METHODS ---
+    fun toggleAlbumSelectionMode(enable: Boolean) {
+        _isAlbumSelectionMode.value = enable
+        if (!enable) _selectedAlbumIds.value = emptySet()
+    }
+
+    fun toggleAlbumSelection(id: Long) {
+        val current = _selectedAlbumIds.value.toMutableSet()
+        if (current.contains(id)) current.remove(id) else current.add(id)
+        _selectedAlbumIds.value = current
+        if (current.isEmpty()) _isAlbumSelectionMode.value = false
+    }
+
+    fun selectAllAlbums(ids: List<Long>) {
+        _selectedAlbumIds.value = ids.toSet()
     }
 
     fun deleteSelectedMedia() {
@@ -181,6 +208,45 @@ class LibraryViewModel @Inject constructor(
             _selectedMediaIds.value = emptySet()
             _isSelectionMode.value = false
         }
+    }
+
+    // --- ALBUM DELETION METHODS ---
+    fun deleteSelectedAlbums() {
+        val idsToDelete = _selectedAlbumIds.value.toList()
+        if (idsToDelete.isEmpty()) return
+
+        pendingAlbumDeleteIds = idsToDelete
+        viewModelScope.launch(Dispatchers.IO) {
+            val allSongsInAlbums = audioList.value.filter { idsToDelete.contains(it.albumId) }
+            if (allSongsInAlbums.isEmpty()) {
+                onAlbumDeleteSuccess()
+                return@launch
+            }
+            val uris = allSongsInAlbums.map { it.uri }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
+                _deleteIntentEvent.emit(pendingIntent.intentSender)
+            } else {
+                try {
+                    for (file in allSongsInAlbums) app.contentResolver.delete(file.uri, null, null)
+                    onAlbumDeleteSuccess()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    fun onAlbumDeleteSuccess() {
+        val albumIds = pendingAlbumDeleteIds ?: return
+        val songIds = audioList.value.filter { albumIds.contains(it.albumId) }.map { it.id }
+        viewModelScope.launch {
+            mediaRepository.removeMediaIds(songIds)
+            _selectedAlbumIds.value = emptySet()
+            _isAlbumSelectionMode.value = false
+        }
+        pendingAlbumDeleteIds = null
     }
 
     // --- Image Deletion ---

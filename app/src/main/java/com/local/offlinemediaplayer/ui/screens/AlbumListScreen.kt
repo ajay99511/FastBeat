@@ -39,12 +39,28 @@ import com.local.offlinemediaplayer.viewmodel.AlbumSortOption
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
+import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Close
 
 @Composable
 fun AlbumListScreen(
     viewModel: PlaybackViewModel,
     libraryViewModel: LibraryViewModel,
     onAlbumClick: (Long) -> Unit,
+    onAddMultipleToPlaylist: (List<MediaFile>) -> Unit,
     isSearchVisible: Boolean
 ) {
     val albums by libraryViewModel.filteredAlbums.collectAsStateWithLifecycle()
@@ -57,6 +73,31 @@ fun AlbumListScreen(
     // Local state for view mode (Grid vs List) - Persisted across recompositions but not app restarts
     var isListView by rememberSaveable { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
+
+    val isAlbumSelectionMode by libraryViewModel.isAlbumSelectionMode.collectAsStateWithLifecycle()
+    val selectedAlbumIds by libraryViewModel.selectedAlbumIds.collectAsStateWithLifecycle()
+    val allAudio by libraryViewModel.audioList.collectAsStateWithLifecycle()
+
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    // Intent Event Launcher for Deletion
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            libraryViewModel.onAlbumDeleteSuccess()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.deleteIntentEvent.collect { intentSender ->
+            val request = IntentSenderRequest.Builder(intentSender).build()
+            launcher.launch(request)
+        }
+    }
+
+    BackHandler(enabled = isAlbumSelectionMode) {
+        libraryViewModel.toggleAlbumSelectionMode(false)
+    }
 
     Column(
         modifier = Modifier
@@ -71,23 +112,71 @@ fun AlbumListScreen(
             placeholderText = "Search albums..."
         )
 
-        // 2. Control Row (Count + Actions)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "${albums.size} ALBUMS",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+        // 2. Control Row (Count + Actions) or Selection Header
+        if (isAlbumSelectionMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { libraryViewModel.toggleAlbumSelectionMode(false) }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Text(
+                        text = "${selectedAlbumIds.size} Selected",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Select All Toggle
+                    val allSelected = albums.isNotEmpty() && selectedAlbumIds.size == albums.size
+                    IconButton(onClick = {
+                        if (allSelected) {
+                            libraryViewModel.toggleAlbumSelectionMode(false)
+                        } else {
+                            libraryViewModel.selectAllAlbums(albums.map { it.id })
+                        }
+                    }) {
+                        Icon(Icons.Default.SelectAll, contentDescription = "Select All", tint = if (allSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                    }
+                    // Add to Playlist
+                    IconButton(onClick = {
+                        val selectedSongs = allAudio.filter { selectedAlbumIds.contains(it.albumId) }
+                        if (selectedSongs.isNotEmpty()) {
+                            onAddMultipleToPlaylist(selectedSongs)
+                        }
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to Playlist", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    // Delete
+                    IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "${albums.size} ALBUMS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                 // View Toggle
                 IconButton(onClick = { isListView = !isListView }) {
                     Icon(
@@ -179,6 +268,7 @@ fun AlbumListScreen(
                 }
             }
         }
+        }
 
         // 3. Album List / Grid
         if (albums.isEmpty()) {
@@ -195,9 +285,22 @@ fun AlbumListScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(albums) { album ->
+                        val isSelected = selectedAlbumIds.contains(album.id)
                         AlbumListItem(
                             album = album,
-                            onClick = { onAlbumClick(album.id) },
+                            isSelectionMode = isAlbumSelectionMode,
+                            isSelected = isSelected,
+                            onClick = { 
+                                if (isAlbumSelectionMode) {
+                                    libraryViewModel.toggleAlbumSelection(album.id)
+                                } else {
+                                    onAlbumClick(album.id) 
+                                }
+                            },
+                            onLongClick = {
+                                libraryViewModel.toggleAlbumSelectionMode(true)
+                                libraryViewModel.toggleAlbumSelection(album.id)
+                            },
                             onPlayClick = {
                                 viewModel.playAlbum(album, false)
                             }
@@ -217,9 +320,22 @@ fun AlbumListScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(albums) { album ->
+                        val isSelected = selectedAlbumIds.contains(album.id)
                         AlbumItemStyled(
                             album = album,
-                            onClick = { onAlbumClick(album.id) },
+                            isSelectionMode = isAlbumSelectionMode,
+                            isSelected = isSelected,
+                            onClick = { 
+                                if (isAlbumSelectionMode) {
+                                    libraryViewModel.toggleAlbumSelection(album.id)
+                                } else {
+                                    onAlbumClick(album.id) 
+                                }
+                            },
+                            onLongClick = {
+                                libraryViewModel.toggleAlbumSelectionMode(true)
+                                libraryViewModel.toggleAlbumSelection(album.id)
+                            },
                             onPlayClick = {
                                 viewModel.playAlbum(album, false)
                             }
@@ -232,12 +348,24 @@ fun AlbumListScreen(
             }
         }
     }
+
+    if (showDeleteConfirmDialog) {
+        DeleteConfirmationDialog(
+            count = selectedAlbumIds.size,
+            onConfirm = { libraryViewModel.deleteSelectedAlbums() },
+            onDismiss = { showDeleteConfirmDialog = false }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AlbumListItem(
     album: Album,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
     val primaryAccent = Color(0xFFE11D48)
@@ -245,10 +373,24 @@ fun AlbumListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSelectionMode) {
+            Icon(
+                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                contentDescription = "Select",
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
         // Thumbnail
         Box(
             modifier = Modifier
@@ -320,10 +462,14 @@ fun AlbumListItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AlbumItemStyled(
     album: Album,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
     val primaryAccent = Color(0xFFE11D48)
@@ -331,9 +477,12 @@ fun AlbumItemStyled(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(0.dp),
         border = null
     ) {
@@ -356,21 +505,36 @@ fun AlbumItemStyled(
                     contentScale = ContentScale.Crop
                 )
 
-                // Play Button Overlay
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(48.dp)
-                        .background(primaryAccent.copy(alpha = 0.9f), CircleShape)
-                        .clickable { onPlayClick() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play Album",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
+                if (isSelectionMode) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = "Select",
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                } else {
+                    // Play Button Overlay
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(48.dp)
+                            .background(primaryAccent.copy(alpha = 0.9f), CircleShape)
+                            .clickable { onPlayClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Album",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
 

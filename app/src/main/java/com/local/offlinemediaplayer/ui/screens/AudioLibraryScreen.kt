@@ -52,11 +52,15 @@ fun AudioLibraryScreen(
 
     // Lifted state observation
     val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val isAlbumSelectionMode by libraryViewModel.isAlbumSelectionMode.collectAsStateWithLifecycle()
 
     // Reset selection mode when swiping away from TRACKS tab (page 0)
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != 0 && isSelectionMode) {
             libraryViewModel.toggleSelectionMode(false)
+        }
+        if (pagerState.currentPage != 1 && isAlbumSelectionMode) {
+            libraryViewModel.toggleAlbumSelectionMode(false)
         }
     }
 
@@ -149,6 +153,10 @@ fun AudioLibraryScreen(
                             viewModel = viewModel,
                             libraryViewModel = libraryViewModel,
                             onAlbumClick = onNavigateToAlbum,
+                            onAddMultipleToPlaylist = { files ->
+                                songsToAdd = files
+                                showAddToPlaylistDialog = true
+                            },
                             isSearchVisible = isSearchVisible
                         )
                     }
