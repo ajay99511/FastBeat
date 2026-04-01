@@ -55,6 +55,19 @@ class PlaylistViewModel @Inject constructor(
     fun addSongToPlaylist(playlistId: String, mediaId: Long) =
         viewModelScope.launch(Dispatchers.IO) { playlistRepository.addSongToPlaylist(playlistId, mediaId) }
 
+    fun addSongsToPlaylist(playlistId: String, mediaIds: List<Long>) {
+        val playlist = playlists.value.find { it.id == playlistId } ?: return
+        val currentIds = playlist.mediaIds
+        val newIdsToAdd = mediaIds.filter { !currentIds.contains(it) }
+        
+        if (newIdsToAdd.isEmpty()) return
+        
+        val updatedIds = currentIds + newIdsToAdd
+        viewModelScope.launch(Dispatchers.IO) {
+            playlistRepository.updatePlaylistTracks(playlistId, updatedIds)
+        }
+    }
+
     fun removeSongFromPlaylist(playlistId: String, mediaId: Long) =
         viewModelScope.launch(Dispatchers.IO) { playlistRepository.removeSongFromPlaylist(playlistId, mediaId) }
 

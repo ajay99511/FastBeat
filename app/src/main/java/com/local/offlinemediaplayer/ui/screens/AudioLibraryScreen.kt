@@ -62,7 +62,7 @@ fun AudioLibraryScreen(
 
     // Modal Dialog States
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
-    var songToAdd by remember { mutableStateOf<MediaFile?>(null) }
+    var songsToAdd by remember { mutableStateOf<List<MediaFile>>(emptyList()) }
 
     // Create Playlist Dialog State
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -133,7 +133,11 @@ fun AudioLibraryScreen(
                                 viewModel.playMedia(file)
                             },
                             onAddToPlaylist = { file ->
-                                songToAdd = file
+                                songsToAdd = listOf(file)
+                                showAddToPlaylistDialog = true
+                            },
+                            onAddMultipleToPlaylist = { files ->
+                                songsToAdd = files
                                 showAddToPlaylistDialog = true
                             },
                             isSearchVisible = isSearchVisible
@@ -177,9 +181,9 @@ fun AudioLibraryScreen(
         )
     }
 
-    if (showAddToPlaylistDialog && songToAdd != null) {
+    if (showAddToPlaylistDialog && songsToAdd.isNotEmpty()) {
         AddToPlaylistDialog(
-            song = songToAdd!!,
+            songs = songsToAdd,
             onDismiss = { showAddToPlaylistDialog = false },
             onCreateNew = { showCreateDialog = true } // Stack dialogs
         )

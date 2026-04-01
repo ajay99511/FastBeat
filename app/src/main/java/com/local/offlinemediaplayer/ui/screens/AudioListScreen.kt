@@ -58,6 +58,7 @@ fun AudioListScreen(
     libraryViewModel: LibraryViewModel,
     onAudioClick: (MediaFile) -> Unit,
     onAddToPlaylist: (MediaFile) -> Unit,
+    onAddMultipleToPlaylist: (List<MediaFile>) -> Unit,
     isSearchVisible: Boolean
 ) {
     // Observe Filtered List
@@ -103,11 +104,48 @@ fun AudioListScreen(
         libraryViewModel.toggleSelectionMode(false)
     }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { libraryViewModel.scanMedia() },
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (isSelectionMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { libraryViewModel.toggleSelectionMode(false) }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Text(
+                        text = "${selectedIds.size} Selected",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = {
+                        val selectedSongs = audioList.filter { selectedIds.contains(it.id) }
+                        if (selectedSongs.isNotEmpty()) {
+                            onAddMultipleToPlaylist(selectedSongs)
+                        }
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to Playlist", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
+        }
+
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { libraryViewModel.scanMedia() },
+            modifier = Modifier.weight(1f)
+        ) {
         LazyColumn(
             contentPadding = PaddingValues(bottom = bottomPadding), // Space for MiniPlayer
             modifier = Modifier.fillMaxSize()
@@ -122,31 +160,7 @@ fun AudioListScreen(
                 )
             }
 
-            // 2. Selection Header (Changes logic based on mode)
-            if (isSelectionMode) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { libraryViewModel.toggleSelectionMode(false) }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            Text(
-                                text = "${selectedIds.size} Selected",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-            } else {
+            if (!isSelectionMode) {
                 // 2. Play All & Shuffle Buttons
                 if (audioList.isNotEmpty()) {
                     item {
@@ -322,6 +336,7 @@ fun AudioListScreen(
                 }
             }
         }
+    }
     }
 
     // Delete Confirmation Dialog

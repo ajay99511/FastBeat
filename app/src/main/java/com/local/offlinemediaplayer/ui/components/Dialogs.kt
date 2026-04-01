@@ -127,14 +127,31 @@ fun AddToPlaylistDialog(
     onDismiss: () -> Unit,
     onCreateNew: () -> Unit
 ) {
+    AddToPlaylistDialog(
+        songs = listOf(song),
+        playlistViewModel = playlistViewModel,
+        onDismiss = onDismiss,
+        onCreateNew = onCreateNew
+    )
+}
+
+@Composable
+fun AddToPlaylistDialog(
+    songs: List<MediaFile>,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    onDismiss: () -> Unit,
+    onCreateNew: () -> Unit
+) {
+    if (songs.isEmpty()) return
     val primaryAccent = LocalAppTheme.current.primaryColor
+    val isVideo = songs.first().isVideo
 
     // Collect all playlists
     val allPlaylists by playlistViewModel.playlists.collectAsStateWithLifecycle()
 
     // Filter based on the media type being added
-    val filteredPlaylists = remember(allPlaylists, song) {
-        allPlaylists.filter { it.isVideo == song.isVideo }
+    val filteredPlaylists = remember(allPlaylists, isVideo) {
+        allPlaylists.filter { it.isVideo == isVideo }
     }
 
     AlertDialog(
@@ -143,7 +160,7 @@ fun AddToPlaylistDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
-                "Add to ${if(song.isVideo) "Video" else "Audio"} Playlist",
+                "Add to ${if(isVideo) "Video" else "Audio"} Playlist",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -175,7 +192,7 @@ fun AddToPlaylistDialog(
                     }
                 } else {
                     items(filteredPlaylists) { playlist ->
-                        val isAdded = playlist.mediaIds.contains(song.id)
+                        val isAdded = songs.all { playlist.mediaIds.contains(it.id) }
                         ListItem(
                             headlineContent = {
                                 Text(
@@ -191,7 +208,7 @@ fun AddToPlaylistDialog(
                                 )
                             },
                             modifier = Modifier.clickable(enabled = !isAdded) {
-                                playlistViewModel.addSongToPlaylist(playlist.id, song.id)
+                                playlistViewModel.addSongsToPlaylist(playlist.id, songs.map { it.id })
                                 onDismiss()
                             }
                         )
