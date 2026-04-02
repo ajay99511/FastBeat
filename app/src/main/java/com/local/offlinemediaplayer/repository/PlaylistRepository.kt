@@ -1,6 +1,7 @@
 package com.local.offlinemediaplayer.repository
 
 import android.content.Context
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.local.offlinemediaplayer.data.db.MediaDao
@@ -21,6 +22,10 @@ class PlaylistRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mediaDao: MediaDao
 ) {
+    companion object {
+        private const val TAG = "PlaylistRepository"
+    }
+
     private val gson = Gson()
     private val legacyFile = File(context.filesDir, "playlists.json")
 
@@ -94,7 +99,7 @@ class PlaylistRepository @Inject constructor(
                     // 4. Delete Legacy File on success
                     legacyFile.delete()
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Failed to migrate legacy playlist data", e)
                 }
             }
         }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import androidx.core.net.toUri
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.model.Album
@@ -15,8 +16,10 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -25,6 +28,10 @@ class MediaRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val thumbnailManager: ThumbnailManager
 ) {
+    companion object {
+        private const val TAG = "MediaRepository"
+    }
+
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _videoList = MutableStateFlow<List<MediaFile>>(emptyList())
@@ -66,8 +73,8 @@ class MediaRepository @Inject constructor(
                 if (uncachedVideos.isNotEmpty()) {
                     repositoryScope.launch {
                         thumbnailManager.generateThumbnails(uncachedVideos).collect { (id, path) ->
-                            _videoList.value = _videoList.value.map {
-                                if (it.id == id) it.copy(thumbnailPath = path) else it
+                            _videoList.update { list ->
+                                list.map { if (it.id == id) it.copy(thumbnailPath = path) else it }
                             }
                         }
                     }
@@ -184,7 +191,7 @@ class MediaRepository @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to query media", e)
         }
         return mediaList
     }
@@ -211,7 +218,7 @@ class MediaRepository @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to query media", e)
         }
         return imageList
     }
@@ -244,14 +251,23 @@ class MediaRepository @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to query media", e)
         }
         return albumList
     }
 
     fun removeMediaIds(ids: List<Long>) {
-        _videoList.value = _videoList.value.filter { !ids.contains(it.id) }
-        _audioList.value = _audioList.value.filter { !ids.contains(it.id) }
-        _imageList.value = _imageList.value.filter { !ids.contains(it.id) }
+        val idSet = ids.toSet()
+        _videoList.update { list -> list.filter { it.id !in idSet } }
+        _audioList.update { list -> list.filter { it.id !in idSet } }
+        _imageList.update { list -> list.filter { it.id !in idSet } }
+    }
+
+    /**
+     * Cancel the internal background scope.
+     * Call this when the repository is no longer needed to prevent resource leaks.
+     */
+    fun cleanup() {
+        repositoryScope.cancel()
     }
 }

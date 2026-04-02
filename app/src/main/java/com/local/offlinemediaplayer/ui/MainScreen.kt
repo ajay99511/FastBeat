@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -146,7 +147,7 @@ fun MainScreen(viewModel: PlaybackViewModel = hiltViewModel()) {
 @Composable
 fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
     // 0 = Videos, 1 = Music, 2 = Images, 3 = Stats
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     // UI Logic: Video Player Visibility is now controlled by ViewModel state
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()

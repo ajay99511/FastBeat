@@ -3,16 +3,15 @@ package com.local.offlinemediaplayer.viewmodel
 import android.app.Application
 import android.app.PendingIntent
 import android.content.ComponentName
-import android.content.ContentUris
 import android.content.Context
 import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import androidx.annotation.OptIn
-import androidx.compose.ui.graphics.Color
 import androidx.core.content.edit
-import androidx.core.net.toUri
+
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -33,11 +32,9 @@ import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
-import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import com.local.offlinemediaplayer.service.PlaybackService
-import com.local.offlinemediaplayer.ui.theme.AppThemeConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Calendar
 import javax.inject.Inject
@@ -57,6 +54,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -115,6 +113,18 @@ constructor(
         private val mediaRepository: MediaRepository
 ) : AndroidViewModel(app) {
 
+    companion object {
+        private const val TAG = "PlaybackViewModel"
+        private const val REWIND_THRESHOLD_MS = 3000L
+        private const val SEEK_DELTA_MS = 10_000L
+        private const val VIDEO_COMPLETION_THRESHOLD = 0.95
+        private const val AUDIO_COMPLETION_THRESHOLD = 0.99
+        private const val DAY_IN_MILLIS = 86_400_000L
+        private const val PLAY_COUNT_THRESHOLD_MS = 30_000L
+        private const val MIN_PLAY_THRESHOLD_MS = 5_000L
+        private const val POSITION_UPDATE_INTERVAL_MS = 500L
+    }
+
     // --- STATE PRESERVATION ---
     private var savedAudioState: AudioPlayerState? = null
 
@@ -127,48 +137,8 @@ constructor(
     private var pendingAudioTrackIndex: Int = -1
     private var pendingSubtitleTrackIndex: Int = -1
 
-    // --- THEMING STATE ---
-    private val themes =
-            mapOf(
-                    "blue" to
-                            AppThemeConfig("blue", Color(0xFF00E5FF), "DIGITAL WAVES", "Quick Mix"),
-                    "green" to
-                            AppThemeConfig(
-                                    "green",
-                                    Color(0xFF22C55E),
-                                    "ECO FREQUENCY",
-                                    "Fresh Finds"
-                            ),
-                    "orange" to
-                            AppThemeConfig(
-                                    "orange",
-                                    Color(0xFFFF5500),
-                                    "AMBER HORIZON",
-                                    "Jump Back In"
-                            )
-            )
-
-    // Persistence
+    // Persistence (used for queue index)
     private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-    private val _isDarkTheme = MutableStateFlow(sharedPrefs.getBoolean("is_dark_mode", true))
-    val isDarkTheme = _isDarkTheme.asStateFlow()
-
-    // Initialize theme from SharedPreferences
-    private val savedThemeId = sharedPrefs.getString("current_theme_id", "orange") ?: "orange"
-    private val _currentTheme = MutableStateFlow(themes[savedThemeId] ?: themes["orange"]!!)
-    val currentTheme = _currentTheme.asStateFlow()
-
-    fun updateTheme(themeId: String) {
-        _currentTheme.value = themes[themeId] ?: themes["orange"]!!
-        sharedPrefs.edit { putString("current_theme_id", themeId) }
-    }
-
-    fun toggleThemeMode() {
-        val newMode = !_isDarkTheme.value
-        _isDarkTheme.value = newMode
-        sharedPrefs.edit { putBoolean("is_dark_mode", newMode) }
-        //        sharedPrefs.edit().putBoolean("is_dark_mode", newMode).apply()
-    }
 
     // Media Lists
 
@@ -184,20 +154,6 @@ constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
-    // --- REALTIME ANALYTICS STATE ---
-    private val _analyticsUpdateTrigger = MutableStateFlow(0L) // Used to force refresh logic
-
-    val realtimeAnalytics =
-            combine(_analyticsUpdateTrigger, audioList, mediaRepository.videoList) { _, audio, videos ->
-                        calculateAnalytics(audio + videos)
-                    }
-                    .stateIn(
-                            viewModelScope,
-                            SharingStarted.WhileSubscribed(5000),
-                            RealtimeAnalytics()
-                    )
-
-
     // --- QUEUE STATE ---
     private val _currentQueue = MutableStateFlow<List<MediaFile>>(emptyList())
     val currentQueue = _currentQueue.asStateFlow()
@@ -212,18 +168,6 @@ constructor(
     // Display queue for UI - reflects shuffled order when shuffle is enabled
     private val _displayQueue = MutableStateFlow<List<MediaFile>>(emptyList())
     val displayQueue = _displayQueue.asStateFlow()
-
-    // --- CONTINUE WATCHING FLOW ---
-    val continueWatchingList =
-            combine(mediaRepository.videoList, mediaDao.getContinueWatching()) { videos, historyItems ->
-                        historyItems.mapNotNull { history ->
-                            val video = videos.find { it.id == history.mediaId }
-                            if (video != null) {
-                                video to history
-                            } else null
-                        }
-                    }
-                    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
 
     // Playlist State
@@ -244,71 +188,7 @@ constructor(
                     .map { list -> list.filter { it.isVideo } }
                     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Search and Sort State
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery = _searchQuery.asStateFlow()
 
-    private val _albumSearchQuery = MutableStateFlow("")
-    val albumSearchQuery = _albumSearchQuery.asStateFlow()
-
-    private val _folderSearchQuery = MutableStateFlow("")
-    val folderSearchQuery = _folderSearchQuery.asStateFlow()
-
-    private val _albumSortOption = MutableStateFlow(AlbumSortOption.NAME_ASC)
-    val albumSortOption = _albumSortOption.asStateFlow()
-
-    private val _sortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
-    val sortOption = _sortOption.asStateFlow()
-
-    val filteredAudioList =
-            combine(audioList, _searchQuery, _sortOption) { list, query, sort ->
-                        var result = list
-                        if (query.isNotEmpty()) {
-                            result =
-                                    result.filter {
-                                        it.title.contains(query, ignoreCase = true) ||
-                                                (it.artist?.contains(query, ignoreCase = true) ==
-                                                        true)
-                                    }
-                        }
-                        when (sort) {
-                            SortOption.TITLE_ASC -> result.sortedBy { it.title }
-                            SortOption.TITLE_DESC -> result.sortedByDescending { it.title }
-                            SortOption.DURATION_ASC -> result.sortedBy { it.duration }
-                            SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
-                            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
-                        }
-                    }
-                    .stateIn(
-                            scope = viewModelScope,
-                            started = SharingStarted.WhileSubscribed(5000),
-                            initialValue = emptyList()
-                    )
-
-    val filteredAlbums =
-            combine(_albums, _albumSearchQuery, _albumSortOption) { list, query, sort ->
-                        var result = list
-                        if (query.isNotEmpty()) {
-                            result =
-                                    result.filter {
-                                        it.name.contains(query, ignoreCase = true) ||
-                                                it.artist.contains(query, ignoreCase = true)
-                                    }
-                        }
-                        when (sort) {
-                            AlbumSortOption.NAME_ASC -> result.sortedBy { it.name.lowercase() }
-                            AlbumSortOption.ARTIST_ASC -> result.sortedBy { it.artist.lowercase() }
-                            AlbumSortOption.YEAR_DESC ->
-                                    result.sortedByDescending { it.firstYear ?: 0 }
-                            AlbumSortOption.SONG_COUNT_DESC ->
-                                    result.sortedByDescending { it.songCount }
-                        }
-                    }
-                    .stateIn(
-                            scope = viewModelScope,
-                            started = SharingStarted.WhileSubscribed(5000),
-                            initialValue = emptyList()
-                    )
 
     // Player State
     private val _player = MutableStateFlow<MediaController?>(null)
@@ -434,30 +314,8 @@ constructor(
         initializeMediaController()
         viewModelScope.launch(Dispatchers.IO) {
             playlistRepository.migrateLegacyData()
-            // Fix: Call ensureDefaultPlaylists directly via repo to check actual DB state
             playlistRepository.ensureDefaultPlaylists()
-
-            // Trigger analytics refresh on start
-            _analyticsUpdateTrigger.value = System.currentTimeMillis()
         }
-    }
-
-    // --- Actions for UI ---
-    fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-    fun updateAlbumSearchQuery(query: String) {
-        _albumSearchQuery.value = query
-    }
-    fun updateFolderSearchQuery(query: String) {
-        _folderSearchQuery.value = query
-    }
-    fun updateSortOption(option: SortOption) {
-        _sortOption.value = option
-    }
-
-    fun updateAlbumSortOption(option: AlbumSortOption) {
-        _albumSortOption.value = option
     }
 
     // --- Selection Logic ---
@@ -467,10 +325,10 @@ constructor(
     }
 
     fun toggleSelection(id: Long) {
-        val current = _selectedMediaIds.value.toMutableSet()
-        if (current.contains(id)) current.remove(id) else current.add(id)
-        _selectedMediaIds.value = current
-        if (current.isEmpty()) _isSelectionMode.value = false
+        _selectedMediaIds.update { current ->
+            if (current.contains(id)) current - id else current + id
+        }
+        if (_selectedMediaIds.value.isEmpty()) _isSelectionMode.value = false
     }
 
     fun selectAll(ids: List<Long>) {
@@ -496,7 +354,7 @@ constructor(
                     for (file in filesToDelete) app.contentResolver.delete(file.uri, null, null)
                     onDeleteSuccess(idsToDelete)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Failed to delete media files", e)
                 }
             }
         }
@@ -543,7 +401,7 @@ constructor(
                     app.contentResolver.delete(image.uri, null, null)
                     onImageDeleteSuccess()
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Failed to delete image", e)
                     _pendingImageDeleteId.value = null
                 }
             }
@@ -576,7 +434,7 @@ constructor(
                     app.contentResolver.delete(track.uri, null, null)
                     onCurrentTrackDeleteSuccess()
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Failed to delete current track", e)
                     _pendingDeleteTrackId.value = null
                 }
             }
@@ -692,7 +550,7 @@ constructor(
                             updateCurrentTrackFromPlayer(controller)
                         }
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        Log.e(TAG, "Failed to connect MediaController", e)
                     }
                 },
                 MoreExecutors.directExecutor()
@@ -784,9 +642,6 @@ constructor(
 
             // Log for "Recent Favorites"
             mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
-
-            // Trigger analytics refresh
-            _analyticsUpdateTrigger.emit(now)
         }
     }
 
@@ -830,13 +685,13 @@ constructor(
                         try {
                             mediaDao.initDailyPlaytime(today)
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.e(TAG, "Failed to initialize daily playtime", e)
                         }
                     }
 
                     // Accumulator for playtime logic
                     var accumulatedPlaytime = 0L
-                    val updateInterval = 500L
+                    val updateInterval = POSITION_UPDATE_INTERVAL_MS
 
                     while (isActive) {
                         _player.value?.let { player ->
@@ -858,10 +713,10 @@ constructor(
                                         currentTrackPlaytimeAccumulator += updateInterval
 
                                         val threshold =
-                                                if (dur > 0) min(30000L, dur / 2) else 30000L
+                                                if (dur > 0) min(PLAY_COUNT_THRESHOLD_MS, dur / 2) else PLAY_COUNT_THRESHOLD_MS
                                         val safeThreshold =
                                                 max(
-                                                        5000L,
+                                                        MIN_PLAY_THRESHOLD_MS,
                                                         threshold
                                                 ) // Minimum 5s even for very short clips
 
@@ -883,12 +738,8 @@ constructor(
                                         viewModelScope.launch(Dispatchers.IO) {
                                             try {
                                                 mediaDao.addToDailyPlaytime(today, timeToSave)
-                                                // Notify UI to refresh stats
-                                                _analyticsUpdateTrigger.emit(
-                                                        System.currentTimeMillis()
-                                                )
                                             } catch (e: Exception) {
-                                                e.printStackTrace()
+                                                Log.e(TAG, "Failed to save daily playtime", e)
                                             }
                                         }
                                         accumulatedPlaytime =
@@ -909,7 +760,7 @@ constructor(
                                     }
                                 }
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                Log.e(TAG, "Error in position update loop", e)
                             }
 
                             saveCounter++
@@ -961,63 +812,6 @@ constructor(
         return c.timeInMillis
     }
 
-    private suspend fun calculateAnalytics(allMedia: List<MediaFile>): RealtimeAnalytics {
-        return withContext(Dispatchers.IO) {
-            val today = getNormalizedToday()
-            val weekStart = today - (6 * 24 * 60 * 60 * 1000) // Last 7 days including today
-            val monthStart = today - (29 * 24 * 60 * 60 * 1000) // Last 30 days
-
-            // 1. Playtime Metrics
-            val todayMs = mediaDao.getPlaytimeForDay(today).firstOrNull() ?: 0L
-            val weekMs = mediaDao.getPlaytimeRange(weekStart, today).firstOrNull() ?: 0L
-            val monthMs = mediaDao.getPlaytimeRange(monthStart, today).firstOrNull() ?: 0L
-
-            val avgDailyMs = monthMs / 30
-
-            // 2. Streak Calculation
-            val activeDays = mediaDao.getActiveDays().firstOrNull() ?: emptyList()
-            var currentStreak = 0
-            if (activeDays.isNotEmpty()) {
-                val todayCheck = activeDays.first()
-                // If the most recent active day is today or yesterday, streak is alive
-                if (todayCheck == today || todayCheck == (today - 86400000)) {
-                    currentStreak = 1
-                    var checkDate = todayCheck
-                    for (i in 1 until activeDays.size) {
-                        val prevDate = activeDays[i]
-                        if (checkDate - prevDate == 86400000L) { // Difference of exactly one day
-                            currentStreak++
-                            checkDate = prevDate
-                        } else {
-                            break
-                        }
-                    }
-                }
-            }
-
-            // 3. Favorites
-            val overallFavId = mediaDao.getOverallFavoriteMediaId()
-            val recentFavId = mediaDao.getMostPlayedMediaIdSince(monthStart)
-
-            val overallFav = allMedia.find { it.id == overallFavId }
-            val recentFav = allMedia.find { it.id == recentFavId }
-
-            // 4. Play Counts for favorites
-            val currentFavPlayCount = if (recentFavId != null) mediaDao.getAnalytics(recentFavId)?.playCount ?: 0 else 0
-            val allTimeFavPlayCount = if (overallFavId != null) mediaDao.getAnalytics(overallFavId)?.playCount ?: 0 else 0
-
-            RealtimeAnalytics(
-                    todayPlaytimeMinutes = (todayMs / 60000).toInt(),
-                    weekPlaytimeMinutes = (weekMs / 60000).toInt(),
-                    avgDailyMinutes = (avgDailyMs / 60000).toInt(),
-                    streakDays = currentStreak,
-                    currentFavorite = recentFav,
-                    allTimeFavorite = overallFav,
-                    currentFavoritePlayCount = currentFavPlayCount,
-                    allTimeFavoritePlayCount = allTimeFavPlayCount
-            )
-        }
-    }
 
     // --- Media Loading ---
     fun scanMedia() {
@@ -1038,8 +832,6 @@ constructor(
                     restoreQueue(audio + videos)
                 }
 
-                // Initial Analytics Calc
-                _analyticsUpdateTrigger.emit(System.currentTimeMillis())
             } finally {
                 _isRefreshing.value = false
             }
@@ -1135,32 +927,6 @@ constructor(
         viewModelScope.launch(Dispatchers.IO) { playlistRepository.createPlaylist(name, isVideo) }
     }
 
-    fun renamePlaylist(id: String, newName: String) {
-        val currentPlaylists = playlists.value
-        val playlist = currentPlaylists.find { it.id == id } ?: return
-
-        if (currentPlaylists.any {
-                    it.name.equals(newName, ignoreCase = true) &&
-                            it.isVideo == playlist.isVideo &&
-                            it.id != id
-                }
-        ) {
-            return
-        }
-
-        viewModelScope.launch(Dispatchers.IO) { playlistRepository.renamePlaylist(id, newName) }
-    }
-
-    fun deletePlaylist(playlistId: String) =
-            viewModelScope.launch(Dispatchers.IO) { playlistRepository.deletePlaylist(playlistId) }
-    fun addSongToPlaylist(playlistId: String, mediaId: Long) =
-            viewModelScope.launch(Dispatchers.IO) {
-                playlistRepository.addSongToPlaylist(playlistId, mediaId)
-            }
-    fun removeSongFromPlaylist(playlistId: String, mediaId: Long) =
-            viewModelScope.launch(Dispatchers.IO) {
-                playlistRepository.removeSongFromPlaylist(playlistId, mediaId)
-            }
     fun toggleAlbumInFavorites(albumSongs: List<MediaFile>) {
         val favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo } ?: return
         val allInFav = albumSongs.all { favPlaylist.mediaIds.contains(it.id) }
@@ -1178,8 +944,7 @@ constructor(
             playVideo(media) // Redirect to new video handler
         } else if (!media.isImage) {
             _currentPlaylistContext.value = null // clear context for generic playback
-            val currentVisibleList =
-                    filteredAudioList.value.takeIf { it.isNotEmpty() } ?: audioList.value
+            val currentVisibleList = audioList.value
             val startIndex = currentVisibleList.indexOfFirst { it.id == media.id }
             if (startIndex >= 0) setQueue(currentVisibleList, startIndex, false)
         }
@@ -1245,7 +1010,7 @@ constructor(
         viewModelScope.launch(Dispatchers.IO) {
             val history = mediaDao.getHistory(media.id)
             val startPos =
-                    if (history != null && history.position < (history.duration * 0.95))
+                    if (history != null && history.position < (history.duration * VIDEO_COMPLETION_THRESHOLD))
                             history.position
                     else 0L
 
@@ -1351,7 +1116,7 @@ constructor(
 
     fun playAll(shuffle: Boolean) {
         _currentPlaylistContext.value = null // library context
-        val currentList = filteredAudioList.value.takeIf { it.isNotEmpty() } ?: audioList.value
+        val currentList = audioList.value
         if (currentList.isNotEmpty()) {
             val startIndex = if (shuffle) (currentList.indices).random() else 0
             setQueue(currentList, startIndex, shuffle)
@@ -1623,10 +1388,9 @@ constructor(
         if (audioListSnapshot.isEmpty()) return
 
         val shuffledAudio = audioListSnapshot.shuffled()
-        val newQueue = _currentQueue.value.toMutableList()
 
         if (playPrevious) {
-            newQueue.addAll(0, shuffledAudio)
+            val newQueue = _currentQueue.value.let { shuffledAudio + it }
             _currentQueue.value = newQueue
             _displayQueue.value = newQueue
 
@@ -1640,7 +1404,7 @@ constructor(
                 persistQueue(newQueue)
             }
         } else {
-            newQueue.addAll(shuffledAudio)
+            val newQueue = _currentQueue.value + shuffledAudio
             _currentQueue.value = newQueue
             _displayQueue.value = newQueue
 
@@ -1674,7 +1438,7 @@ constructor(
 
     fun playPrevious() {
         _player.value?.let {
-            if (it.currentPosition > 3000) {
+            if (it.currentPosition > REWIND_THRESHOLD_MS) {
                 it.seekTo(0)
             } else if (it.hasPreviousMediaItem()) {
                 it.seekToPrevious()
@@ -1724,14 +1488,14 @@ constructor(
         _currentPosition.value = positionMs
     }
     fun rewind() {
-        _player.value?.let { it.seekTo((it.currentPosition - 10000).coerceAtLeast(0)) }
+        _player.value?.let { it.seekTo((it.currentPosition - SEEK_DELTA_MS).coerceAtLeast(0)) }
     }
     fun forward() {
         _player.value?.let {
             if (it.duration != androidx.media3.common.C.TIME_UNSET && it.duration > 0) {
-                it.seekTo((it.currentPosition + 10000).coerceAtMost(it.duration))
+                it.seekTo((it.currentPosition + SEEK_DELTA_MS).coerceAtMost(it.duration))
             } else {
-                it.seekTo(it.currentPosition + 10000)
+                it.seekTo(it.currentPosition + SEEK_DELTA_MS)
             }
         }
     }
@@ -1863,5 +1627,7 @@ constructor(
         super.onCleared()
         stopPositionUpdates()
         controllerFuture?.let { MediaController.releaseFuture(it) }
+        // Note: MediaRepository is @Singleton and outlives this ViewModel.
+        // cleanup() is not called here to avoid breaking other ViewModels that share it.
     }
 }
