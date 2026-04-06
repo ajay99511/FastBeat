@@ -58,6 +58,9 @@ class LibraryViewModel @Inject constructor(
     private val _sortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
     val sortOption = _sortOption.asStateFlow()
 
+    private val _videoSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
+    val videoSortOption = _videoSortOption.asStateFlow()
+
     private val _movieSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
     val movieSortOption = _movieSortOption.asStateFlow()
 
@@ -116,6 +119,7 @@ class LibraryViewModel @Inject constructor(
     fun updateAlbumSearchQuery(query: String) { _albumSearchQuery.value = query }
     fun updateFolderSearchQuery(query: String) { _folderSearchQuery.value = query }
     fun updateSortOption(option: SortOption) { _sortOption.value = option }
+    fun updateVideoSortOption(option: SortOption) { _videoSortOption.value = option }
     fun updateAlbumSortOption(option: AlbumSortOption) { _albumSortOption.value = option }
     fun updateMovieSortOption(option: SortOption) { _movieSortOption.value = option }
 

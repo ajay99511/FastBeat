@@ -20,6 +20,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,6 +59,7 @@ import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.SortOption
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
@@ -115,15 +117,28 @@ fun VideoListScreen(
         // Delete Dialog
         var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
+        // Sort state
+        val videoSortOption by libraryViewModel.videoSortOption.collectAsStateWithLifecycle()
+        var showSortMenu by remember { mutableStateOf(false) }
+
         // Back Handler to exit selection mode
         BackHandler(enabled = isSelectionMode) { libraryViewModel.toggleSelectionMode(false) }
 
-        val filteredVideos =
-                if (searchQuery.isEmpty()) {
+        val filteredVideos = remember(videos, searchQuery, videoSortOption) {
+                var result = if (searchQuery.isEmpty()) {
                         videos
                 } else {
                         videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
                 }
+                
+                when (videoSortOption) {
+                        SortOption.TITLE_ASC -> result.sortedBy { it.title.lowercase() }
+                        SortOption.TITLE_DESC -> result.sortedByDescending { it.title.lowercase() }
+                        SortOption.DURATION_ASC -> result.sortedBy { it.duration }
+                        SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
+                        SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
+                }
+        }
 
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 // Custom Header logic for "Folder View"
@@ -320,8 +335,52 @@ fun VideoListScreen(
                         isVisible = isSearchVisible && !isSelectionMode,
                         query = searchQuery,
                         onQueryChange = { searchQuery = it },
-                        placeholderText = "Search in $title..."
+                        placeholderText = "Search in ${title ?: "Videos"}..."
                 )
+
+                if (!isSelectionMode && filteredVideos.isNotEmpty()) {
+                        Row(
+                                modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Text(
+                                        text = "${filteredVideos.size} VIDEOS",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
+                                )
+
+                                Box {
+                                        Row(
+                                                modifier = Modifier.clickable { showSortMenu = true },
+                                                verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                                Icon(Icons.Default.SwapVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(
+                                                        text = "Sort: ${getVideoSortLabel(videoSortOption)}",
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                        }
+
+                                        DropdownMenu(
+                                                expanded = showSortMenu,
+                                                onDismissRequest = { showSortMenu = false },
+                                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                                        ) {
+                                                DropdownMenuItem(text = { Text("Latest") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.DATE_ADDED_DESC); showSortMenu = false })
+                                                DropdownMenuItem(text = { Text("Title (A-Z)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.TITLE_ASC); showSortMenu = false })
+                                                DropdownMenuItem(text = { Text("Title (Z-A)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.TITLE_DESC); showSortMenu = false })
+                                                DropdownMenuItem(text = { Text("Runtime (Shortest)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.DURATION_ASC); showSortMenu = false })
+                                                DropdownMenuItem(text = { Text("Runtime (Longest)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.DURATION_DESC); showSortMenu = false })
+                                        }
+                                }
+                        }
+                }
 
                 // Nested Scroll Container
                 Box(modifier = Modifier.weight(1f)) {
@@ -800,6 +859,7 @@ fun VideoCardItem(
                                                         tint = Color.Gray
                                                 )
                                         }
+
                                         DropdownMenu(
                                                 expanded = showMenu,
                                                 onDismissRequest = { showMenu = false },
@@ -888,5 +948,15 @@ fun VideoCardItem(
                                 }
                         }
                 }
-        }
+}
+}
+
+private fun getVideoSortLabel(option: SortOption): String {
+    return when(option) {
+        SortOption.TITLE_ASC -> "Title (A-Z)"
+        SortOption.TITLE_DESC -> "Title (Z-A)"
+        SortOption.DURATION_ASC -> "Runtime (Shortest)"
+        SortOption.DURATION_DESC -> "Runtime (Longest)"
+        SortOption.DATE_ADDED_DESC -> "Latest"
+    }
 }
