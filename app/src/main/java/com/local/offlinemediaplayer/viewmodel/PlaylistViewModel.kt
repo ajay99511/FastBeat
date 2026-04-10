@@ -2,6 +2,7 @@ package com.local.offlinemediaplayer.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.offlinemediaplayer.data.SortPreferencesManager
 import com.local.offlinemediaplayer.data.db.MediaAnalytics
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.model.MediaFile
@@ -17,7 +18,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
-    private val mediaDao: MediaDao
+    private val mediaDao: MediaDao,
+    private val sortPrefsManager: SortPreferencesManager
 ) : ViewModel() {
 
     val playlists = playlistRepository.playlistsFlow.stateIn(
@@ -86,5 +88,17 @@ class PlaylistViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             playlistRepository.updatePlaylistTracks(favPlaylist.id, newMediaIds)
         }
+    }
+
+    // --- Audio Playlist Sort Persistence ---
+    fun getAudioPlaylistSort(playlistId: String) = sortPrefsManager.getAudioPlaylistSort(playlistId)
+    fun saveAudioPlaylistSort(playlistId: String, option: com.local.offlinemediaplayer.ui.screens.AudioSortOption, ascending: Boolean) {
+        sortPrefsManager.saveAudioPlaylistSort(playlistId, option, ascending)
+    }
+
+    // --- Video Playlist Sort Persistence ---
+    fun getVideoPlaylistSort(playlistId: String) = sortPrefsManager.getVideoPlaylistSort(playlistId)
+    fun saveVideoPlaylistSort(playlistId: String, option: com.local.offlinemediaplayer.ui.screens.VideoSortOption, ascending: Boolean) {
+        sortPrefsManager.saveVideoPlaylistSort(playlistId, option, ascending)
     }
 }

@@ -79,9 +79,26 @@ fun VideoPlaylistDetailScreen(
 
     // UI States
     var searchQuery by remember { mutableStateOf("") }
-    var selectedSort by remember { mutableStateOf(VideoSortOption.DEFAULT) }
-    var sortAscending by remember { mutableStateOf(true) }
     var showSortMenu by remember { mutableStateOf(false) }
+
+    // Sort state — restored from persistence, keyed by playlistId
+    val (persistedSort, persistedAsc) = playlistViewModel.getVideoPlaylistSort(playlistId)
+    var selectedSort by remember { mutableStateOf(persistedSort) }
+    var sortAscending by remember { mutableStateOf(persistedAsc) }
+
+    // Persist sort changes immediately
+    fun persistSortState(sort: VideoSortOption, ascending: Boolean) {
+        selectedSort = sort
+        sortAscending = ascending
+        playlistViewModel.saveVideoPlaylistSort(playlistId, sort, ascending)
+    }
+
+    // Reset sort state when playlistId changes
+    LaunchedEffect(playlistId) {
+        val (sort, asc) = playlistViewModel.getVideoPlaylistSort(playlistId)
+        selectedSort = sort
+        sortAscending = asc
+    }
 
     // Fetch analytics for Most Played sort
     var playCountMap by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -253,10 +270,9 @@ fun VideoPlaylistDetailScreen(
                                     },
                                     onClick = {
                                         if (selectedSort == option && option != VideoSortOption.DEFAULT && option != VideoSortOption.MOST_PLAYED) {
-                                            sortAscending = !sortAscending
+                                            persistSortState(option, !sortAscending)
                                         } else {
-                                            selectedSort = option
-                                            sortAscending = true
+                                            persistSortState(option, true)
                                         }
                                         showSortMenu = false
                                     }
@@ -295,7 +311,7 @@ fun VideoPlaylistDetailScreen(
                 if (selectedSort != VideoSortOption.DEFAULT) {
                     AssistChip(
                             onClick = {
-                                selectedSort = VideoSortOption.DEFAULT
+                                persistSortState(VideoSortOption.DEFAULT, true)
                             },
                             label = {
                                 Text(

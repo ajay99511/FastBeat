@@ -2,9 +2,11 @@ package com.local.offlinemediaplayer.viewmodel
 
 import android.app.Application
 import android.app.PendingIntent
+import android.content.Context
 import android.content.IntentSender
 import android.os.Build
 import android.provider.MediaStore
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.model.MediaFile
@@ -31,6 +33,16 @@ class LibraryViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository
 ) : AndroidViewModel(app) {
 
+    private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+
+    private fun saveSortPreference(key: String, ordinal: Int) {
+        sharedPrefs.edit { putInt(key, ordinal) }
+    }
+
+    private fun loadSortPreference(key: String, default: Int): Int {
+        return sharedPrefs.getInt(key, default)
+    }
+
     val isRefreshing = mediaRepository.isRefreshing
     val videoList = mediaRepository.videoList
     val audioList = mediaRepository.audioList
@@ -52,16 +64,24 @@ class LibraryViewModel @Inject constructor(
     private val _folderSearchQuery = MutableStateFlow("")
     val folderSearchQuery = _folderSearchQuery.asStateFlow()
 
-    private val _albumSortOption = MutableStateFlow(AlbumSortOption.NAME_ASC)
+    private val _albumSortOption = MutableStateFlow(
+        AlbumSortOption.entries[loadSortPreference("sort_albums", AlbumSortOption.NAME_ASC.ordinal)]
+    )
     val albumSortOption = _albumSortOption.asStateFlow()
 
-    private val _sortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
+    private val _sortOption = MutableStateFlow(
+        SortOption.entries[loadSortPreference("sort_audio", SortOption.DATE_ADDED_DESC.ordinal)]
+    )
     val sortOption = _sortOption.asStateFlow()
 
-    private val _videoSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
+    private val _videoSortOption = MutableStateFlow(
+        SortOption.entries[loadSortPreference("sort_video", SortOption.DATE_ADDED_DESC.ordinal)]
+    )
     val videoSortOption = _videoSortOption.asStateFlow()
 
-    private val _movieSortOption = MutableStateFlow(SortOption.DATE_ADDED_DESC)
+    private val _movieSortOption = MutableStateFlow(
+        SortOption.entries[loadSortPreference("sort_movies", SortOption.DATE_ADDED_DESC.ordinal)]
+    )
     val movieSortOption = _movieSortOption.asStateFlow()
 
     val moviesList = videoList.map { list -> list.filter { it.duration >= 3600000 } }
@@ -118,10 +138,22 @@ class LibraryViewModel @Inject constructor(
     fun updateSearchQuery(query: String) { _searchQuery.value = query }
     fun updateAlbumSearchQuery(query: String) { _albumSearchQuery.value = query }
     fun updateFolderSearchQuery(query: String) { _folderSearchQuery.value = query }
-    fun updateSortOption(option: SortOption) { _sortOption.value = option }
-    fun updateVideoSortOption(option: SortOption) { _videoSortOption.value = option }
-    fun updateAlbumSortOption(option: AlbumSortOption) { _albumSortOption.value = option }
-    fun updateMovieSortOption(option: SortOption) { _movieSortOption.value = option }
+    fun updateSortOption(option: SortOption) {
+        _sortOption.value = option
+        saveSortPreference("sort_audio", option.ordinal)
+    }
+    fun updateVideoSortOption(option: SortOption) {
+        _videoSortOption.value = option
+        saveSortPreference("sort_video", option.ordinal)
+    }
+    fun updateAlbumSortOption(option: AlbumSortOption) {
+        _albumSortOption.value = option
+        saveSortPreference("sort_albums", option.ordinal)
+    }
+    fun updateMovieSortOption(option: SortOption) {
+        _movieSortOption.value = option
+        saveSortPreference("sort_movies", option.ordinal)
+    }
 
     private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedMediaIds = _selectedMediaIds.asStateFlow()

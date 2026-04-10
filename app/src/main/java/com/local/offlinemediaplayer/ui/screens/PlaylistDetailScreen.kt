@@ -89,9 +89,26 @@ fun PlaylistDetailScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
-    var selectedSort by remember { mutableStateOf(AudioSortOption.DEFAULT) }
-    var sortAscending by remember { mutableStateOf(true) }
     var showSortMenu by remember { mutableStateOf(false) }
+
+    // Sort state — restored from persistence, keyed by playlistId
+    val (persistedSort, persistedAsc) = playlistViewModel.getAudioPlaylistSort(playlistId)
+    var selectedSort by remember { mutableStateOf(persistedSort) }
+    var sortAscending by remember { mutableStateOf(persistedAsc) }
+
+    // Persist sort changes immediately
+    fun persistSortState(sort: AudioSortOption, ascending: Boolean) {
+        selectedSort = sort
+        sortAscending = ascending
+        playlistViewModel.saveAudioPlaylistSort(playlistId, sort, ascending)
+    }
+
+    // Reset sort state when playlistId changes
+    LaunchedEffect(playlistId) {
+        val (sort, asc) = playlistViewModel.getAudioPlaylistSort(playlistId)
+        selectedSort = sort
+        sortAscending = asc
+    }
 
     // Fetch analytics for Most Played sort
     var playCountMap by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -264,10 +281,9 @@ fun PlaylistDetailScreen(
                                     },
                                     onClick = {
                                         if (selectedSort == option && option != AudioSortOption.DEFAULT && option != AudioSortOption.MOST_PLAYED) {
-                                            sortAscending = !sortAscending
+                                            persistSortState(option, !sortAscending)
                                         } else {
-                                            selectedSort = option
-                                            sortAscending = true
+                                            persistSortState(option, true)
                                         }
                                         showSortMenu = false
                                     }
@@ -371,7 +387,7 @@ fun PlaylistDetailScreen(
                         if (selectedSort != AudioSortOption.DEFAULT) {
                             AssistChip(
                                     onClick = {
-                                        selectedSort = AudioSortOption.DEFAULT
+                                        persistSortState(AudioSortOption.DEFAULT, true)
                                     },
                                     label = {
                                         Text(
