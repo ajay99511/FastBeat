@@ -589,6 +589,7 @@ constructor(
 
                     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                         _isShuffleEnabled.value = shuffleModeEnabled
+                        persistShuffleMode(shuffleModeEnabled)
                         updateDisplayQueue()
                     }
 
@@ -888,12 +889,18 @@ constructor(
                 _currentIndex.value = finalIndex
                 _currentTrack.value = finalQueue[finalIndex]
 
+                // Restore shuffle mode and playlist context from prefs
+                val savedShuffle = sharedPrefs.getBoolean("last_shuffle_enabled", false)
+                _isShuffleEnabled.value = savedShuffle
+                _currentPlaylistContext.value = sharedPrefs.getString("last_playlist_context", null)
+
                 // Set to player
                 withContext(Dispatchers.Main) {
                     _player.value?.let { controller ->
                         if (controller.mediaItemCount == 0) {
                             val items = finalQueue.map { it.toMediaItem() }
                             controller.setMediaItems(items, finalIndex, finalStartPos)
+                            controller.shuffleModeEnabled = savedShuffle
                             controller.prepare()
                         }
                     }
@@ -911,6 +918,17 @@ constructor(
 
     private fun persistQueueIndex(index: Int) {
         sharedPrefs.edit { putInt("last_queue_index", index) }
+    }
+
+    private fun persistShuffleMode(enabled: Boolean) {
+        sharedPrefs.edit { putBoolean("last_shuffle_enabled", enabled) }
+    }
+
+    private fun persistPlaylistContext(context: String?) {
+        sharedPrefs.edit {
+            if (context != null) putString("last_playlist_context", context)
+            else remove("last_playlist_context")
+        }
     }
 
 
@@ -943,7 +961,8 @@ constructor(
         if (media.isVideo) {
             playVideo(media) // Redirect to new video handler
         } else if (!media.isImage) {
-            _currentPlaylistContext.value = null // clear context for generic playback
+            _currentPlaylistContext.value = null
+            persistPlaylistContext(null)
             val currentVisibleList = audioList.value
             val startIndex = currentVisibleList.indexOfFirst { it.id == media.id }
             if (startIndex >= 0) setQueue(currentVisibleList, startIndex, false)
@@ -1093,7 +1112,8 @@ constructor(
 
     fun playPlaylist(playlist: Playlist, songs: List<MediaFile>, shuffle: Boolean) {
         if (songs.isNotEmpty()) {
-            _currentPlaylistContext.value = playlist.id // set context so we don't bleed into library
+            _currentPlaylistContext.value = playlist.id
+            persistPlaylistContext(playlist.id)
             val startIndex = if (shuffle) (songs.indices).random() else 0
             if (playlist.isVideo) {
                 _isPlayerLocked.value = false
@@ -1108,14 +1128,16 @@ constructor(
     fun playAlbum(album: Album, shuffle: Boolean) {
         val albumSongs = audioList.value.filter { it.albumId == album.id }
         if (albumSongs.isNotEmpty()) {
-            _currentPlaylistContext.value = "ALBUM_${album.id}" // set context
+            _currentPlaylistContext.value = "ALBUM_${album.id}"
+            persistPlaylistContext("ALBUM_${album.id}")
             val startIndex = if (shuffle) (albumSongs.indices).random() else 0
             setQueue(albumSongs, startIndex, shuffle)
         }
     }
 
     fun playAll(shuffle: Boolean) {
-        _currentPlaylistContext.value = null // library context
+        _currentPlaylistContext.value = null
+        persistPlaylistContext(null)
         val currentList = audioList.value
         if (currentList.isNotEmpty()) {
             val startIndex = if (shuffle) (currentList.indices).random() else 0
