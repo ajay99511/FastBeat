@@ -16,7 +16,6 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -50,10 +49,12 @@ class MediaRepository @Inject constructor(
     val isRefreshing = _isRefreshing.asStateFlow()
 
     suspend fun scanMedia(): Pair<List<MediaFile>, List<MediaFile>> {
-        if (_isRefreshing.value) return Pair(_videoList.value, _audioList.value)
+        // Atomic guard — only one scan can run at a time (prevents TOCTOU race)
+        if (!_isRefreshing.compareAndSet(expect = false, update = true)) {
+            return Pair(_videoList.value, _audioList.value)
+        }
 
         return withContext(Dispatchers.IO) {
-            _isRefreshing.value = true
             try {
                 val videos = queryMedia(isVideo = true)
                 val audio = queryMedia(isVideo = false)
@@ -261,13 +262,5 @@ class MediaRepository @Inject constructor(
         _videoList.update { list -> list.filter { it.id !in idSet } }
         _audioList.update { list -> list.filter { it.id !in idSet } }
         _imageList.update { list -> list.filter { it.id !in idSet } }
-    }
-
-    /**
-     * Cancel the internal background scope.
-     * Call this when the repository is no longer needed to prevent resource leaks.
-     */
-    fun cleanup() {
-        repositoryScope.cancel()
     }
 }

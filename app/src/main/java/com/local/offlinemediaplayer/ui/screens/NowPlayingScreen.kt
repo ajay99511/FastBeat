@@ -46,14 +46,18 @@ import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(
     viewModel: PlaybackViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
@@ -75,6 +79,7 @@ fun NowPlayingScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
 
     // Delete Intent Launcher
     val context = LocalContext.current
@@ -382,12 +387,17 @@ fun NowPlayingScreen(
     if (showAddToPlaylistDialog && currentTrack != null) {
         AddToPlaylistDialog(
             song = currentTrack!!,
+            playlistViewModel = playlistViewModel,
             onDismiss = { showAddToPlaylistDialog = false },
-            onCreateNew = {
-                // Create new playlist and add current track
-                viewModel.createPlaylist("New Playlist", currentTrack!!.isVideo)
-                showAddToPlaylistDialog = false
-            }
+            onCreateNew = { showCreateDialog = true }
+        )
+    }
+
+    // Create Playlist Dialog
+    if (showCreateDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name -> playlistViewModel.createPlaylist(name, currentTrack?.isVideo ?: false) }
         )
     }
 

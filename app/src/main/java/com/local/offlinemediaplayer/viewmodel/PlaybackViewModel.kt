@@ -300,13 +300,6 @@ constructor(
                     }
                     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // --- SELECTION & DELETION STATE ---
-    private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())
-    val selectedMediaIds = _selectedMediaIds.asStateFlow()
-
-    private val _isSelectionMode = MutableStateFlow(false)
-    val isSelectionMode = _isSelectionMode.asStateFlow()
-
     private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
     val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
 
@@ -315,72 +308,6 @@ constructor(
         viewModelScope.launch(Dispatchers.IO) {
             playlistRepository.migrateLegacyData()
             playlistRepository.ensureDefaultPlaylists()
-        }
-    }
-
-    // --- Selection Logic ---
-    fun toggleSelectionMode(enable: Boolean) {
-        _isSelectionMode.value = enable
-        if (!enable) _selectedMediaIds.value = emptySet()
-    }
-
-    fun toggleSelection(id: Long) {
-        _selectedMediaIds.update { current ->
-            if (current.contains(id)) current - id else current + id
-        }
-        if (_selectedMediaIds.value.isEmpty()) _isSelectionMode.value = false
-    }
-
-    fun selectAll(ids: List<Long>) {
-        _selectedMediaIds.value = ids.toSet()
-    }
-
-    // --- Deletion Logic ---
-    fun deleteSelectedMedia() {
-        val idsToDelete = _selectedMediaIds.value.toList()
-        if (idsToDelete.isEmpty()) return
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val allMedia = mediaRepository.videoList.value + audioList.value
-            val filesToDelete = allMedia.filter { idsToDelete.contains(it.id) }
-            val uris = filesToDelete.map { it.uri }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val pendingIntent: PendingIntent =
-                        MediaStore.createDeleteRequest(app.contentResolver, uris)
-                _deleteIntentEvent.emit(pendingIntent.intentSender)
-            } else {
-                try {
-                    for (file in filesToDelete) app.contentResolver.delete(file.uri, null, null)
-                    onDeleteSuccess(idsToDelete)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to delete media files", e)
-                }
-            }
-        }
-    }
-
-    fun onDeleteSuccess() {
-        val ids = _selectedMediaIds.value.toList()
-        onDeleteSuccess(ids)
-    }
-
-    private fun onDeleteSuccess(ids: List<Long>) {
-        viewModelScope.launch {
-            // Note: LibraryViewModel handles actual media state cleanup now.
-            // We only need to clean up imageList and update playlists.
-            _imageList.value = _imageList.value.filter { !ids.contains(it.id) }
-            val currentPlaylists = playlists.value
-            currentPlaylists.forEach { pl ->
-                if (pl.mediaIds.any { ids.contains(it) }) {
-                    playlistRepository.updatePlaylistTracks(
-                            pl.id,
-                            pl.mediaIds.filter { !ids.contains(it) }
-                    )
-                }
-            }
-            _selectedMediaIds.value = emptySet()
-            _isSelectionMode.value = false
         }
     }
 
@@ -933,28 +860,7 @@ constructor(
 
 
 
-    // --- Playlist Management ---
-    fun createPlaylist(name: String, isVideo: Boolean = false) {
-        val currentPlaylists = playlists.value
-        if (currentPlaylists.any {
-                    it.name.equals(name, ignoreCase = true) && it.isVideo == isVideo
-                }
-        ) {
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) { playlistRepository.createPlaylist(name, isVideo) }
-    }
 
-    fun toggleAlbumInFavorites(albumSongs: List<MediaFile>) {
-        val favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo } ?: return
-        val allInFav = albumSongs.all { favPlaylist.mediaIds.contains(it.id) }
-        val newMediaIds = favPlaylist.mediaIds.toMutableList()
-        if (allInFav) albumSongs.forEach { newMediaIds.remove(it.id) }
-        else albumSongs.forEach { if (!newMediaIds.contains(it.id)) newMediaIds.add(it.id) }
-        viewModelScope.launch(Dispatchers.IO) {
-            playlistRepository.updatePlaylistTracks(favPlaylist.id, newMediaIds)
-        }
-    }
 
     // --- Playback Logic ---
     fun playMedia(media: MediaFile) {
@@ -1289,7 +1195,7 @@ constructor(
                     val format = group.getTrackFormat(trackIndex)
                     val isSelected = group.isTrackSelected(trackIndex)
                     val language =
-                            format.language?.let { java.util.Locale(it).displayLanguage }
+                            format.language?.let { java.util.Locale.forLanguageTag(it).displayLanguage }
                                     ?: "Unknown"
                     val label = format.label ?: "Track ${trackIndex + 1}"
                     val name = if (format.label != null) "$label ($language)" else language
@@ -1322,7 +1228,7 @@ constructor(
                     val format = group.getTrackFormat(trackIndex)
                     val isSelected = group.isTrackSelected(trackIndex)
                     val language =
-                            format.language?.let { java.util.Locale(it).displayLanguage }
+                            format.language?.let { java.util.Locale.forLanguageTag(it).displayLanguage }
                                     ?: "Unknown"
                     val label = format.label ?: "Subtitle ${trackIndex + 1}"
                     val name = if (format.label != null) "$label ($language)" else language

@@ -135,4 +135,14 @@ interface MediaDao {
         clearQueue()
         insertQueueItems(items)
     }
+
+    // --- Batch Playlist Media Operations ---
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPlaylistMediaBatch(refs: List<PlaylistMediaCrossRef>)
+
+    @Transaction
+    suspend fun replacePlaylistMedia(playlistId: String, refs: List<PlaylistMediaCrossRef>) {
+        clearPlaylistMedia(playlistId)
+        insertPlaylistMediaBatch(refs)
+    }
 }

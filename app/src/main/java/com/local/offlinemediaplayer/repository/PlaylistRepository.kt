@@ -150,15 +150,13 @@ class PlaylistRepository @Inject constructor(
     }
 
     suspend fun updatePlaylistTracks(playlistId: String, mediaIds: List<Long>) {
-        mediaDao.clearPlaylistMedia(playlistId)
-        mediaIds.forEachIndexed { index, id ->
-            mediaDao.addMediaToPlaylist(
-                PlaylistMediaCrossRef(
-                    playlistId = playlistId,
-                    mediaId = id,
-                    addedAt = System.currentTimeMillis() + index
-                )
+        val refs = mediaIds.mapIndexed { index, id ->
+            PlaylistMediaCrossRef(
+                playlistId = playlistId,
+                mediaId = id,
+                addedAt = System.currentTimeMillis() + index
             )
         }
+        mediaDao.replacePlaylistMedia(playlistId, refs)
     }
 }

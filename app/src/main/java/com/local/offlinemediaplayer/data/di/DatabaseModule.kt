@@ -24,7 +24,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "mediaplayer_db"
         )
-            .fallbackToDestructiveMigration() // FIX: Prevents crash on schema updates
+            .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4)
             .build()
     }
 

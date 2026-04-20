@@ -83,9 +83,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
     // Media3 (Modern ExoPlayer replacement)
-    implementation("androidx.media3:media3-exoplayer:1.2.1")
-    implementation("androidx.media3:media3-session:1.2.1")
-    implementation("androidx.media3:media3-ui:1.2.1")
+    implementation("androidx.media3:media3-exoplayer:1.6.0")
+    implementation("androidx.media3:media3-session:1.6.0")
+    implementation("androidx.media3:media3-ui:1.6.0")
 
     // Coil for loading album art
     implementation("io.coil-kt:coil-compose:2.6.0")
@@ -98,9 +98,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Room Database
-    implementation("androidx.room:room-runtime:2.7.0-alpha11")
-    implementation("androidx.room:room-ktx:2.7.0-alpha11")
-    ksp("androidx.room:room-compiler:2.7.0-alpha11")
+    implementation("androidx.room:room-runtime:2.7.2")
+    implementation("androidx.room:room-ktx:2.7.2")
+    ksp("androidx.room:room-compiler:2.7.2")
 
     // Testing
     testImplementation(libs.junit)

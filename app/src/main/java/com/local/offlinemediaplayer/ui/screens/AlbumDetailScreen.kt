@@ -285,7 +285,7 @@ fun AlbumDetailScreen(
                             Spacer(modifier = Modifier.width(24.dp))
 
                             // Heart Icon (Favorites)
-                            IconButton(onClick = { viewModel.toggleAlbumInFavorites(albumSongs) }) {
+                            IconButton(onClick = { playlistViewModel.toggleAlbumInFavorites(albumSongs) }) {
                                 Icon(
                                         imageVector =
                                                 if (isFavorite) Icons.Default.Favorite
