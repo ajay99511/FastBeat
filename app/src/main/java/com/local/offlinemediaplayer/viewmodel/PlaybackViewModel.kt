@@ -1020,7 +1020,11 @@ constructor(
         if (songs.isNotEmpty()) {
             _currentPlaylistContext.value = playlist.id
             persistPlaylistContext(playlist.id)
-            val startIndex = if (shuffle) (songs.indices).random() else 0
+            // When shuffling, start at index 0 so Media3's shuffle sequence begins from the start.
+            // Previously a random startIndex was used, which could land in the MIDDLE of Media3's
+            // internal shuffle order — causing only the remaining items in the sequence to play
+            // before stopping, instead of all songs.
+            val startIndex = 0
             if (playlist.isVideo) {
                 _isPlayerLocked.value = false
                 _playbackSpeed.value = 1.0f
@@ -1036,7 +1040,7 @@ constructor(
         if (albumSongs.isNotEmpty()) {
             _currentPlaylistContext.value = "ALBUM_${album.id}"
             persistPlaylistContext("ALBUM_${album.id}")
-            val startIndex = if (shuffle) (albumSongs.indices).random() else 0
+            val startIndex = 0
             setQueue(albumSongs, startIndex, shuffle)
         }
     }
@@ -1046,7 +1050,7 @@ constructor(
         persistPlaylistContext(null)
         val currentList = audioList.value
         if (currentList.isNotEmpty()) {
-            val startIndex = if (shuffle) (currentList.indices).random() else 0
+            val startIndex = 0
             setQueue(currentList, startIndex, shuffle)
         }
     }
