@@ -253,6 +253,7 @@ fun AudioListScreen(
                                     SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, libraryViewModel) { showSortMenu = false }
                                     SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, libraryViewModel) { showSortMenu = false }
                                     SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Most Played", SortOption.MOST_PLAYED, libraryViewModel) { showSortMenu = false }
                                 }
                             }
                         }
@@ -497,6 +498,7 @@ private fun getSortLabel(option: SortOption): String {
         SortOption.DURATION_ASC -> "runtime"
         SortOption.DURATION_DESC -> "runtime"
         SortOption.DATE_ADDED_DESC -> "date"
+        SortOption.MOST_PLAYED -> "most played"
     }
 }
 

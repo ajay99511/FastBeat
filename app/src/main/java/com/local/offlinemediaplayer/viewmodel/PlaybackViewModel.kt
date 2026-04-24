@@ -64,7 +64,8 @@ enum class SortOption {
     TITLE_DESC,
     DURATION_ASC,
     DURATION_DESC,
-    DATE_ADDED_DESC
+    DATE_ADDED_DESC,
+    MOST_PLAYED
 }
 
 enum class AlbumSortOption {

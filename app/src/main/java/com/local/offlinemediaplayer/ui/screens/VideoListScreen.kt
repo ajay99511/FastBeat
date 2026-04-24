@@ -137,6 +137,7 @@ fun VideoListScreen(
                         SortOption.DURATION_ASC -> result.sortedBy { it.duration }
                         SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
                         SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
+                        SortOption.MOST_PLAYED -> result.sortedByDescending { it.id }
                 }
         }
 
@@ -958,5 +959,6 @@ private fun getVideoSortLabel(option: SortOption): String {
         SortOption.DURATION_ASC -> "Runtime (Shortest)"
         SortOption.DURATION_DESC -> "Runtime (Longest)"
         SortOption.DATE_ADDED_DESC -> "Latest"
+        SortOption.MOST_PLAYED -> "Most Played"
     }
 }

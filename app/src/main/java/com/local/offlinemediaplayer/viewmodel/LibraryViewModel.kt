@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.repository.MediaRepository
@@ -30,7 +31,8 @@ import kotlinx.coroutines.launch
 class LibraryViewModel @Inject constructor(
     private val app: Application,
     private val mediaRepository: MediaRepository,
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val mediaDao: MediaDao
 ) : AndroidViewModel(app) {
 
     private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -94,8 +96,27 @@ class LibraryViewModel @Inject constructor(
             SortOption.DURATION_ASC -> list.sortedBy { it.duration }
             SortOption.DURATION_DESC -> list.sortedByDescending { it.duration }
             SortOption.DATE_ADDED_DESC -> list.sortedByDescending { it.id }
+            SortOption.MOST_PLAYED -> list.sortedByDescending { it.id } // Not applicable for movies
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // --- Play Count Map for MOST_PLAYED sorting ---
+    private val _playCountMap = MutableStateFlow<Map<Long, Int>>(emptyMap())
+    val playCountMap = _playCountMap.asStateFlow()
+
+    init {
+        // Refresh play counts whenever the audio list changes
+        viewModelScope.launch(Dispatchers.IO) {
+            audioList.collect { list ->
+                if (list.isNotEmpty()) {
+                    val analytics = mediaDao.getAnalyticsForIds(list.map { it.id })
+                    _playCountMap.value = analytics.associate { it.mediaId to it.playCount }
+                } else {
+                    _playCountMap.value = emptyMap()
+                }
+            }
+        }
+    }
 
     val videoFolders = videoList.map { videos ->
         videos.groupBy { it.bucketId }.map { (bucketId, bucketVideos) ->
@@ -108,7 +129,7 @@ class LibraryViewModel @Inject constructor(
         }.sortedBy { it.name }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val filteredAudioList = combine(audioList, _searchQuery, _sortOption) { list, query, sort ->
+    val filteredAudioList = combine(audioList, _searchQuery, _sortOption, _playCountMap) { list, query, sort, playCounts ->
         var result = list
         if (query.isNotEmpty()) {
             result = result.filter { it.title.contains(query, true) || (it.artist?.contains(query, true) == true) }
@@ -119,6 +140,7 @@ class LibraryViewModel @Inject constructor(
             SortOption.DURATION_ASC -> result.sortedBy { it.duration }
             SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
             SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
+            SortOption.MOST_PLAYED -> result.sortedByDescending { playCounts[it.id] ?: 0 }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
