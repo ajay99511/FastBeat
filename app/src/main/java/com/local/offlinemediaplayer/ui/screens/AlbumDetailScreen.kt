@@ -359,7 +359,7 @@ fun AlbumDetailScreen(
                                 if (isSelectionMode) {
                                     libraryViewModel.toggleSelection(song.id)
                                 } else {
-                                    viewModel.setQueue(albumSongs, index, false)
+                                    viewModel.playFromAlbum(albumId, albumSongs, index)
                                 }
                             },
                             onLongClick = {

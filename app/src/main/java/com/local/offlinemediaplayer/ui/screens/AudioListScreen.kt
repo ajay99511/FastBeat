@@ -193,8 +193,7 @@ fun AudioListScreen(
                             Button(
                                 onClick = {
                                     if (audioList.isNotEmpty()) {
-                                        val randomIndex = (audioList.indices).random()
-                                        viewModel.setQueue(audioList, randomIndex, true)
+                                        viewModel.playAll(shuffle = true)
                                     }
                                 },
                                 modifier = Modifier

@@ -523,6 +523,7 @@ constructor(
 
                     override fun onRepeatModeChanged(repeatMode: Int) {
                         _repeatMode.value = repeatMode
+                        persistRepeatMode(repeatMode)
                     }
 
                     override fun onPlaybackParametersChanged(
@@ -814,12 +815,15 @@ constructor(
 
             if (finalQueue.isNotEmpty()) {
                 _currentQueue.value = finalQueue
+                _displayQueue.value = finalQueue
                 _currentIndex.value = finalIndex
                 _currentTrack.value = finalQueue[finalIndex]
 
-                // Restore shuffle mode and playlist context from prefs
+                // Restore shuffle mode, repeat mode, and playlist context from prefs
                 val savedShuffle = sharedPrefs.getBoolean("last_shuffle_enabled", false)
+                val savedRepeatMode = sharedPrefs.getInt("last_repeat_mode", Player.REPEAT_MODE_OFF)
                 _isShuffleEnabled.value = savedShuffle
+                _repeatMode.value = savedRepeatMode
                 _currentPlaylistContext.value = sharedPrefs.getString("last_playlist_context", null)
 
                 // Set to player
@@ -829,6 +833,7 @@ constructor(
                             val items = finalQueue.map { it.toMediaItem() }
                             controller.setMediaItems(items, finalIndex, finalStartPos)
                             controller.shuffleModeEnabled = savedShuffle
+                            controller.repeatMode = savedRepeatMode
                             controller.prepare()
                         }
                     }
@@ -850,6 +855,10 @@ constructor(
 
     private fun persistShuffleMode(enabled: Boolean) {
         sharedPrefs.edit { putBoolean("last_shuffle_enabled", enabled) }
+    }
+
+    private fun persistRepeatMode(mode: Int) {
+        sharedPrefs.edit { putInt("last_repeat_mode", mode) }
     }
 
     private fun persistPlaylistContext(context: String?) {
@@ -1043,6 +1052,30 @@ constructor(
             persistPlaylistContext("ALBUM_${album.id}")
             val startIndex = 0
             setQueue(albumSongs, startIndex, shuffle)
+        }
+    }
+
+    /**
+     * Play a specific track from an album context.
+     * Sets the album as the playlist context so autoFill won't add random library songs.
+     */
+    fun playFromAlbum(albumId: Long, songs: List<MediaFile>, startIndex: Int) {
+        if (songs.isNotEmpty() && startIndex in songs.indices) {
+            _currentPlaylistContext.value = "ALBUM_${albumId}"
+            persistPlaylistContext("ALBUM_${albumId}")
+            setQueue(songs, startIndex, false)
+        }
+    }
+
+    /**
+     * Play a specific track from a playlist context.
+     * Sets the playlist as the context so autoFill won't add random library songs.
+     */
+    fun playFromPlaylist(playlistId: String, songs: List<MediaFile>, startIndex: Int) {
+        if (songs.isNotEmpty() && startIndex in songs.indices) {
+            _currentPlaylistContext.value = playlistId
+            persistPlaylistContext(playlistId)
+            setQueue(songs, startIndex, false)
         }
     }
 

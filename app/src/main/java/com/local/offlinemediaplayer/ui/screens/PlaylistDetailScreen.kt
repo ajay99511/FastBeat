@@ -490,7 +490,7 @@ fun PlaylistDetailScreen(
                                     // Use the original songs list for queue, not filtered
                                     val originalIndex = songs.indexOfFirst { it.id == song.id }
                                     if (originalIndex >= 0) {
-                                        viewModel.setQueue(songs, originalIndex, false)
+                                        viewModel.playFromPlaylist(playlistId, songs, originalIndex)
                                     }
                                 },
                                 onRemove = {
