@@ -1,7 +1,5 @@
 package com.local.offlinemediaplayer.ui.screens
 
-// import androidx.compose.ui.platform.LocalLifecycleOwner
-// import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
@@ -29,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -44,24 +43,34 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import com.local.offlinemediaplayer.viewmodel.ResizeMode
 import com.local.offlinemediaplayer.viewmodel.TrackInfo
 import kotlin.math.abs
+import kotlin.math.min
 import kotlinx.coroutines.delay
 
 private enum class GestureMode {
@@ -73,7 +82,11 @@ private enum class GestureMode {
 
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
+fun VideoPlayerScreen(
+        viewModel: PlaybackViewModel,
+        playlistViewModel: PlaylistViewModel = hiltViewModel(),
+        onBack: () -> Unit
+) {
     val context = LocalContext.current
     val activity = context as? Activity
     val player by viewModel.player.collectAsStateWithLifecycle()
@@ -82,6 +95,7 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
     val isInPip by viewModel.isInPipMode.collectAsStateWithLifecycle()
     val videoSize by viewModel.videoSize.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
@@ -101,13 +115,17 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
     var showBookmarksDialog by remember { mutableStateOf(false) }
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
 
     val configuration = LocalConfiguration.current
-    val screenWidth = with(LocalDensity.current) { configuration.screenWidthDp.dp.toPx() }
-    val screenHeight = with(LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
+    val density = LocalDensity.current
+    val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val gestureThresholdPx = with(density) { 12.dp.toPx() }
 
     // Track if we have valid metadata to prevent premature rotation (0x0 -> Landscape -> Portrait)
     var isVideoMetadataLoaded by remember { mutableStateOf(false) }
@@ -164,20 +182,7 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
 
     // Update PiP Params for Android 12+ (Auto-Enter)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        // Use observed videoSize instead of player?.videoSize
-        val aspectRatio =
-                if (videoSize.width > 0 && videoSize.height > 0) {
-                    val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
-                    val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
-                    if (ratio == clampedRatio) {
-                        Rational(videoSize.width, videoSize.height)
-                    } else {
-                        // Adjust width to match clamped ratio
-                        Rational((videoSize.height * clampedRatio).toInt(), videoSize.height)
-                    }
-                } else {
-                    Rational(16, 9)
-                }
+        val aspectRatio = calculatePipAspectRatio(videoSize)
 
         // Key off isPlaying and aspectRatio state
         LaunchedEffect(isPlaying, aspectRatio) {
@@ -231,7 +236,7 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
             modifier =
                     Modifier.fillMaxSize()
                             .background(Color.Black)
-                            .pointerInput(Unit) {
+                            .pointerInput(isLocked, showBookmarksDialog) {
                                 if (isLocked || showBookmarksDialog) return@pointerInput
                                 detectTapGestures(
                                         onTap = { isControlsVisible = !isControlsVisible },
@@ -241,7 +246,7 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
                                         }
                                 )
                             }
-                            .pointerInput(Unit) {
+                            .pointerInput(isLocked, showBookmarksDialog) {
                                 if (isLocked || showBookmarksDialog) return@pointerInput
                                 detectDragGestures(
                                         onDragStart = { offset ->
@@ -272,16 +277,17 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
 
                                             if (gestureMode == GestureMode.NONE) {
                                                 if (abs(accumulatedDragX) > abs(accumulatedDragY)) {
-                                                    if (abs(accumulatedDragX) > 20)
+                                                    if (abs(accumulatedDragX) > gestureThresholdPx)
                                                             gestureMode = GestureMode.SEEK
                                                 } else {
-                                                    if (abs(accumulatedDragY) > 20) {
+                                                    if (abs(accumulatedDragY) > gestureThresholdPx) {
+                                                        // Left = Brightness, Right = Volume (matches VLC/MX Player convention)
                                                         gestureMode =
                                                                 if (change.position.x <
                                                                                 screenWidth / 2
                                                                 )
-                                                                        GestureMode.VOLUME
-                                                                else GestureMode.BRIGHTNESS
+                                                                        GestureMode.BRIGHTNESS
+                                                                else GestureMode.VOLUME
                                                     }
                                                 }
                                             }
@@ -321,13 +327,15 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
                                                 GestureMode.SEEK -> {
                                                     val deltaPercent =
                                                             accumulatedDragX / screenWidth
-                                                    val seekChange = (deltaPercent * 90000).toLong()
+                                                    // Scale seek range based on video duration: 15% of total, capped at 120s, min 30s
+                                                    val maxSeekRange = min((duration * 0.15).toLong(), 120_000L).coerceAtLeast(30_000L)
+                                                    val seekChange = (deltaPercent * maxSeekRange).toLong()
                                                     val newPos =
                                                             (initialSeekPosition + seekChange)
                                                                     .coerceIn(0, duration)
                                                     initialSeekPosition = newPos
                                                     gestureValue = newPos.toFloat()
-                                                    gestureText = formatSeekTime(newPos, duration)
+                                                    gestureText = FormatUtils.formatSeekTime(newPos, duration)
                                                 }
                                                 else -> {}
                                             }
@@ -376,24 +384,7 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
                     onBack = onBack,
                     onPip = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            // Use observed videoSize state
-                            val aspectRatio =
-                                    if (videoSize.width > 0 && videoSize.height > 0) {
-                                        val ratio =
-                                                videoSize.width.toFloat() /
-                                                        videoSize.height.toFloat()
-                                        val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
-                                        if (ratio == clampedRatio) {
-                                            Rational(videoSize.width, videoSize.height)
-                                        } else {
-                                            Rational(
-                                                    (videoSize.height * clampedRatio).toInt(),
-                                                    videoSize.height
-                                            )
-                                        }
-                                    } else {
-                                        Rational(16, 9)
-                                    }
+                            val aspectRatio = calculatePipAspectRatio(videoSize)
                             try {
                                 val params =
                                         PictureInPictureParams.Builder()
@@ -417,11 +408,12 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
                         }
                     },
                     onShowBookmarks = {
-                        player?.pause()
+                        viewModel.pauseVideo()
                         showBookmarksDialog = true
                     },
                     onShowAudioTracks = { showAudioTrackDialog = true },
-                    onShowSubtitleTracks = { showSubtitleTrackDialog = true }
+                    onShowSubtitleTracks = { showSubtitleTrackDialog = true },
+                    onShowAddToPlaylist = { showAddToPlaylistDialog = true }
             )
         }
 
@@ -473,6 +465,26 @@ fun VideoPlayerScreen(viewModel: PlaybackViewModel, onBack: () -> Unit) {
                     onDismiss = { showSubtitleTrackDialog = false }
             )
         }
+
+        // Add to Playlist Dialog
+        if (showAddToPlaylistDialog && currentTrack != null) {
+            AddToPlaylistDialog(
+                    song = currentTrack!!,
+                    playlistViewModel = playlistViewModel,
+                    onDismiss = { showAddToPlaylistDialog = false },
+                    onCreateNew = { showCreatePlaylistDialog = true }
+            )
+        }
+
+        // Create Playlist Dialog
+        if (showCreatePlaylistDialog) {
+            CreatePlaylistDialog(
+                    onDismiss = { showCreatePlaylistDialog = false },
+                    onCreate = { name ->
+                        playlistViewModel.createPlaylist(name, currentTrack?.isVideo ?: true)
+                    }
+            )
+        }
     }
 }
 
@@ -496,7 +508,8 @@ fun BookmarksDialog(
         Column(
                 modifier =
                         Modifier.fillMaxHeight()
-                                .width(350.dp)
+                                .widthIn(min = 280.dp, max = 400.dp)
+                                .fillMaxWidth(0.45f)
                                 .background(Color(0xFF1E1E24))
                                 .clickable(enabled = false) {} // Prevent click through
                                 .padding(16.dp)
@@ -572,7 +585,7 @@ fun BookmarksDialog(
                         IconButton(onClick = { viewModel.deleteBookmark(bookmark.id) }) {
                             Icon(
                                     Icons.Default.Delete,
-                                    null,
+                                    "Delete bookmark",
                                     tint = Color.Gray,
                                     modifier = Modifier.size(20.dp)
                             )
@@ -613,9 +626,16 @@ private fun CenterGestureOverlay(
                                     else Icons.Default.FastForward
                             else -> Icons.Default.Info
                         }
+                val iconDescription =
+                        when (mode) {
+                            GestureMode.VOLUME -> "Volume"
+                            GestureMode.BRIGHTNESS -> "Brightness"
+                            GestureMode.SEEK -> "Seek"
+                            else -> null
+                        }
                 Icon(
                         imageVector = icon,
-                        contentDescription = null,
+                        contentDescription = iconDescription,
                         tint = Color.White,
                         modifier = Modifier.size(48.dp)
                 )
@@ -649,7 +669,8 @@ fun VideoPlayerControls(
         onRotate: () -> Unit,
         onShowBookmarks: () -> Unit,
         onShowAudioTracks: () -> Unit,
-        onShowSubtitleTracks: () -> Unit
+        onShowSubtitleTracks: () -> Unit,
+        onShowAddToPlaylist: () -> Unit
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -703,7 +724,9 @@ fun VideoPlayerControls(
         }
 
         if (isVisible || isLocked) {
-            Box(modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 100.dp)) {
+            Box(modifier = Modifier.align(Alignment.TopStart)
+                    .windowInsetsPadding(WindowInsets.displayCutout)
+                    .padding(start = 24.dp, top = 48.dp)) {
                 IconButton(
                         onClick = { viewModel.toggleLock() },
                         modifier =
@@ -713,7 +736,7 @@ fun VideoPlayerControls(
                     Icon(
                             imageVector =
                                     if (isLocked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
-                            contentDescription = "Lock",
+                            contentDescription = if (isLocked) "Unlock controls" else "Lock controls",
                             tint = Color.White
                     )
                 }
@@ -731,7 +754,8 @@ fun VideoPlayerControls(
                 Row(
                         modifier =
                                 Modifier.fillMaxWidth()
-                                        .padding(top = 24.dp, start = 16.dp, end = 16.dp),
+                                        .windowInsetsPadding(WindowInsets.displayCutout)
+                                        .padding(top = 16.dp, start = 16.dp, end = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
@@ -763,7 +787,10 @@ fun VideoPlayerControls(
                         Icon(Icons.Default.Subtitles, "Subtitles", tint = Color.White)
                     }
                     IconButton(onClick = onShowAudioTracks) {
-                        Icon(Icons.Default.Audiotrack, "Audio", tint = Color.White)
+                        Icon(Icons.Default.Audiotrack, "Audio tracks", tint = Color.White)
+                    }
+                    IconButton(onClick = onShowAddToPlaylist) {
+                        Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, "Add to playlist", tint = Color.White)
                     }
                 }
 
@@ -801,6 +828,10 @@ fun VideoPlayerControls(
                                             .clip(CircleShape)
                                             .background(Color.Transparent)
                                             .border(2.dp, primaryAccent, CircleShape)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = if (isPlaying) "Pause" else "Play"
+                                            }
                                             .clickable { viewModel.togglePlayPause() },
                             contentAlignment = Alignment.Center
                     ) {
@@ -808,7 +839,7 @@ fun VideoPlayerControls(
                                 imageVector =
                                         if (isPlaying) Icons.Default.Pause
                                         else Icons.Default.PlayArrow,
-                                contentDescription = "Play",
+                                contentDescription = if (isPlaying) "Pause" else "Play",
                                 tint = primaryAccent,
                                 modifier = Modifier.size(40.dp)
                         )
@@ -838,6 +869,7 @@ fun VideoPlayerControls(
                 Column(
                         modifier =
                                 Modifier.align(Alignment.BottomCenter)
+                                        .windowInsetsPadding(WindowInsets.displayCutout)
                                         .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
                 ) {
                     Row(
@@ -860,9 +892,19 @@ fun VideoPlayerControls(
                                 modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
                         )
                     }
+                    // Two-state slider: tracks position locally during drag to avoid stuttering
+                    var isSeeking by remember { mutableStateOf(false) }
+                    var seekPosition by remember { mutableFloatStateOf(0f) }
                     Slider(
-                            value = if (duration > 0) position.toFloat() else 0f,
-                            onValueChange = { viewModel.seekTo(it.toLong()) },
+                            value = if (isSeeking) seekPosition else if (duration > 0) position.toFloat() else 0f,
+                            onValueChange = {
+                                isSeeking = true
+                                seekPosition = it
+                            },
+                            onValueChangeFinished = {
+                                viewModel.seekTo(seekPosition.toLong())
+                                isSeeking = false
+                            },
                             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                             colors =
                                     SliderDefaults.colors(
@@ -901,7 +943,7 @@ fun VideoPlayerControls(
                                         text = "${playbackSpeed}x",
                                         style =
                                                 MaterialTheme.typography.labelSmall.copy(
-                                                        fontSize = 8.sp
+                                                        fontSize = 10.sp
                                                 ),
                                         color = primaryAccent,
                                         modifier = Modifier.offset(y = 14.dp)
@@ -939,8 +981,18 @@ private fun showSystemBars(activity: Activity?) {
     }
 }
 
-private fun formatSeekTime(currentMs: Long, totalMs: Long): String {
-    return "${FormatUtils.formatDuration(currentMs)} / ${FormatUtils.formatDuration(totalMs)}"
+private fun calculatePipAspectRatio(videoSize: VideoSize): Rational {
+    return if (videoSize.width > 0 && videoSize.height > 0) {
+        val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
+        val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
+        if (ratio == clampedRatio) {
+            Rational(videoSize.width, videoSize.height)
+        } else {
+            Rational((videoSize.height * clampedRatio).toInt(), videoSize.height)
+        }
+    } else {
+        Rational(16, 9)
+    }
 }
 
 /**
@@ -969,7 +1021,8 @@ fun TrackSelectionDialog(
         Box(
                 modifier =
                         Modifier.align(Alignment.CenterEnd)
-                                .width(280.dp)
+                                .widthIn(min = 240.dp, max = 360.dp)
+                                .fillMaxWidth(0.4f)
                                 .fillMaxHeight()
                                 .background(
                                         Color(0xFF1C1C1E),
@@ -1090,7 +1143,7 @@ private fun TrackItem(
                 imageVector =
                         if (isSelected) Icons.Default.RadioButtonChecked
                         else Icons.Default.RadioButtonUnchecked,
-                contentDescription = null,
+                contentDescription = if (isSelected) "Selected" else "Not selected",
                 tint = if (isSelected) primaryAccent else Color.White.copy(alpha = 0.5f),
                 modifier = Modifier.size(20.dp)
         )

@@ -29,6 +29,10 @@ object FormatUtils {
                 units[digitGroups]
     }
 
+    fun formatSeekTime(currentMs: Long, totalMs: Long): String {
+        return "${formatDuration(currentMs)} / ${formatDuration(totalMs)}"
+    }
+
     fun formatMinutesToHours(minutes: Int): String {
         if (minutes < 60) return "${minutes}m"
         val hours = minutes / 60
