@@ -661,15 +661,26 @@ fun VideoListItem(
                 Column(modifier = Modifier.weight(1f)) {
                         Text(
                                 text = video.title,
-                                maxLines = 1,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
                         )
-                        Text(
-                                text = FormatUtils.formatDuration(video.duration),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                        text = FormatUtils.formatDuration(video.duration),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (video.size > 0L) {
+                                        Text(
+                                                text = " • ${FormatUtils.formatSize(video.size)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                }
+                        }
                 }
 
                 if (!isSelectionMode) {
@@ -834,7 +845,8 @@ fun VideoCardItem(
                                                         fontWeight = FontWeight.Bold
                                                 ),
                                         color = MaterialTheme.colorScheme.onBackground,
-                                        maxLines = 1,
+                                        maxLines = 2,
+                                        minLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                 )
 
