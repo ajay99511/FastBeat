@@ -20,6 +20,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -100,10 +102,13 @@ fun VideoPlayerScreen(
 
     val currentPosition by viewModel.currentPosition.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
+    val isBuffering by viewModel.isBuffering.collectAsStateWithLifecycle()
+    val playerError by viewModel.playerError.collectAsStateWithLifecycle()
 
     var gestureMode by remember { mutableStateOf(GestureMode.NONE) }
     var gestureValue by remember { mutableFloatStateOf(0f) }
     var gestureText by remember { mutableStateOf("") }
+    var isSpeedBoosting by remember { mutableStateOf(false) }
 
     var initialVolume by remember { mutableIntStateOf(0) }
     var initialBrightness by remember { mutableFloatStateOf(0f) }
@@ -243,6 +248,12 @@ fun VideoPlayerScreen(
                                         onDoubleTap = { offset ->
                                             if (offset.x > screenWidth / 2) viewModel.forward()
                                             else viewModel.rewind()
+                                        },
+                                        onLongPress = {
+                                            if (isPlaying) {
+                                                isSpeedBoosting = true
+                                                viewModel.startSpeedBoost()
+                                            }
                                         }
                                 )
                             }
@@ -342,6 +353,21 @@ fun VideoPlayerScreen(
                                         }
                                 )
                             }
+                            .pointerInput(isLocked, showBookmarksDialog, isSpeedBoosting) {
+                                if (isLocked || showBookmarksDialog) return@pointerInput
+                                awaitEachGesture {
+                                    // Wait for any finger down
+                                    awaitPointerEvent()
+                                    // Then keep consuming events until all fingers are lifted
+                                    do {
+                                        val event = awaitPointerEvent()
+                                        if (isSpeedBoosting && event.changes.all { it.changedToUp() }) {
+                                            isSpeedBoosting = false
+                                            viewModel.stopSpeedBoost()
+                                        }
+                                    } while (event.changes.any { it.pressed })
+                                }
+                            }
     ) {
         if (player != null) {
             AndroidView(
@@ -376,6 +402,24 @@ fun VideoPlayerScreen(
                 text = gestureText,
                 primaryAccent
         )
+
+        // Buffering Indicator
+        BufferingOverlay(isBuffering = isBuffering && playerError == null)
+
+        // Error Overlay
+        ErrorOverlay(
+                error = playerError,
+                onDismiss = { viewModel.dismissPlayerError() },
+                onRetry = {
+                    viewModel.dismissPlayerError()
+                    player?.prepare()
+                    player?.play()
+                },
+                accentColor = primaryAccent
+        )
+
+        // Speed Boost Indicator
+        SpeedBoostOverlay(isActive = isSpeedBoosting)
 
         if (!isInPip) {
             VideoPlayerControls(
@@ -655,6 +699,145 @@ private fun CenterGestureOverlay(
                             trackColor = Color.White.copy(alpha = 0.3f)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BufferingOverlay(isBuffering: Boolean) {
+    AnimatedVisibility(
+            visible = isBuffering,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize()
+    ) {
+        Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = Color.White,
+                    strokeWidth = 3.dp,
+                    trackColor = Color.White.copy(alpha = 0.2f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ErrorOverlay(
+        error: String?,
+        onDismiss: () -> Unit,
+        onRetry: () -> Unit,
+        accentColor: Color
+) {
+    if (error == null) return
+
+    Box(
+            modifier =
+                    Modifier.fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.85f)),
+            contentAlignment = Alignment.Center
+    ) {
+        Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(32.dp)
+        ) {
+            Box(
+                    modifier =
+                            Modifier.size(64.dp)
+                                    .background(
+                                            Color.White.copy(alpha = 0.1f),
+                                            CircleShape
+                                    ),
+                    contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                        imageVector = Icons.Outlined.ErrorOutline,
+                        contentDescription = "Playback error",
+                        tint = Color(0xFFFF6B6B),
+                        modifier = Modifier.size(36.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                    text = "Playback Error",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                    text = error,
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                        onClick = onDismiss,
+                        colors =
+                                ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color.White
+                                )
+                ) { Text("Dismiss") }
+                Button(
+                        onClick = onRetry,
+                        colors =
+                                ButtonDefaults.buttonColors(
+                                        containerColor = accentColor
+                                )
+                ) {
+                    Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Retry")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeedBoostOverlay(isActive: Boolean) {
+    AnimatedVisibility(
+            visible = isActive,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize()
+    ) {
+        Box(
+                modifier = Modifier.fillMaxSize().padding(top = 80.dp),
+                contentAlignment = Alignment.TopCenter
+        ) {
+            Row(
+                    modifier =
+                            Modifier.background(
+                                            Color.Black.copy(alpha = 0.6f),
+                                            RoundedCornerShape(20.dp)
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                        imageVector = Icons.Default.FastForward,
+                        contentDescription = "Speed boost active",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                )
+                Text(
+                        text = "2x",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                )
             }
         }
     }

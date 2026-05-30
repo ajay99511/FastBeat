@@ -16,6 +16,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -224,6 +225,14 @@ constructor(
 
     private val _isInPipMode = MutableStateFlow(false)
     val isInPipMode = _isInPipMode.asStateFlow()
+
+    // --- PLAYBACK STATE FOR UI ---
+    private val _isBuffering = MutableStateFlow(false)
+    val isBuffering = _isBuffering.asStateFlow()
+
+    // Error state: null means no error. Non-null is a user-facing error message.
+    private val _playerError = MutableStateFlow<String?>(null)
+    val playerError = _playerError.asStateFlow()
 
     // --- VIDEO PLAYER VISIBILITY STATE ---
     // Explicitly tracks if the fullscreen player should be shown.
@@ -503,11 +512,32 @@ constructor(
                     }
 
                     override fun onPlaybackStateChanged(playbackState: Int) {
+                        _isBuffering.value = playbackState == Player.STATE_BUFFERING
                         if (playbackState == Player.STATE_READY) {
+                            _playerError.value = null // Clear any previous error on successful load
                             _duration.value = controller.duration.coerceAtLeast(0L)
                         } else if (playbackState == Player.STATE_ENDED) {
                             autoFillQueue(playNext = true)
                         }
+                    }
+
+                    override fun onPlayerError(error: PlaybackException) {
+                        val message = when (error.errorCode) {
+                            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
+                                "File not found or has been moved"
+                            PlaybackException.ERROR_CODE_IO_NO_PERMISSION ->
+                                "Permission denied to access this file"
+                            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                            PlaybackException.ERROR_CODE_DECODING_FAILED ->
+                                "Unable to play this video format"
+                            PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ->
+                                "Audio initialization failed"
+                            else ->
+                                "Playback error occurred"
+                        }
+                        _playerError.value = message
+                        _isBuffering.value = false
+                        Log.e(TAG, "Player error: ${error.errorCode} - ${error.message}", error)
                     }
 
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -940,6 +970,7 @@ constructor(
         _isPlayerLocked.value = false
         _playbackSpeed.value = 1.0f
         _resizeMode.value = ResizeMode.FIT
+        _playerError.value = null       // Clear any previous error
         _isVideoPlayerVisible.value = true // Explicitly show player
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -1216,6 +1247,27 @@ constructor(
     }
     fun setPipMode(isPip: Boolean) {
         _isInPipMode.value = isPip
+    }
+
+    // --- Long-Press Speed Boost ---
+    private var speedBeforeBoost: Float? = null
+
+    fun startSpeedBoost(boostSpeed: Float = 2.0f) {
+        if (speedBeforeBoost != null) return  // Already boosting
+        speedBeforeBoost = _playbackSpeed.value
+        _player.value?.setPlaybackSpeed(boostSpeed)
+        _playbackSpeed.value = boostSpeed
+    }
+
+    fun stopSpeedBoost() {
+        val original = speedBeforeBoost ?: return
+        speedBeforeBoost = null
+        _player.value?.setPlaybackSpeed(original)
+        _playbackSpeed.value = original
+    }
+
+    fun dismissPlayerError() {
+        _playerError.value = null
     }
 
     // --- Track Selection (Audio & Subtitles) ---
