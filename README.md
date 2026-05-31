@@ -69,20 +69,47 @@ Whether you're watching high-definition movies with advanced gesture controls an
 
 ---
 
-## 📸 Screenshots
+## 📸 Showcase
 
 <div align="center">
+  <p><strong>Experience the Premium Interface</strong></p>
 
-| Video Player | Audio Library |
-|:---:|:---:|
-| ![Video Player](docs/screenshots/video_player.png) | ![Audio Library](docs/screenshots/audio_library.png) |
-| *Advanced Gestures & PiP* | *Smart Search & Sorting* |
+  <table>
+    <tr>
+      <td align="center"><strong>Video Player</strong></td>
+      <td align="center"><strong>Audio Player</strong></td>
+      <td align="center"><strong>Analytics</strong></td>
+    </tr>
+    <tr>
+      <td><img src="public/images/video_player.jpg" width="250" alt="Video Player"></td>
+      <td><img src="public/images/audio_player.jpg" width="250" alt="Audio Player"></td>
+      <td><img src="public/images/analytics.jpg" width="250" alt="Analytics"></td>
+    </tr>
+    <tr>
+      <td><em>Advanced Gestures & PiP</em></td>
+      <td><em>Dynamic Gradient Progress</em></td>
+      <td><em>Rich Listening Insights</em></td>
+    </tr>
+  </table>
 
-| Analytics Dashboard | Image Gallery |
-|:---:|:---:|
-| ![Analytics](docs/screenshots/analytics.png) | ![Gallery](docs/screenshots/gallery.png) |
-| *Listening Habits & Streaks* | *Staggered Grid View* |
-
+  <details>
+    <summary><strong>📂 View Full Gallery (8 more screens)</strong></summary>
+    <br>
+    <table>
+      <tr>
+        <td align="center"><img src="public/images/audio_library.jpg" width="200"><br><sub>Audio Library</sub></td>
+        <td align="center"><img src="public/images/playlists.jpg" width="200"><br><sub>Playlists</sub></td>
+        <td align="center"><img src="public/images/gallery_grid.jpg" width="200"><br><sub>Image Gallery</sub></td>
+        <td align="center"><img src="public/images/image_viewer.jpg" width="200"><br><sub>Image Viewer</sub></td>
+      </tr>
+      <tr>
+        <td align="center"><img src="public/images/video_pip.jpg" width="200"><br><sub>PiP Mode</sub></td>
+        <td align="center"><img src="public/images/themes.jpg" width="200"><br><sub>Premium Themes</sub></td>
+        <td align="center"><img src="public/images/settings.jpg" width="200"><br><sub>App Settings</sub></td>
+        <td align="center"><img src="public/images/splash.jpg" width="200"><br><sub>Splash Screen</sub></td>
+      </tr>
+    </table>
+  </details>
 </div>
 
 ---
