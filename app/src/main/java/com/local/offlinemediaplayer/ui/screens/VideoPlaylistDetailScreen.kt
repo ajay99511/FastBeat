@@ -361,7 +361,7 @@ fun VideoPlaylistDetailScreen(
                                 video = video,
                                 accentColor = primaryAccent,
                                 playCount = playCountMap[video.id] ?: 0,
-                                onClick = { onNavigateToPlayer(video, videos) },
+                                onClick = { onNavigateToPlayer(video, sortedAndFilteredVideos) },
                                 onRemove = {
                                     playlistViewModel.removeSongFromPlaylist(playlistId, video.id)
                                 }

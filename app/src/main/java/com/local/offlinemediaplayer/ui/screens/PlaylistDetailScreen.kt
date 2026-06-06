@@ -487,11 +487,7 @@ fun PlaylistDetailScreen(
                                 song = song,
                                 accentColor = primaryAccent,
                                 onClick = {
-                                    // Use the original songs list for queue, not filtered
-                                    val originalIndex = songs.indexOfFirst { it.id == song.id }
-                                    if (originalIndex >= 0) {
-                                        viewModel.playFromPlaylist(playlistId, songs, originalIndex)
-                                    }
+                                    viewModel.playFromPlaylist(playlistId, sortedAndFilteredSongs, index)
                                 },
                                 onRemove = {
                                     playlistViewModel.removeSongFromPlaylist(playlistId, song.id)
