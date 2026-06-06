@@ -65,7 +65,7 @@ fun AudioNavigationHost(
             )
         }
         composable("now_playing") {
-            NowPlayingScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+            com.local.offlinemediaplayer.ui.adaptive.AdaptiveNowPlayingScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable("playlist_detail/{playlistId}") { backStackEntry ->
             val playlistId = backStackEntry.arguments?.getString("playlistId") ?: return@composable

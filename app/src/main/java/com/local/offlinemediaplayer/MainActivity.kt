@@ -9,12 +9,24 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowWidthSizeClass
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
 import com.local.offlinemediaplayer.ui.MainScreen
+import com.local.offlinemediaplayer.ui.adaptive.AppWidthClass
+import com.local.offlinemediaplayer.ui.adaptive.DevicePosture
+import com.local.offlinemediaplayer.ui.adaptive.toAppWidthClass
+import com.local.offlinemediaplayer.ui.adaptive.toDevicePosture
 import com.local.offlinemediaplayer.ui.theme.OfflineMediaPlayerTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -31,10 +43,34 @@ class MainActivity : ComponentActivity() {
             val currentThemeConfig by themeViewModel.currentTheme.collectAsStateWithLifecycle()
             val isDarkTheme by themeViewModel.isDarkTheme.collectAsStateWithLifecycle()
 
+            val context = LocalContext.current
+            val windowInfoTracker = remember(context) { WindowInfoTracker.getOrCreate(context) }
+            val devicePosture by produceState<DevicePosture>(initialValue = DevicePosture.Normal) {
+                windowInfoTracker.windowLayoutInfo(context)
+                    .map { layoutInfo ->
+                        val foldingFeature = layoutInfo.displayFeatures
+                            .filterIsInstance<FoldingFeature>()
+                            .firstOrNull()
+                        foldingFeature?.toDevicePosture() ?: DevicePosture.Normal
+                    }
+                    .catch { emit(DevicePosture.Normal) }
+                    .collect { value = it }
+            }
+
+            // Using Material3 Adaptive for WindowSizeClass
+            val appWidthClass = androidx.compose.material3.adaptive.currentWindowAdaptiveInfo()
+                .windowSizeClass.windowWidthSizeClass.toAppWidthClass()
+
             OfflineMediaPlayerTheme(
                     currentThemeConfig = currentThemeConfig,
                     darkTheme = isDarkTheme
-            ) { MainScreen(viewModel = viewModel) }
+            ) { 
+                MainScreen(
+                    viewModel = viewModel,
+                    widthClass = appWidthClass,
+                    devicePosture = devicePosture
+                )
+            }
         }
 
         viewModel.handleIntent(intent)

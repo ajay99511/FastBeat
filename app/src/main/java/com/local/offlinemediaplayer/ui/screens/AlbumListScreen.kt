@@ -312,8 +312,9 @@ fun AlbumListScreen(
                     }
                 }
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
+            LazyVerticalGrid(
+                    columns = GridCells.Fixed(com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(widthClass)),
                     contentPadding = PaddingValues(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),

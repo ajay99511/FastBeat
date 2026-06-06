@@ -144,9 +144,10 @@ fun ImageListScreen(
                         }
                     }
                 } else {
+                    val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 100.dp),
-                        contentPadding = PaddingValues(3.dp),
+                            columns = GridCells.Adaptive(minSize = com.local.offlinemediaplayer.ui.adaptive.adaptiveImageCellSize(widthClass)),
+                            contentPadding = PaddingValues(bottom = 80.dp),
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                         verticalArrangement = Arrangement.spacedBy(3.dp),
                         modifier = Modifier.fillMaxSize()

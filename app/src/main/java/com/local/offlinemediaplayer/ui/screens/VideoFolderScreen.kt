@@ -210,8 +210,9 @@ fun VideoFolderScreen(
                             }
                         } else {
                             if (isGridView) {
+                                val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
                                 LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
+                                columns = GridCells.Fixed(com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(widthClass)),
                                         contentPadding = PaddingValues(16.dp),
                                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                                         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -396,8 +397,9 @@ private fun MoviesListContent(
         } else {
             val primaryAccent = LocalAppTheme.current.primaryColor
             if (isGridView) {
+                val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
                 LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(widthClass)),
                         contentPadding = PaddingValues(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),

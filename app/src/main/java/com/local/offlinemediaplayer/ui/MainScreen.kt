@@ -58,8 +58,24 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 // import androidx.compose.ui.Alignment
 // import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+import androidx.compose.runtime.CompositionLocalProvider
+import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMainLayout
+import com.local.offlinemediaplayer.ui.adaptive.AppWidthClass
+import com.local.offlinemediaplayer.ui.adaptive.DevicePosture
+import com.local.offlinemediaplayer.ui.adaptive.LocalDevicePosture
+import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
+import com.local.offlinemediaplayer.ui.adaptive.navigationComponentFor
+import com.local.offlinemediaplayer.ui.adaptive.NavigationComponentType
+import com.local.offlinemediaplayer.ui.adaptive.TwoPaneVideoNavigationHost
+import com.local.offlinemediaplayer.ui.adaptive.showFastBeatHeader
+import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMeScreen
+
 @Composable
-fun MainScreen(viewModel: PlaybackViewModel = hiltViewModel()) {
+fun MainScreen(
+    viewModel: PlaybackViewModel = hiltViewModel(),
+    widthClass: AppWidthClass = AppWidthClass.Compact,
+    devicePosture: DevicePosture = DevicePosture.Normal
+) {
     val context = LocalContext.current
 
     // Define permissions based on Android version
@@ -119,7 +135,12 @@ fun MainScreen(viewModel: PlaybackViewModel = hiltViewModel()) {
     // Main content or permission request UI
     when {
         permissionsGranted -> {
-            MediaPlayerAppContent(viewModel)
+            CompositionLocalProvider(
+                LocalWindowSizeClass provides widthClass,
+                LocalDevicePosture provides devicePosture
+            ) {
+                MediaPlayerAppContent(viewModel)
+            }
         }
         shouldShowRationale -> {
             PermissionRationaleScreen(
@@ -190,195 +211,14 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
     // Theme Color
     val themeColor = LocalAppTheme.current.primaryColor
 
-    // Show Header Logic - don't show when full screen video
-    val showHeader =
-            !isVideoPlayingFullscreen &&
-                    ((selectedTab == 0 && isVideoRoot) || // Videos (Folders only)
-                    (selectedTab == 1 && !isAudioDetailScreen) || // Audio (Library only)
-                            selectedTab == 2 || // Images (Always)
-                            selectedTab == 3 // Stats (Always)
-                    )
+    val widthClass = LocalWindowSizeClass.current
+    val navComponent = navigationComponentFor(widthClass, isVideoPlayingFullscreen)
+    val hasAdaptiveNav = navComponent == NavigationComponentType.Rail || navComponent == NavigationComponentType.Drawer
+    val isHeaderVisibleCond = !isVideoPlayingFullscreen &&
+            ((selectedTab == 0 && isVideoRoot) || (selectedTab == 1 && !isAudioDetailScreen) || selectedTab == 2 || selectedTab == 3)
+    val showHeader = showFastBeatHeader(widthClass, hasAdaptiveNav, isHeaderVisibleCond)
 
-    Scaffold(
-            // Custom Top Bar
-            topBar = {
-                if (showHeader) {
-                    // Crossfade animation for headers to match tab switch
-                    AnimatedContent(
-                            targetState = selectedTab,
-                            transitionSpec = {
-                                fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                            },
-                            label = "HeaderTransition"
-                    ) { targetTab ->
-                        val sectionTitle =
-                                when (targetTab) {
-                                    0 -> "Videos"
-                                    1 -> "Music"
-                                    2 -> "Gallery"
-                                    3 -> "Stats"
-                                    else -> "App"
-                                }
-                        FastBeatHeader(
-                                sectionTitle = sectionTitle,
-                                themeColor = themeColor,
-                                onSearchClick = { isSearchVisible = !isSearchVisible }
-                        )
-                    }
-                }
-            },
-            bottomBar = {
-                if (!isVideoPlayingFullscreen) {
-                    // FastBeat Custom Navigation Bar
-                    val navContainerColor = MaterialTheme.colorScheme.background
-                    val primaryColor = LocalAppTheme.current.primaryColor
-                    val activeIndicatorColor = primaryColor.copy(alpha = 0.15f)
-                    val activeIconColor = primaryColor
-                    val inactiveIconColor =
-                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-
-                    Column {
-                        HorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-                        NavigationBar(
-                                containerColor = navContainerColor,
-                                contentColor = MaterialTheme.colorScheme.onBackground,
-                                tonalElevation = 0.dp
-                        ) {
-                        // 0. Videos
-                        NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                            if (selectedTab == 0) Icons.Filled.PlayArrow
-                                            else Icons.Outlined.PlayArrow,
-                                            "Videos"
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                            "Videos",
-                                            fontWeight =
-                                                    if (selectedTab == 0) FontWeight.Bold
-                                                    else FontWeight.Normal
-                                    )
-                                },
-                                selected = selectedTab == 0,
-                                onClick = {
-                                    selectedTab = 0
-                                    showAccessibilityGuide = false
-                                },
-                                colors =
-                                        NavigationBarItemDefaults.colors(
-                                                selectedIconColor = activeIconColor,
-                                                selectedTextColor = activeIconColor,
-                                                indicatorColor = activeIndicatorColor,
-                                                unselectedIconColor = inactiveIconColor,
-                                                unselectedTextColor = inactiveIconColor
-                                        )
-                        )
-
-                        // 1. Music
-                        NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                            if (selectedTab == 1) Icons.Filled.MusicNote
-                                            else Icons.Outlined.MusicNote,
-                                            "Music"
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                            "Music",
-                                            fontWeight =
-                                                    if (selectedTab == 1) FontWeight.Bold
-                                                    else FontWeight.Normal
-                                    )
-                                },
-                                selected = selectedTab == 1,
-                                onClick = {
-                                    selectedTab = 1
-                                    showAccessibilityGuide = false
-                                },
-                                colors =
-                                        NavigationBarItemDefaults.colors(
-                                                selectedIconColor = activeIconColor,
-                                                selectedTextColor = activeIconColor,
-                                                indicatorColor = activeIndicatorColor,
-                                                unselectedIconColor = inactiveIconColor,
-                                                unselectedTextColor = inactiveIconColor
-                                        )
-                        )
-
-                        // 2. Images
-                        NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                            if (selectedTab == 2) Icons.Filled.Image
-                                            else Icons.Outlined.Image,
-                                            "Images"
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                            "Images",
-                                            fontWeight =
-                                                    if (selectedTab == 2) FontWeight.Bold
-                                                    else FontWeight.Normal
-                                    )
-                                },
-                                selected = selectedTab == 2,
-                                onClick = {
-                                    selectedTab = 2
-                                    showAccessibilityGuide = false
-                                },
-                                colors =
-                                        NavigationBarItemDefaults.colors(
-                                                selectedIconColor = activeIconColor,
-                                                selectedTextColor = activeIconColor,
-                                                indicatorColor = activeIndicatorColor,
-                                                unselectedIconColor = inactiveIconColor,
-                                                unselectedTextColor = inactiveIconColor
-                                        )
-                        )
-
-                        // 3. Stats
-                        NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                            if (selectedTab == 3) Icons.Filled.Analytics
-                                            else Icons.Outlined.Analytics,
-                                            "Stats"
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                            "Stats",
-                                            fontWeight =
-                                                    if (selectedTab == 3) FontWeight.Bold
-                                                    else FontWeight.Normal
-                                    )
-                                },
-                                selected = selectedTab == 3,
-                                onClick = {
-                                    selectedTab = 3
-                                    showAccessibilityGuide = false
-                                },
-                                colors =
-                                        NavigationBarItemDefaults.colors(
-                                                selectedIconColor = activeIconColor,
-                                                selectedTextColor = activeIconColor,
-                                                indicatorColor = activeIndicatorColor,
-                                                unselectedIconColor = inactiveIconColor,
-                                                unselectedTextColor = inactiveIconColor
-                                        )
-                        )
-                    }
-                    }
-                }
-            }
-    ) { padding ->
+    val mainContent = @Composable { padding: androidx.compose.foundation.layout.PaddingValues ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             // Animate transition between Main Content and Fullscreen Video Player
             AnimatedContent(
@@ -414,7 +254,17 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                             label = "TabTransition"
                     ) { targetTab ->
                         when (targetTab) {
-                            0 ->
+                            0 -> {
+                                if (widthClass == AppWidthClass.Expanded) {
+                                    TwoPaneVideoNavigationHost(
+                                        viewModel = viewModel,
+                                        libraryViewModel = hiltViewModel(),
+                                        onVideoClick = { file, list ->
+                                            viewModel.playVideoFromList(file, list)
+                                        },
+                                        isSearchVisible = isSearchVisible
+                                    )
+                                } else {
                                     VideoNavigationHost(
                                             viewModel = viewModel,
                                             navController = videoNavController,
@@ -423,6 +273,8 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                                             },
                                             isSearchVisible = isSearchVisible // Pass visibility
                                     )
+                                }
+                            }
                             1 ->
                                     AudioNavigationHost(
                                             viewModel = viewModel,
@@ -435,7 +287,7 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                                             isSearchVisible = isSearchVisible // Pass visibility
                                     )
                             3 ->
-                                    MeScreen(
+                                    AdaptiveMeScreen(
                                             viewModel = viewModel,
                                             onPlayMedia = { file ->
                                                 viewModel.playMedia(file)
@@ -451,6 +303,228 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (widthClass == AppWidthClass.Compact) {
+        Scaffold(
+                // Custom Top Bar
+                topBar = {
+                    if (showHeader) {
+                        // Crossfade animation for headers to match tab switch
+                        AnimatedContent(
+                                targetState = selectedTab,
+                                transitionSpec = {
+                                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                                },
+                                label = "HeaderTransition"
+                        ) { targetTab ->
+                            val sectionTitle =
+                                    when (targetTab) {
+                                        0 -> "Videos"
+                                        1 -> "Music"
+                                        2 -> "Gallery"
+                                        3 -> "Stats"
+                                        else -> "App"
+                                    }
+                            FastBeatHeader(
+                                    sectionTitle = sectionTitle,
+                                    themeColor = themeColor,
+                                    onSearchClick = { isSearchVisible = !isSearchVisible }
+                            )
+                        }
+                    }
+                },
+                bottomBar = {
+                    if (!isVideoPlayingFullscreen) {
+                        // FastBeat Custom Navigation Bar
+                        val navContainerColor = MaterialTheme.colorScheme.background
+                        val primaryColor = LocalAppTheme.current.primaryColor
+                        val activeIndicatorColor = primaryColor.copy(alpha = 0.15f)
+                        val activeIconColor = primaryColor
+                        val inactiveIconColor =
+                                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+
+                        Column {
+                            HorizontalDivider(
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                            NavigationBar(
+                                    containerColor = navContainerColor,
+                                    contentColor = MaterialTheme.colorScheme.onBackground,
+                                    tonalElevation = 0.dp
+                            ) {
+                            // 0. Videos
+                            NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                                if (selectedTab == 0) Icons.Filled.PlayArrow
+                                                else Icons.Outlined.PlayArrow,
+                                                "Videos"
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                                "Videos",
+                                                fontWeight =
+                                                        if (selectedTab == 0) FontWeight.Bold
+                                                        else FontWeight.Normal
+                                        )
+                                    },
+                                    selected = selectedTab == 0,
+                                    onClick = {
+                                        selectedTab = 0
+                                        showAccessibilityGuide = false
+                                    },
+                                    colors =
+                                            NavigationBarItemDefaults.colors(
+                                                    selectedIconColor = activeIconColor,
+                                                    selectedTextColor = activeIconColor,
+                                                    indicatorColor = activeIndicatorColor,
+                                                    unselectedIconColor = inactiveIconColor,
+                                                    unselectedTextColor = inactiveIconColor
+                                            )
+                            )
+
+                            // 1. Music
+                            NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                                if (selectedTab == 1) Icons.Filled.MusicNote
+                                                else Icons.Outlined.MusicNote,
+                                                "Music"
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                                "Music",
+                                                fontWeight =
+                                                        if (selectedTab == 1) FontWeight.Bold
+                                                        else FontWeight.Normal
+                                        )
+                                    },
+                                    selected = selectedTab == 1,
+                                    onClick = {
+                                        selectedTab = 1
+                                        showAccessibilityGuide = false
+                                    },
+                                    colors =
+                                            NavigationBarItemDefaults.colors(
+                                                    selectedIconColor = activeIconColor,
+                                                    selectedTextColor = activeIconColor,
+                                                    indicatorColor = activeIndicatorColor,
+                                                    unselectedIconColor = inactiveIconColor,
+                                                    unselectedTextColor = inactiveIconColor
+                                            )
+                            )
+
+                            // 2. Images
+                            NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                                if (selectedTab == 2) Icons.Filled.Image
+                                                else Icons.Outlined.Image,
+                                                "Images"
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                                "Images",
+                                                fontWeight =
+                                                        if (selectedTab == 2) FontWeight.Bold
+                                                        else FontWeight.Normal
+                                        )
+                                    },
+                                    selected = selectedTab == 2,
+                                    onClick = {
+                                        selectedTab = 2
+                                        showAccessibilityGuide = false
+                                    },
+                                    colors =
+                                            NavigationBarItemDefaults.colors(
+                                                    selectedIconColor = activeIconColor,
+                                                    selectedTextColor = activeIconColor,
+                                                    indicatorColor = activeIndicatorColor,
+                                                    unselectedIconColor = inactiveIconColor,
+                                                    unselectedTextColor = inactiveIconColor
+                                            )
+                            )
+
+                            // 3. Stats
+                            NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                                if (selectedTab == 3) Icons.Filled.Analytics
+                                                else Icons.Outlined.Analytics,
+                                                "Stats"
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                                "Stats",
+                                                fontWeight =
+                                                        if (selectedTab == 3) FontWeight.Bold
+                                                        else FontWeight.Normal
+                                        )
+                                    },
+                                    selected = selectedTab == 3,
+                                    onClick = {
+                                        selectedTab = 3
+                                        showAccessibilityGuide = false
+                                    },
+                                    colors =
+                                            NavigationBarItemDefaults.colors(
+                                                    selectedIconColor = activeIconColor,
+                                                    selectedTextColor = activeIconColor,
+                                                    indicatorColor = activeIndicatorColor,
+                                                    unselectedIconColor = inactiveIconColor,
+                                                    unselectedTextColor = inactiveIconColor
+                                            )
+                            )
+                        }
+                        }
+                    }
+                }
+        ) { padding ->
+            mainContent(padding)
+        }
+    } else {
+        AdaptiveMainLayout(
+            widthClass = widthClass,
+            selectedTab = selectedTab,
+            onTabSelected = { 
+                selectedTab = it
+                showAccessibilityGuide = false
+            },
+            isVideoPlayingFullscreen = isVideoPlayingFullscreen
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (showHeader) {
+                    AnimatedContent(
+                            targetState = selectedTab,
+                            transitionSpec = {
+                                fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                            },
+                            label = "HeaderTransition"
+                    ) { targetTab ->
+                        val sectionTitle =
+                                when (targetTab) {
+                                    0 -> "Videos"
+                                    1 -> "Music"
+                                    2 -> "Gallery"
+                                    3 -> "Stats"
+                                    else -> "App"
+                                }
+                        FastBeatHeader(
+                                sectionTitle = sectionTitle,
+                                themeColor = themeColor,
+                                onSearchClick = { isSearchVisible = !isSearchVisible }
+                        )
+                    }
+                }
+                mainContent(androidx.compose.foundation.layout.PaddingValues(0.dp))
             }
         }
     }
