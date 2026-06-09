@@ -88,6 +88,13 @@ fun AudioListScreen(
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Dialog State
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -193,7 +200,7 @@ fun AudioListScreen(
                             Button(
                                 onClick = {
                                     if (audioList.isNotEmpty()) {
-                                        viewModel.playAll(shuffle = true)
+                                        viewModel.playAll(audioList, shuffle = true)
                                     }
                                 },
                                 modifier = Modifier

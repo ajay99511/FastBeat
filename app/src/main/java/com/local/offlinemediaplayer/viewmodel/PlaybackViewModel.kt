@@ -244,6 +244,9 @@ constructor(
     private val _navigateToPlayer = MutableStateFlow(false)
     val navigateToPlayer = _navigateToPlayer.asStateFlow()
 
+    private val _userMessage = MutableSharedFlow<String>()
+    val userMessage = _userMessage.asSharedFlow()
+
     fun handleIntent(intent: android.content.Intent?) {
         if (intent?.getBooleanExtra("open_player", false) == true) {
             _navigateToPlayer.value = true
@@ -1137,13 +1140,12 @@ constructor(
         }
     }
 
-    fun playAll(shuffle: Boolean) {
+    fun playAll(list: List<MediaFile> = audioList.value, shuffle: Boolean) {
         _currentPlaylistContext.value = null
         persistPlaylistContext(null)
-        val currentList = audioList.value
-        if (currentList.isNotEmpty()) {
+        if (list.isNotEmpty()) {
             val startIndex = 0
-            setQueue(currentList, startIndex, shuffle)
+            setQueue(list, startIndex, shuffle)
         }
     }
 
@@ -1154,15 +1156,15 @@ constructor(
             shuffle: Boolean = false,
             startPosition: Long = 0L
     ) {
-        // Update Local State immediately for UI responsiveness
-        _currentQueue.value = mediaList
-        _isShuffleEnabled.value = shuffle
-
         // Launch in background to avoid blocking Main Thread during conversion of large playlists
         viewModelScope.launch(Dispatchers.IO) {
             val mediaItems = mediaList.map { it.toMediaItem() }
 
             withContext(Dispatchers.Main) {
+                // Update Local State synchronously with MediaController to prevent UI flicker
+                _currentQueue.value = mediaList
+                _isShuffleEnabled.value = shuffle
+
                 _player.value?.let { controller ->
                     controller.setMediaItems(mediaItems, startIndex, startPosition)
                     controller.shuffleModeEnabled = shuffle
@@ -1171,7 +1173,7 @@ constructor(
                 }
 
                 // Update display queue only after controller is set up
-                _displayQueue.value = _currentQueue.value
+                updateDisplayQueue()
             }
 
             // Persist
@@ -1220,9 +1222,34 @@ constructor(
      * Media3's shuffle timeline.
      */
     private fun updateDisplayQueue() {
-        // SIMPLIFIED: Always show the original queue order.
-        // Shuffle just jumps around this static list.
-        _displayQueue.value = _currentQueue.value
+        val controller = _player.value
+        if (controller == null || _currentQueue.value.isEmpty()) {
+            _displayQueue.value = _currentQueue.value
+            return
+        }
+
+        if (_isShuffleEnabled.value && controller.shuffleModeEnabled) {
+            val timeline = controller.currentTimeline
+            if (timeline.isEmpty) {
+                _displayQueue.value = _currentQueue.value
+                return
+            }
+            
+            val shuffledQueue = mutableListOf<MediaFile>()
+            val mediaIdToMediaFile = _currentQueue.value.associateBy { it.id.toString() }
+            val window = androidx.media3.common.Timeline.Window()
+            
+            var windowIndex = timeline.getFirstWindowIndex(controller.shuffleModeEnabled)
+            while (windowIndex != androidx.media3.common.C.INDEX_UNSET) {
+                timeline.getWindow(windowIndex, window)
+                val mediaId = window.mediaItem.mediaId
+                mediaIdToMediaFile[mediaId]?.let { shuffledQueue.add(it) }
+                windowIndex = timeline.getNextWindowIndex(windowIndex, Player.REPEAT_MODE_OFF, controller.shuffleModeEnabled)
+            }
+            _displayQueue.value = shuffledQueue
+        } else {
+            _displayQueue.value = _currentQueue.value
+        }
     }
 
     /**
@@ -1565,53 +1592,20 @@ constructor(
                 // CASE 1: Currently Playing -> Ignore
                 if (existingIndex == currentIdx) return
 
-                // CASE 2: In Upcoming List (Index > Current) -> Ignore
-                // User requirement: "make sure the song added only once if it is not in the
-                // upcoming list"
-                // Meaning: If it IS in upcoming, don't change anything.
-                if (existingIndex > currentIdx) return
-
-                // CASE 3: In History (Index < Current) -> Move to Next
-                // User requirement: "playnext for the song already played should move it"
-
-                // Remove from history
+                // Remove from history or upcoming
                 queue.removeAt(existingIndex)
                 controller.removeMediaItem(existingIndex)
 
-                // New insertion point is currentIdx (since everything shifted up by 1)
-                // Wait, if we remove at 0, current was 5 -> current becomes 4.
-                // We want to insert at current + 1.
-                // But `controller` handles index shifts automatically for `currentMediaItemIndex`?
-                // Actually, if we remove before current, current index changes?
-                // ExoPlayer: removing item before current DECREMENTS current index.
-                // Our local `currentIdx` is a snapshot.
+                // Calculate insertion index
+                // If existingIndex < currentIdx, the current item shifted up by 1, so new current is currentIdx - 1.
+                // Inserting at currentIdx places it exactly at newCurrent + 1.
+                // If existingIndex > currentIdx, the current item didn't shift.
+                // Inserting at currentIdx + 1 places it exactly at current + 1.
+                val insertIndex = if (existingIndex < currentIdx) currentIdx else currentIdx + 1
 
-                // Let's use the controller's state after removal? No, async.
-                // Logic:
-                // Old Current: 5. Remove 2. New Current: 4.
-                // We want to insert at New Current + 1 = 5.
-                // So insert index = Current Index (old) ??
-
-                // Let's do it safely:
-                // If existing < current:
-                // Remove existing.
-                // Insert at currentIdx (which was old currentIdx, but now represents the slot AFTER
-                // the *new* current).
-                // Example: [0, 1, 2(existing), 3, 4, 5(current), 6].
-                // Remove 2 -> [0, 1, 3, 4, 5(current), 6]. (Indices shifted).
-                // Old Current was 5. New Current is 4.
-                // We want to insert at 5 (after 4).
-                // So insert at `currentIdx`.
-
-                val insertIndex = currentIdx
                 queue.add(insertIndex, media)
                 _currentQueue.value = queue
                 controller.addMediaItem(insertIndex, media.toMediaItem())
-
-                // Update current index locally to match reality (decremented by 1)
-                // _currentIndex.value = currentIdx - 1
-                // BUT ExoPlayer listener will update _currentIndex automatically!
-                // We should trust the listener.
             } else {
                 // CASE 4: New Song -> Add Next
                 // Simply insert at current + 1
@@ -1622,8 +1616,17 @@ constructor(
             }
 
             // Update UI
-            _displayQueue.value = _currentQueue.value
+            updateDisplayQueue()
             persistQueue(queue)
+            
+            // Provide Feedback
+            viewModelScope.launch {
+                if (controller.shuffleModeEnabled) {
+                    _userMessage.emit("Added to queue. Shuffle may affect play order.")
+                } else {
+                    _userMessage.emit("Will play next")
+                }
+            }
         } else {
             playMedia(media)
         }
@@ -1641,11 +1644,6 @@ constructor(
                 // CASE 1: Currently Playing -> Ignore
                 if (existingIndex == currentIdx) return
 
-                // CASE 2: In Upcoming List (Index > Current) -> Ignore
-                if (existingIndex > currentIdx) return
-
-                // CASE 3: In History (Index < Current) -> Move to End
-                // User requirement: "similarly for the add to queue as well" (move if played)
                 queue.removeAt(existingIndex)
                 controller.removeMediaItem(existingIndex)
 
@@ -1661,8 +1659,12 @@ constructor(
             }
 
             // Update UI
-            _displayQueue.value = _currentQueue.value
+            updateDisplayQueue()
             persistQueue(queue)
+            
+            viewModelScope.launch {
+                _userMessage.emit("Added to queue")
+            }
         } else {
             playMedia(media)
         }
