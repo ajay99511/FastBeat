@@ -319,6 +319,40 @@ constructor(
             playlistRepository.migrateLegacyData()
             playlistRepository.ensureDefaultPlaylists()
         }
+
+        // Sync queue with library deletions in real-time
+        viewModelScope.launch {
+            audioList.collect { allAudio ->
+                val currentQueueList = _currentQueue.value
+                if (currentQueueList.isEmpty()) return@collect
+
+                val allIds = allAudio.map { it.id }.toSet()
+                val updatedQueue = currentQueueList.filter { it.id in allIds }
+
+                if (updatedQueue.size != currentQueueList.size) {
+                    _currentQueue.value = updatedQueue
+                    _displayQueue.value = updatedQueue
+
+                    withContext(Dispatchers.Main) {
+                        _player.value?.let { controller ->
+                            val itemsToRemove = mutableListOf<Int>()
+                            for (i in 0 until controller.mediaItemCount) {
+                                val mId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
+                                if (mId != null && mId !in allIds) {
+                                    itemsToRemove.add(i)
+                                }
+                            }
+                            if (itemsToRemove.isNotEmpty()) {
+                                itemsToRemove.reversed().forEach { idx ->
+                                    controller.removeMediaItem(idx)
+                                }
+                                updateCurrentTrackFromPlayer(controller)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // --- Image Deletion ---
@@ -381,44 +415,37 @@ constructor(
     fun onCurrentTrackDeleteSuccess() {
         val id = _pendingDeleteTrackId.value ?: return
         viewModelScope.launch {
-            // Note: LibraryViewModel handles actual audio list cleanup now.
-            val currentPlaylists = playlists.value
-            currentPlaylists.forEach { pl ->
-                if (pl.mediaIds.contains(id)) {
-                    playlistRepository.updatePlaylistTracks(
-                            pl.id,
-                            pl.mediaIds.filter { it != id }
-                    )
-                }
-            }
+            // 1. Sync with MediaRepository and clean up database tables (playlists, history, etc.)
+            mediaRepository.removeMediaIds(listOf(id))
+            playlistRepository.cleanupDeletedMedia(listOf(id))
 
-            // Handle queue: if deleted track is in queue, move to next or stop
-            val queue = _currentQueue.value
-            val currentIndex = _currentIndex.value ?: -1
+            // 2. Handle queue: remove the deleted track while keeping the rest of the queue intact
+            val queue = _currentQueue.value.toMutableList()
             val deletedIndex = queue.indexOfFirst { it.id == id }
 
             if (deletedIndex >= 0) {
-                // Determine next track to play
-                val nextIndex = if (deletedIndex < queue.size - 1) deletedIndex + 1 else deletedIndex - 1
+                // Update local state and persistence
+                queue.removeAt(deletedIndex)
+                _currentQueue.value = queue
+                _displayQueue.value = queue
+                persistQueue(queue)
 
-                if (nextIndex >= 0 && nextIndex < queue.size) {
-                    // Play next track
-                    val nextTrack = queue[nextIndex]
-                    withContext(Dispatchers.Main) {
-                        player.value?.let { p ->
-                            val mediaItem = MediaItem.fromUri(nextTrack.uri)
-                            p.setMediaItem(mediaItem, 0)
-                            p.prepare()
-                            p.play()
+                withContext(Dispatchers.Main) {
+                    _player.value?.let { controller ->
+                        if (deletedIndex < controller.mediaItemCount) {
+                            // Safe removal: ExoPlayer handles transition to next track automatically
+                            controller.removeMediaItem(deletedIndex)
                         }
-                    }
-                } else {
-                    // No more tracks, stop playback
-                    withContext(Dispatchers.Main) {
-                        player.value?.stop()
-                        player.value?.clearMediaItems()
-                        _currentTrack.value = null
-                        _isPlaying.value = false
+
+                        // Handle empty queue case
+                        if (controller.mediaItemCount == 0) {
+                            _currentTrack.value = null
+                            _isPlaying.value = false
+                            _currentIndex.value = null
+                        } else {
+                            // Sync UI state for track/index shifts
+                            updateCurrentTrackFromPlayer(controller)
+                        }
                     }
                 }
             }

@@ -259,10 +259,7 @@ class LibraryViewModel @Inject constructor(
     private fun onDeleteSuccess(ids: List<Long>) {
         viewModelScope.launch {
             mediaRepository.removeMediaIds(ids)
-            // Note: need to read playlist flows with firstOrNull outside but simple approach:
-            // Since repo handles media lists, just sync playlists
-            // We can emit a broadcast or call into repo?
-            // Easy way: let PlaylistRepo update.
+            playlistRepository.cleanupDeletedMedia(ids)
             _selectedMediaIds.value = emptySet()
             _isSelectionMode.value = false
         }
@@ -301,6 +298,7 @@ class LibraryViewModel @Inject constructor(
         val songIds = audioList.value.filter { albumIds.contains(it.albumId) }.map { it.id }
         viewModelScope.launch {
             mediaRepository.removeMediaIds(songIds)
+            playlistRepository.cleanupDeletedMedia(songIds)
             _selectedAlbumIds.value = emptySet()
             _isAlbumSelectionMode.value = false
         }
@@ -331,7 +329,10 @@ class LibraryViewModel @Inject constructor(
 
     fun onImageDeleteSuccess() {
         val id = _pendingImageDeleteId.value ?: return
-        mediaRepository.removeMediaIds(listOf(id))
-        _pendingImageDeleteId.value = null
+        viewModelScope.launch {
+            mediaRepository.removeMediaIds(listOf(id))
+            playlistRepository.cleanupDeletedMedia(listOf(id))
+            _pendingImageDeleteId.value = null
+        }
     }
 }

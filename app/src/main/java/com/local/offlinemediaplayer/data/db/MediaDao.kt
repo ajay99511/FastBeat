@@ -145,4 +145,22 @@ interface MediaDao {
         clearPlaylistMedia(playlistId)
         insertPlaylistMediaBatch(refs)
     }
+
+    @Query("DELETE FROM playlist_media_cross_ref WHERE mediaId IN (:mediaIds)")
+    suspend fun removeMediaFromAllPlaylists(mediaIds: List<Long>)
+
+    @Query("DELETE FROM current_queue WHERE mediaId IN (:mediaIds)")
+    suspend fun removeMediaFromQueue(mediaIds: List<Long>)
+
+    @Query("DELETE FROM media_analytics WHERE mediaId IN (:mediaIds)")
+    suspend fun deleteAnalytics(mediaIds: List<Long>)
+
+    @Query("DELETE FROM playback_history WHERE mediaId IN (:mediaIds)")
+    suspend fun deleteHistory(mediaIds: List<Long>)
+
+    @Query("DELETE FROM bookmarks WHERE mediaId IN (:mediaIds)")
+    suspend fun deleteBookmarksForMedia(mediaIds: List<Long>)
+
+    @Query("DELETE FROM play_events WHERE mediaId IN (:mediaIds)")
+    suspend fun deletePlayEvents(mediaIds: List<Long>)
 }

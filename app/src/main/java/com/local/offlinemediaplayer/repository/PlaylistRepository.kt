@@ -149,6 +149,17 @@ class PlaylistRepository @Inject constructor(
         mediaDao.removeMediaFromPlaylist(playlistId, mediaId)
     }
 
+    suspend fun cleanupDeletedMedia(mediaIds: List<Long>) {
+        withContext(Dispatchers.IO) {
+            mediaDao.removeMediaFromAllPlaylists(mediaIds)
+            mediaDao.removeMediaFromQueue(mediaIds)
+            mediaDao.deleteAnalytics(mediaIds)
+            mediaDao.deleteHistory(mediaIds)
+            mediaDao.deleteBookmarksForMedia(mediaIds)
+            mediaDao.deletePlayEvents(mediaIds)
+        }
+    }
+
     suspend fun updatePlaylistTracks(playlistId: String, mediaIds: List<Long>) {
         val refs = mediaIds.mapIndexed { index, id ->
             PlaylistMediaCrossRef(
