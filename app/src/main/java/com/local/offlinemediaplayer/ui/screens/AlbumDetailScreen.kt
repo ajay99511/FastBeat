@@ -84,6 +84,7 @@ fun AlbumDetailScreen(
     var songsToAdd by remember { mutableStateOf<List<MediaFile>>(emptyList()) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
 
     // Intent Event Launcher for Deletion
     val context = LocalContext.current
@@ -299,13 +300,62 @@ fun AlbumDetailScreen(
                             }
 
                             // More Options
-                            IconButton(onClick = { /* TODO: More options */}) {
-                                Icon(
-                                        imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "More",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(28.dp)
-                                )
+                            Box {
+                                IconButton(onClick = { showMoreMenu = true }) {
+                                    Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = "More",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                DropdownMenu(
+                                        expanded = showMoreMenu,
+                                        onDismissRequest = { showMoreMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                            text = { Text("Shuffle All", color = MaterialTheme.colorScheme.onSurface) },
+                                            onClick = {
+                                                showMoreMenu = false
+                                                viewModel.playAlbum(album, true)
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                        Icons.Default.Shuffle,
+                                                        null,
+                                                        tint = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                    )
+                                    DropdownMenuItem(
+                                            text = { Text("Play Next", color = MaterialTheme.colorScheme.onSurface) },
+                                            onClick = {
+                                                showMoreMenu = false
+                                                viewModel.playNext(albumSongs)
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                        Icons.Default.PlayArrow,
+                                                        null,
+                                                        tint = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                    )
+                                    DropdownMenuItem(
+                                            text = { Text("Add to Queue", color = MaterialTheme.colorScheme.onSurface) },
+                                            onClick = {
+                                                showMoreMenu = false
+                                                viewModel.addToQueue(albumSongs)
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                        Icons.AutoMirrored.Filled.QueueMusic,
+                                                        null,
+                                                        tint = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                    )
+                                }
                             }
                         }
                     }

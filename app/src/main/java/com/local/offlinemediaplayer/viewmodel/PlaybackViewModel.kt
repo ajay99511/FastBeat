@@ -1091,11 +1091,9 @@ constructor(
         if (songs.isNotEmpty()) {
             _currentPlaylistContext.value = playlist.id
             persistPlaylistContext(playlist.id)
-            // When shuffling, start at index 0 so Media3's shuffle sequence begins from the start.
-            // Previously a random startIndex was used, which could land in the MIDDLE of Media3's
-            // internal shuffle order — causing only the remaining items in the sequence to play
-            // before stopping, instead of all songs.
-            val startIndex = 0
+            // Pick a random start index if shuffling to ensure the session starts uniquely.
+            // This avoids always starting with the first song when "Shuffle All" is clicked.
+            val startIndex = if (shuffle) songs.indices.random() else 0
             if (playlist.isVideo) {
                 _isPlayerLocked.value = false
                 _playbackSpeed.value = 1.0f
@@ -1111,7 +1109,7 @@ constructor(
         if (albumSongs.isNotEmpty()) {
             _currentPlaylistContext.value = "ALBUM_${album.id}"
             persistPlaylistContext("ALBUM_${album.id}")
-            val startIndex = 0
+            val startIndex = if (shuffle) albumSongs.indices.random() else 0
             setQueue(albumSongs, startIndex, shuffle)
         }
     }
@@ -1144,7 +1142,7 @@ constructor(
         _currentPlaylistContext.value = null
         persistPlaylistContext(null)
         if (list.isNotEmpty()) {
-            val startIndex = 0
+            val startIndex = if (shuffle) list.indices.random() else 0
             setQueue(list, startIndex, shuffle)
         }
     }
@@ -1216,39 +1214,59 @@ constructor(
         withContext(Dispatchers.Main) { persistQueueIndex(startIndex) }
     }
 
+    private var displayQueueUpdateJob: Job? = null
+
     /**
      * Updates the display queue to reflect the shuffled playback order. When shuffle is disabled,
      * displays the original queue order. When shuffle is enabled, builds the queue order based on
      * Media3's shuffle timeline.
+     * 
+     * OPTIMIZATION: Extracts timeline IDs on Main thread (for Media3 thread-safety), then offloads
+     * heavy mapping to a background thread to prevent UI jank.
      */
     private fun updateDisplayQueue() {
+        displayQueueUpdateJob?.cancel()
         val controller = _player.value
-        if (controller == null || _currentQueue.value.isEmpty()) {
-            _displayQueue.value = _currentQueue.value
+        val currentQueueSnapshot = _currentQueue.value
+
+        if (controller == null || currentQueueSnapshot.isEmpty()) {
+            _displayQueue.value = currentQueueSnapshot
             return
         }
 
-        if (_isShuffleEnabled.value && controller.shuffleModeEnabled) {
-            val timeline = controller.currentTimeline
-            if (timeline.isEmpty) {
-                _displayQueue.value = _currentQueue.value
-                return
+        val shuffleEnabled = _isShuffleEnabled.value && controller.shuffleModeEnabled
+
+        if (!shuffleEnabled) {
+            _displayQueue.value = currentQueueSnapshot
+            return
+        }
+
+        val timeline = controller.currentTimeline
+        if (timeline.isEmpty) {
+            _displayQueue.value = currentQueueSnapshot
+            return
+        }
+
+        // 1. SAFELY extract the shuffled sequence of media IDs on the Main thread.
+        // Media3 strictly enforces player state access on the application's main thread.
+        val shuffledMediaIds = mutableListOf<String>()
+        val window = androidx.media3.common.Timeline.Window()
+        
+        var windowIndex = timeline.getFirstWindowIndex(true)
+        while (windowIndex != androidx.media3.common.C.INDEX_UNSET) {
+            timeline.getWindow(windowIndex, window)
+            shuffledMediaIds.add(window.mediaItem.mediaId)
+            windowIndex = timeline.getNextWindowIndex(windowIndex, Player.REPEAT_MODE_OFF, true)
+        }
+
+        // 2. Offload the heavy object mapping to Default dispatcher
+        displayQueueUpdateJob = viewModelScope.launch(Dispatchers.Default) {
+            val mediaIdToMediaFile = currentQueueSnapshot.associateBy { it.id.toString() }
+            val shuffledQueue = shuffledMediaIds.mapNotNull { mediaIdToMediaFile[it] }
+
+            withContext(Dispatchers.Main) {
+                _displayQueue.value = shuffledQueue
             }
-            
-            val shuffledQueue = mutableListOf<MediaFile>()
-            val mediaIdToMediaFile = _currentQueue.value.associateBy { it.id.toString() }
-            val window = androidx.media3.common.Timeline.Window()
-            
-            var windowIndex = timeline.getFirstWindowIndex(controller.shuffleModeEnabled)
-            while (windowIndex != androidx.media3.common.C.INDEX_UNSET) {
-                timeline.getWindow(windowIndex, window)
-                val mediaId = window.mediaItem.mediaId
-                mediaIdToMediaFile[mediaId]?.let { shuffledQueue.add(it) }
-                windowIndex = timeline.getNextWindowIndex(windowIndex, Player.REPEAT_MODE_OFF, controller.shuffleModeEnabled)
-            }
-            _displayQueue.value = shuffledQueue
-        } else {
-            _displayQueue.value = _currentQueue.value
         }
     }
 
@@ -1667,6 +1685,101 @@ constructor(
             }
         } else {
             playMedia(media)
+        }
+    }
+
+    /**
+     * Adds a list of songs to play immediately after the current track.
+     * Moves existing instances to the new position if they are already in the queue.
+     */
+    fun playNext(songs: List<MediaFile>) {
+        val controller = _player.value
+        val queue = _currentQueue.value.toMutableList()
+        val currentIdx = _currentIndex.value ?: -1
+
+        if (controller != null && queue.isNotEmpty() && currentIdx >= 0) {
+            val currentTrackId = _currentTrack.value?.id
+            val itemsToAdd = songs.filter { it.id != currentTrackId }
+
+            if (itemsToAdd.isNotEmpty()) {
+                val idsToAdd = itemsToAdd.map { it.id }.toSet()
+
+                // Remove existing instances from controller (reverse order to keep indices stable)
+                for (i in controller.mediaItemCount - 1 downTo 0) {
+                    if (i == currentIdx) continue
+                    val mediaId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
+                    if (mediaId != null && mediaId in idsToAdd) {
+                        controller.removeMediaItem(i)
+                    }
+                }
+
+                // Remove from local queue
+                queue.removeAll { it.id in idsToAdd && it.id != currentTrackId }
+
+                // Recalculate current index and insert after it
+                val updatedCurrentIdx = queue.indexOfFirst { it.id == currentTrackId }.coerceAtLeast(0)
+                val insertIndex = updatedCurrentIdx + 1
+
+                queue.addAll(insertIndex, itemsToAdd)
+                _currentQueue.value = queue
+
+                val mediaItems = itemsToAdd.map { it.toMediaItem() }
+                controller.addMediaItems(insertIndex, mediaItems)
+
+                updateDisplayQueue()
+                persistQueue(queue)
+
+                viewModelScope.launch {
+                    _userMessage.emit("Added to play next")
+                }
+            }
+        } else {
+            playAll(songs, false)
+        }
+    }
+
+    /**
+     * Adds a list of songs to the end of the current queue.
+     * Moves existing instances to the end if they are already in the queue.
+     */
+    fun addToQueue(songs: List<MediaFile>) {
+        val controller = _player.value
+        val queue = _currentQueue.value.toMutableList()
+        val currentIdx = _currentIndex.value ?: -1
+
+        if (controller != null && queue.isNotEmpty()) {
+            val currentTrackId = _currentTrack.value?.id
+            val itemsToAdd = songs.filter { it.id != currentTrackId }
+
+            if (itemsToAdd.isNotEmpty()) {
+                val idsToAdd = itemsToAdd.map { it.id }.toSet()
+
+                // Remove existing instances
+                for (i in controller.mediaItemCount - 1 downTo 0) {
+                    if (i == currentIdx) continue
+                    val mediaId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
+                    if (mediaId != null && mediaId in idsToAdd) {
+                        controller.removeMediaItem(i)
+                    }
+                }
+                queue.removeAll { it.id in idsToAdd && it.id != currentTrackId }
+
+                // Add to end
+                queue.addAll(itemsToAdd)
+                _currentQueue.value = queue
+
+                val mediaItems = itemsToAdd.map { it.toMediaItem() }
+                controller.addMediaItems(mediaItems)
+
+                updateDisplayQueue()
+                persistQueue(queue)
+
+                viewModelScope.launch {
+                    _userMessage.emit("Added to queue")
+                }
+            }
+        } else {
+            playAll(songs, false)
         }
     }
 
