@@ -43,7 +43,7 @@ interface MediaDao {
     suspend fun getAnalyticsForIds(mediaIds: List<Long>): List<MediaAnalytics>
 
     @Query("SELECT mediaId FROM media_analytics ORDER BY playCount DESC LIMIT 1")
-    suspend fun getOverallFavoriteMediaId(): Long?
+    fun getOverallFavoriteMediaIdFlow(): Flow<Long?>
 
     // --- Advanced Analytics (New) ---
 
@@ -74,7 +74,7 @@ interface MediaDao {
 
     // Most played in range (Current Favorite)
     @Query("SELECT mediaId FROM play_events WHERE timestamp >= :sinceTimestamp GROUP BY mediaId ORDER BY COUNT(*) DESC LIMIT 1")
-    suspend fun getMostPlayedMediaIdSince(sinceTimestamp: Long): Long?
+    fun getMostPlayedMediaIdSinceFlow(sinceTimestamp: Long): Flow<Long?>
 
     // --- Playlists ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)

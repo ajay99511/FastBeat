@@ -626,11 +626,9 @@ constructor(
     private fun recordPlay(mediaId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
-            // Standard Analytics
+            // Record analytics in DB - AnalyticsViewModel will react to this automatically via Flow
             mediaDao.initAnalytics(mediaId, now)
             mediaDao.incrementPlayCount(mediaId, now)
-
-            // Log for "Recent Favorites"
             mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
         }
     }
