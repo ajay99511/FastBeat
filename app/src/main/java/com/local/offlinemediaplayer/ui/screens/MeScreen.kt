@@ -309,8 +309,7 @@ fun MeScreen(
                         primaryColor = theme.primaryColor,
                         onShuffle = { list ->
                                 if (list.isNotEmpty()) {
-                                        val randomIndex = list.indices.random()
-                                        viewModel.setQueue(list, randomIndex, true)
+                                        viewModel.setQueue(list, 0, true)
                                 }
                         }
                 )

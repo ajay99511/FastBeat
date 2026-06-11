@@ -1091,9 +1091,7 @@ constructor(
         if (songs.isNotEmpty()) {
             _currentPlaylistContext.value = playlist.id
             persistPlaylistContext(playlist.id)
-            // Pick a random start index if shuffling to ensure the session starts uniquely.
-            // This avoids always starting with the first song when "Shuffle All" is clicked.
-            val startIndex = if (shuffle) songs.indices.random() else 0
+            val startIndex = 0 // setQueue will handle the starting index if shuffle is enabled
             if (playlist.isVideo) {
                 _isPlayerLocked.value = false
                 _playbackSpeed.value = 1.0f
@@ -1109,7 +1107,7 @@ constructor(
         if (albumSongs.isNotEmpty()) {
             _currentPlaylistContext.value = "ALBUM_${album.id}"
             persistPlaylistContext("ALBUM_${album.id}")
-            val startIndex = if (shuffle) albumSongs.indices.random() else 0
+            val startIndex = 0
             setQueue(albumSongs, startIndex, shuffle)
         }
     }
@@ -1142,7 +1140,7 @@ constructor(
         _currentPlaylistContext.value = null
         persistPlaylistContext(null)
         if (list.isNotEmpty()) {
-            val startIndex = if (shuffle) list.indices.random() else 0
+            val startIndex = 0
             setQueue(list, startIndex, shuffle)
         }
     }
@@ -1164,8 +1162,20 @@ constructor(
                 _isShuffleEnabled.value = shuffle
 
                 _player.value?.let { controller ->
-                    controller.setMediaItems(mediaItems, startIndex, startPosition)
+                    // Set shuffle mode BEFORE items to ensure the initial playback point
+                    // respects the shuffle order if shuffle is enabled.
                     controller.shuffleModeEnabled = shuffle
+
+                    if (shuffle && startPosition == 0L) {
+                        // When "Shuffle All" is triggered (startPosition 0), we omit the startIndex.
+                        // This tells ExoPlayer to start at the FIRST item of its shuffled timeline,
+                        // guaranteeing that every song in the list will be played before stopping.
+                        controller.setMediaItems(mediaItems)
+                    } else {
+                        // For non-shuffled playback or session restoration, we use the specific index.
+                        controller.setMediaItems(mediaItems, startIndex, startPosition)
+                    }
+
                     controller.prepare()
                     controller.play()
                 }
