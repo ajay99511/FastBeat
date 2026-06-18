@@ -41,7 +41,8 @@ enum class VideoSortOption(val label: String) {
     DURATION("Duration"),
     SIZE("Size"),
     DATE_MODIFIED("Date Modified"),
-    MOST_PLAYED("Most Played")
+    MOST_PLAYED("Most Played"),
+    LATEST("Latest")
 }
 
 @Composable
@@ -120,10 +121,11 @@ fun VideoPlaylistDetailScreen(
             VideoSortOption.DURATION -> filtered.sortedBy { it.duration }
             VideoSortOption.SIZE -> filtered.sortedBy { it.size }
             VideoSortOption.DATE_MODIFIED -> filtered.sortedBy { it.dateModified }
-            VideoSortOption.MOST_PLAYED -> filtered.sortedByDescending { playCountMap[it.id] ?: 0 }
+            VideoSortOption.MOST_PLAYED -> filtered.sortedBy { playCountMap[it.id] ?: 0 }
+            VideoSortOption.LATEST -> filtered.sortedBy { it.dateAdded }
         }
 
-        if (selectedSort != VideoSortOption.DEFAULT && selectedSort != VideoSortOption.MOST_PLAYED && !sortAscending) {
+        if (selectedSort != VideoSortOption.DEFAULT && !sortAscending) {
             sorted.reversed()
         } else sorted
     }
@@ -258,7 +260,7 @@ fun VideoPlaylistDetailScreen(
                                             )
                                             if (selectedSort == option && option != VideoSortOption.DEFAULT) {
                                                 Icon(
-                                                        if (option == VideoSortOption.MOST_PLAYED || !sortAscending)
+                                                        if (!sortAscending)
                                                             Icons.Default.ArrowDownward
                                                         else Icons.Default.ArrowUpward,
                                                         contentDescription = null,
@@ -269,7 +271,7 @@ fun VideoPlaylistDetailScreen(
                                         }
                                     },
                                     onClick = {
-                                        if (selectedSort == option && option != VideoSortOption.DEFAULT && option != VideoSortOption.MOST_PLAYED) {
+                                        if (selectedSort == option && option != VideoSortOption.DEFAULT) {
                                             persistSortState(option, !sortAscending)
                                         } else {
                                             persistSortState(option, true)

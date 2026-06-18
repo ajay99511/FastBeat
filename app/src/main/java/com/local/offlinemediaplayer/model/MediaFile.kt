@@ -16,5 +16,6 @@ data class MediaFile(
     val size: Long = 0,
     val resolution: String = "",
     val dateModified: Long = 0,
+    val dateAdded: Long = 0,
     val thumbnailPath: String? = null
 )

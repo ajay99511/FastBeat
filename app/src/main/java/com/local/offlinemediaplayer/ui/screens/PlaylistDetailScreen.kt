@@ -45,7 +45,8 @@ enum class AudioSortOption(val label: String) {
     DURATION("Duration"),
     SIZE("Size"),
     DATE_MODIFIED("Date Modified"),
-    MOST_PLAYED("Most Played")
+    MOST_PLAYED("Most Played"),
+    LATEST("Latest")
 }
 
 @Composable
@@ -131,10 +132,11 @@ fun PlaylistDetailScreen(
             AudioSortOption.DURATION -> filtered.sortedBy { it.duration }
             AudioSortOption.SIZE -> filtered.sortedBy { it.size }
             AudioSortOption.DATE_MODIFIED -> filtered.sortedBy { it.dateModified }
-            AudioSortOption.MOST_PLAYED -> filtered.sortedByDescending { playCountMap[it.id] ?: 0 }
+            AudioSortOption.MOST_PLAYED -> filtered.sortedBy { playCountMap[it.id] ?: 0 }
+            AudioSortOption.LATEST -> filtered.sortedBy { it.dateAdded }
         }
 
-        if (selectedSort != AudioSortOption.DEFAULT && selectedSort != AudioSortOption.MOST_PLAYED && !sortAscending) {
+        if (selectedSort != AudioSortOption.DEFAULT && !sortAscending) {
             sorted.reversed()
         } else sorted
     }
@@ -269,7 +271,7 @@ fun PlaylistDetailScreen(
                                             )
                                             if (selectedSort == option && option != AudioSortOption.DEFAULT) {
                                                 Icon(
-                                                        if (option == AudioSortOption.MOST_PLAYED || !sortAscending)
+                                                        if (!sortAscending)
                                                             Icons.Default.ArrowDownward
                                                         else Icons.Default.ArrowUpward,
                                                         contentDescription = null,
@@ -280,7 +282,7 @@ fun PlaylistDetailScreen(
                                         }
                                     },
                                     onClick = {
-                                        if (selectedSort == option && option != AudioSortOption.DEFAULT && option != AudioSortOption.MOST_PLAYED) {
+                                        if (selectedSort == option && option != AudioSortOption.DEFAULT) {
                                             persistSortState(option, !sortAscending)
                                         } else {
                                             persistSortState(option, true)

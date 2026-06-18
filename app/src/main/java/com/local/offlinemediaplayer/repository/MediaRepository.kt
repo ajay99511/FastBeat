@@ -115,7 +115,8 @@ class MediaRepository @Inject constructor(
                             MediaStore.Video.Media.SIZE,
                             MediaStore.Video.Media.WIDTH,
                             MediaStore.Video.Media.HEIGHT,
-                            MediaStore.Video.Media.DATE_MODIFIED
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                            MediaStore.Video.Media.DATE_ADDED
                     )
                 } else {
                     arrayOf(
@@ -124,7 +125,9 @@ class MediaRepository @Inject constructor(
                             MediaStore.Audio.Media.ARTIST,
                             MediaStore.Audio.Media.DURATION,
                             MediaStore.Audio.Media.ALBUM_ID,
-                            MediaStore.Audio.Media.SIZE
+                            MediaStore.Audio.Media.SIZE,
+                            MediaStore.Audio.Media.DATE_MODIFIED,
+                            MediaStore.Audio.Media.DATE_ADDED
                     )
                 }
         val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 45000" else null
@@ -137,6 +140,8 @@ class MediaRepository @Inject constructor(
                 val artistColumn = if (!isVideo) cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST) else -1
                 val albumIdColumn = if (!isVideo) cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID) else -1
                 val audioSizeColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.SIZE) else -1
+                val audioDateModifiedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED) else -1
+                val audioDateAddedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED) else -1
 
                 val bucketIdColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_ID) else -1
                 val bucketNameColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME) else -1
@@ -144,6 +149,7 @@ class MediaRepository @Inject constructor(
                 val widthColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.WIDTH) else -1
                 val heightColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT) else -1
                 val dateModifiedColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED) else -1
+                val dateAddedColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_ADDED) else -1
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -160,12 +166,14 @@ class MediaRepository @Inject constructor(
                     var size: Long = 0
                     var resolution = ""
                     var dateModified: Long = 0
+                    var dateAdded: Long = 0
 
                     if (isVideo) {
                         bucketId = if (bucketIdColumn != -1) cursor.getString(bucketIdColumn) ?: "" else ""
                         bucketName = if (bucketNameColumn != -1) cursor.getString(bucketNameColumn) ?: "Unknown" else "Unknown"
                         size = if (sizeColumn != -1) cursor.getLong(sizeColumn) else 0
                         dateModified = if (dateModifiedColumn != -1) cursor.getLong(dateModifiedColumn) else 0
+                        dateAdded = if (dateAddedColumn != -1) cursor.getLong(dateAddedColumn) else 0
 
                         val width = if (widthColumn != -1) cursor.getInt(widthColumn) else 0
                         val height = if (heightColumn != -1) cursor.getInt(heightColumn) else 0
@@ -180,13 +188,15 @@ class MediaRepository @Inject constructor(
                         artist = cursor.getString(artistColumn) ?: "Unknown Artist"
                         albumId = cursor.getLong(albumIdColumn)
                         size = if (audioSizeColumn != -1) cursor.getLong(audioSizeColumn) else 0
+                        dateModified = if (audioDateModifiedColumn != -1) cursor.getLong(audioDateModifiedColumn) else 0
+                        dateAdded = if (audioDateAddedColumn != -1) cursor.getLong(audioDateAddedColumn) else 0
                         val sArtworkUri = "content://media/external/audio/albumart".toUri()
                         albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId)
                     }
 
                     mediaList.add(
                             MediaFile(
-                                    id, contentUri, name, artist, duration, isVideo, false, albumArtUri, albumId, bucketId, bucketName, size, resolution, dateModified
+                                    id, contentUri, name, artist, duration, isVideo, false, albumArtUri, albumId, bucketId, bucketName, size, resolution, dateModified, dateAdded
                             )
                     )
                 }
