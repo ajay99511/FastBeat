@@ -1,0 +1,161 @@
+# Shuffle Functionality Analysis & Fix — Now Playing Screen
+
+Analysis of shuffle logic across the OfflineMediaPlayer codebase to ensure music doesn't stop prematurely during shuffled playback, and that the Now Playing screen's shuffle toggle is fully compatible with the shuffle initiation from other screens.
+
+## Executive Summary
+
+After thorough analysis, I identified **one critical bug** and **one subtle edge-case issue** that can cause music to stop prematurely during shuffled playback. The existing architecture is fundamentally sound — the working shuffle flows (AudioListScreen, PlaylistDetailScreen, AlbumDetailScreen, MeScreen) all work because they use `setQueue()` or `playAll()`/`playPlaylist()`/`playAlbum()` which properly call into `setQueue()` with `shuffle = true`. This correctly configures ExoPlayer's shuffle mode **before** setting media items.
+
+The Now Playing screen's toggle (`toggleShuffle()`) takes a **different path** — it toggles shuffle on an *already-loaded* queue. This path is also correct because it delegates directly to ExoPlayer's `shuffleModeEnabled` property, and Media3 handles re-shuffling the existing timeline automatically.
+
+**The real problem causing premature playback ending is in `autoFillQueue()` and its interaction with playlist context.**
+
+---
+
+## Findings
+
+### ✅ Working Shuffle Entry Points (No Changes Needed)
+
+| Screen | Method Called | Flow |
+|---|---|---|
+| AudioListScreen | `playAll(audioList, shuffle=true)` | → `setQueue(list, 0, true)` ✅ |
+| PlaylistDetailScreen | `playPlaylist(playlist, songs, true)` | → `setQueue(songs, 0, true)` ✅ |
+| AlbumDetailScreen | `playAlbum(album, true)` | → `setQueue(albumSongs, 0, true)` ✅ |
+| MeScreen | `setQueue(list, 0, true)` | Direct call ✅ |
+| NowPlayingScreen | `toggleShuffle()` | → `controller.shuffleModeEnabled = !current` ✅ |
+
+All these correctly configure Media3's built-in shuffle. Media3 internally maintains a `DefaultShuffleOrder` that covers ALL items in the timeline. With `REPEAT_MODE_OFF`, it plays through the entire shuffled sequence and then sends `STATE_ENDED`. With `REPEAT_MODE_ALL`, it loops. This is correct behavior.
+
+---
+
+### 🐛 BUG 1 (Critical): `autoFillQueue()` Blocked for Playlist/Album Context — Causes Playback to End
+
+**File:** [PlaybackViewModel.kt](file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt#L1472-L1523)
+
+**The Problem:**
+When you shuffle a playlist or album (via `playPlaylist()` or `playAlbum()`), the `_currentPlaylistContext` is set to a non-null value (e.g., the playlist ID or `"ALBUM_123"`). When all songs in that context finish playing and `STATE_ENDED` is reached, the `onPlaybackStateChanged` callback calls `autoFillQueue(playNext = true)`.
+
+However, `autoFillQueue()` has this guard at [line 1481](file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt#L1481):
+
+```kotlin
+if (_currentPlaylistContext.value != null && !playPrevious) {
+    return  // ← EXITS EARLY, playback STOPS
+}
+```
+
+This is **intentionally designed** to prevent random library songs from being appended when playing a specific playlist/album. The intent is correct — if you queue a 10-song album, you don't want 500 random songs auto-appended.
+
+**But the issue is:** When `REPEAT_MODE_OFF` is used (the default), playback simply **stops** after the last shuffled song. The user sees the player idle with no indication of why it stopped. This is the "music ends after some songs" problem you're experiencing.
+
+> [!IMPORTANT]
+> This is NOT a bug in the shuffle logic itself. Media3's shuffle correctly plays all songs. The problem is that with `REPEAT_MODE_OFF` + playlist context, there's nothing to play after the queue ends. The fix depends on the desired UX.
+
+**Proposed Fix:** When shuffle is enabled and the queue reaches `STATE_ENDED`, automatically set `REPEAT_MODE_ALL` for the shuffle session (so it loops through the shuffled songs indefinitely), OR clear the playlist context when shuffle is toggled from the Now Playing screen so `autoFillQueue` can append more songs.
+
+---
+
+### 🐛 BUG 2 (Edge Case): `toggleShuffle()` Doesn't Persist the Shuffle Change for Queue Restoration
+
+**File:** [PlaybackViewModel.kt](file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt#L1566-L1572)
+
+```kotlin
+fun toggleShuffle() {
+    _player.value?.let {
+        val newMode = !it.shuffleModeEnabled
+        it.shuffleModeEnabled = newMode
+        _isShuffleEnabled.value = newMode
+    }
+}
+```
+
+The `onShuffleModeEnabledChanged` listener at [line 578](file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt#L578-L582) does call `persistShuffleMode()`, so this is actually handled. **No fix needed** — the listener correctly persists.
+
+---
+
+## Proposed Changes
+
+### PlaybackViewModel — Fix `autoFillQueue` for Shuffled Playlist/Album Context
+
+#### [MODIFY] [PlaybackViewModel.kt](file:///C:/Users/ajaye/AndroidStudioProjects/OfflineMediaPlayer/app/src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt)
+
+**Change 1: Handle `STATE_ENDED` with shuffle + playlist context properly**
+
+In `onPlaybackStateChanged`, when `STATE_ENDED` is reached and shuffle is enabled within a playlist/album context, instead of calling `autoFillQueue` (which returns early), we should either:
+
+- **Option A (Recommended):** Restart the shuffled queue from the beginning with a fresh shuffle order. This mimics what Spotify/Apple Music do — a shuffled album/playlist loops with a new shuffle order.
+- **Option B:** Simply let it end (current behavior, but add a user-visible indication).
+
+I recommend **Option A**. The implementation:
+
+```kotlin
+// In onPlaybackStateChanged, STATE_ENDED branch:
+} else if (playbackState == Player.STATE_ENDED) {
+    if (_isShuffleEnabled.value && _currentPlaylistContext.value != null) {
+        // Shuffled playlist/album reached end — re-shuffle and restart
+        // from the beginning so all songs play again in a new order.
+        reshuffleAndRestart()
+    } else {
+        autoFillQueue(playNext = true)
+    }
+}
+```
+
+New helper method:
+
+```kotlin
+/**
+ * Re-shuffles the current queue and restarts playback from the beginning
+ * of the new shuffle order. Called when a shuffled playlist/album reaches
+ * the end to provide continuous listening without adding random library songs.
+ */
+private fun reshuffleAndRestart() {
+    val controller = _player.value ?: return
+    if (controller.mediaItemCount == 0) return
+
+    // Temporarily disable shuffle, then re-enable to get a fresh shuffle order
+    controller.shuffleModeEnabled = false
+    controller.shuffleModeEnabled = true
+
+    // Seek to the first item in the new shuffled timeline
+    val timeline = controller.currentTimeline
+    if (!timeline.isEmpty) {
+        val firstShuffledIndex = timeline.getFirstWindowIndex(true)
+        if (firstShuffledIndex != androidx.media3.common.C.INDEX_UNSET) {
+            controller.seekTo(firstShuffledIndex, 0L)
+            controller.play()
+        }
+    }
+}
+```
+
+**Why this is the right fix:**
+- Doesn't change `autoFillQueue` logic at all (proven working for non-shuffle cases)
+- Doesn't add random library songs to a curated playlist/album context
+- Maintains the existing shuffle behavior for non-playlist contexts (e.g., `playAll` with `null` context already works via `autoFillQueue`)
+- Matches behavior of major music players (Spotify, Apple Music)
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]  
+> **Should shuffled playlists/albums loop automatically?** The proposed fix re-shuffles and loops. If you'd prefer shuffled playlists to play all songs exactly once then stop (current behavior, just with the `STATE_ENDED` notification), let me know and I'll skip the `reshuffleAndRestart` approach.
+
+> [!NOTE]
+> **Edge case — very small playlists (1-2 songs):** With the proposed fix, a single-song playlist in shuffle mode would keep replaying that one song. This is effectively the same as `REPEAT_MODE_ONE`. This seems acceptable since the user explicitly chose shuffle, but worth mentioning.
+
+---
+
+## Verification Plan
+
+### Manual Verification
+1. **Shuffle from AudioListScreen**: Tap "Shuffle" button → all songs should play through without stopping
+2. **Shuffle from PlaylistDetailScreen**: Tap shuffle on a playlist → all songs in the playlist should play, then re-shuffle and continue
+3. **Shuffle from AlbumDetailScreen**: Shuffle album → same as above
+4. **Shuffle from MeScreen**: "Shuffle All Audio" → plays through all songs
+5. **Toggle shuffle from NowPlayingScreen**: While playing a playlist, toggle shuffle ON → music continues in shuffled order through all remaining songs; toggle OFF → returns to linear order
+6. **Verify repeat modes still work**: `REPEAT_MODE_ONE` should still repeat current track; `REPEAT_MODE_ALL` should loop; `REPEAT_MODE_OFF` should stop at end (for non-shuffled non-context playback)
+7. **Verify queue persistence**: Kill app while shuffle is on → reopen → shuffle state is restored
+
+### Automated Tests
+- This is a UI/integration behavior that relies on Media3 runtime. Manual verification on device is the primary validation approach.

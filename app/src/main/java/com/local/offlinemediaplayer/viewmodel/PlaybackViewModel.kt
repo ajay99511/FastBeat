@@ -547,7 +547,13 @@ constructor(
                             _playerError.value = null // Clear any previous error on successful load
                             _duration.value = controller.duration.coerceAtLeast(0L)
                         } else if (playbackState == Player.STATE_ENDED) {
-                            autoFillQueue(playNext = true)
+                            if (_isShuffleEnabled.value && _currentPlaylistContext.value != null) {
+                                // Shuffled playlist/album reached end — re-shuffle and restart
+                                // so all songs play again in a new order instead of stopping.
+                                reshuffleAndRestart()
+                            } else {
+                                autoFillQueue(playNext = true)
+                            }
                         }
                     }
 
@@ -1521,6 +1527,34 @@ constructor(
                 persistQueue(newQueue)
             }
         }
+    }
+
+    /**
+     * Re-shuffles the current queue and restarts playback from the beginning
+     * of the new shuffle order. Called when a shuffled playlist/album reaches
+     * the end (STATE_ENDED) to provide continuous listening without adding
+     * random library songs to a curated context.
+     */
+    private fun reshuffleAndRestart() {
+        val controller = _player.value ?: return
+        if (controller.mediaItemCount == 0) return
+
+        // Toggle shuffle off then on to generate a fresh shuffle order
+        controller.shuffleModeEnabled = false
+        controller.shuffleModeEnabled = true
+
+        // Seek to the first item in the new shuffled timeline
+        val timeline = controller.currentTimeline
+        if (!timeline.isEmpty) {
+            val firstShuffledIndex = timeline.getFirstWindowIndex(true)
+            if (firstShuffledIndex != androidx.media3.common.C.INDEX_UNSET) {
+                controller.seekTo(firstShuffledIndex, 0L)
+                controller.play()
+            }
+        }
+
+        // Refresh the display queue to reflect the new shuffle order
+        updateDisplayQueue()
     }
 
     // --- Controls ---
