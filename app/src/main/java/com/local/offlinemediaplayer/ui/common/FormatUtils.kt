@@ -1,6 +1,8 @@
 package com.local.offlinemediaplayer.ui.common
 
 import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Formatter
 import java.util.Locale
 import kotlin.math.log10
@@ -31,6 +33,13 @@ object FormatUtils {
 
     fun formatSeekTime(currentMs: Long, totalMs: Long): String {
         return "${formatDuration(currentMs)} / ${formatDuration(totalMs)}"
+    }
+
+    /** Formats a MediaStore date column (epoch seconds) to a readable date. */
+    fun formatDate(epochSeconds: Long): String {
+        if (epochSeconds <= 0) return ""
+        val formatter = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+        return formatter.format(Date(epochSeconds * 1000))
     }
 
     fun formatMinutesToHours(minutes: Int): String {

@@ -11,6 +11,8 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -125,6 +127,15 @@ fun VideoPlayerScreen(
 
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
+
+    // External subtitle file picker
+    val subtitlePickerLauncher =
+            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) {
+                    viewModel.addExternalSubtitle(uri)
+                    showSubtitleTrackDialog = false
+                }
+            }
 
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -506,7 +517,11 @@ fun VideoPlayerScreen(
                         viewModel.disableSubtitles()
                         showSubtitleTrackDialog = false
                     },
-                    onDismiss = { showSubtitleTrackDialog = false }
+                    onDismiss = { showSubtitleTrackDialog = false },
+                    onAddExternal = {
+                        // Allow any file type — .srt MIME reporting is inconsistent across providers
+                        subtitlePickerLauncher.launch(arrayOf("*/*"))
+                    }
             )
         }
 
@@ -1190,7 +1205,8 @@ fun TrackSelectionDialog(
         isOffSelected: Boolean,
         onTrackSelected: (groupIndex: Int, trackIndex: Int) -> Unit,
         onOffSelected: () -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
+        onAddExternal: (() -> Unit)? = null
 ) {
     val primaryAccent = LocalAppTheme.current.primaryColor
 
@@ -1292,6 +1308,24 @@ fun TrackSelectionDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                 Spacer(modifier = Modifier.height(8.dp))
+
+                // Load external subtitle file (subtitles dialog only)
+                if (onAddExternal != null) {
+                    OutlinedButton(
+                            onClick = onAddExternal,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryAccent)
+                    ) {
+                        Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add subtitle file")
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
 
                 // Close button
                 TextButton(

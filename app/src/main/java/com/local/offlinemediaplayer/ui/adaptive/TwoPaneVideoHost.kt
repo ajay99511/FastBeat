@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
 import com.local.offlinemediaplayer.ui.screens.VideoListScreen
+import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
@@ -34,10 +35,17 @@ fun videoNavigationLayout(widthClass: AppWidthClass, route: String): VideoNaviga
     }
 }
 
-data class TwoPaneVideoState(val selectedFolderId: String? = null)
+data class TwoPaneVideoState(
+    val selectedFolderId: String? = null,
+    val selectedPlaylistId: String? = null
+)
 
 fun TwoPaneVideoState.selectFolder(folderId: String): TwoPaneVideoState {
-    return this.copy(selectedFolderId = folderId)
+    return this.copy(selectedFolderId = folderId, selectedPlaylistId = null)
+}
+
+fun TwoPaneVideoState.selectPlaylist(playlistId: String): TwoPaneVideoState {
+    return this.copy(selectedPlaylistId = playlistId, selectedFolderId = null)
 }
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
@@ -64,7 +72,8 @@ fun TwoPaneVideoNavigationHost(
                     navigator.navigateTo(ListDetailPaneScaffoldRole.Detail)
                 },
                 onPlaylistClick = { playlistId ->
-                    // For MVP we just use existing navigation or do nothing since two pane focuses on folders
+                    state = state.selectPlaylist(playlistId)
+                    navigator.navigateTo(ListDetailPaneScaffoldRole.Detail)
                 },
                 onVideoClick = { mediaFile, list ->
                     onVideoClick(mediaFile, list)
@@ -73,20 +82,34 @@ fun TwoPaneVideoNavigationHost(
             )
         },
         detailPane = {
-            if (state.selectedFolderId != null) {
-                val folderVideos = allVideos.filter { it.bucketId == state.selectedFolderId }
-                VideoListScreen(
-                    viewModel = viewModel,
-                    libraryViewModel = libraryViewModel,
-                    onVideoClick = onVideoClick,
-                    videoListOverride = folderVideos,
-                    title = "Folder", // Or dynamically lookup the name
-                    onBack = {
-                        navigator.navigateBack()
+            val folderId = state.selectedFolderId
+            val playlistId = state.selectedPlaylistId
+            when {
+                folderId != null -> {
+                    val folderVideos = remember(allVideos, folderId) {
+                        allVideos.filter { it.bucketId == folderId }
                     }
-                )
-            } else {
-                EmptyDetailPane()
+                    VideoListScreen(
+                        viewModel = viewModel,
+                        libraryViewModel = libraryViewModel,
+                        onVideoClick = onVideoClick,
+                        videoListOverride = folderVideos,
+                        title = folderVideos.firstOrNull()?.bucketName ?: "Videos",
+                        onBack = {
+                            navigator.navigateBack()
+                        }
+                    )
+                }
+                playlistId != null -> {
+                    VideoPlaylistDetailScreen(
+                        playlistId = playlistId,
+                        viewModel = viewModel,
+                        libraryViewModel = libraryViewModel,
+                        onBack = { navigator.navigateBack() },
+                        onNavigateToPlayer = onVideoClick
+                    )
+                }
+                else -> EmptyDetailPane()
             }
         }
     )

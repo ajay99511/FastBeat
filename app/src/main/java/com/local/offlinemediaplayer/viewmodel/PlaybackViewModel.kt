@@ -1474,6 +1474,52 @@ constructor(
         )
     }
 
+    /**
+     * Load an external subtitle file (e.g. .srt/.vtt/.ass) and attach it to the currently playing
+     * video. The subtitle only applies to the current media item; advancing to the next video drops
+     * it, which matches user expectation. Playback position and play/pause state are preserved.
+     */
+    fun addExternalSubtitle(uri: Uri) {
+        val controller = _player.value ?: return
+        val item = controller.currentMediaItem ?: return
+        val index = controller.currentMediaItemIndex
+        val position = controller.currentPosition
+        val wasPlaying = controller.isPlaying
+
+        val uriStr = uri.toString().lowercase()
+        val mimeType = when {
+            uriStr.endsWith(".vtt") -> androidx.media3.common.MimeTypes.TEXT_VTT
+            uriStr.endsWith(".ssa") || uriStr.endsWith(".ass") -> androidx.media3.common.MimeTypes.TEXT_SSA
+            uriStr.endsWith(".ttml") || uriStr.endsWith(".xml") -> androidx.media3.common.MimeTypes.APPLICATION_TTML
+            else -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+        }
+
+        val subtitle = MediaItem.SubtitleConfiguration.Builder(uri)
+                .setMimeType(mimeType)
+                .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+                .build()
+
+        val newItem = item.buildUpon()
+                .setSubtitleConfigurations(listOf(subtitle))
+                .build()
+
+        try {
+            controller.replaceMediaItem(index, newItem)
+            controller.seekTo(index, position)
+            controller.prepare()
+            if (wasPlaying) controller.play()
+            // Ensure subtitle track type is enabled so the newly added track can show
+            controller.trackSelectionParameters = controller.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+                    .build()
+            viewModelScope.launch { _userMessage.emit("Subtitle added") }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to add external subtitle", e)
+            viewModelScope.launch { _userMessage.emit("Couldn't load subtitle file") }
+        }
+    }
+
     // --- Auto Fill Queue Logic ---
     private fun autoFillQueue(playNext: Boolean = false, playPrevious: Boolean = false) {
         val currentTrack = _currentTrack.value

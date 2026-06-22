@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.PlayArrow
 //import androidx.compose.material.icons.filled.Sort
 //import androidx.compose.material.icons.filled.ViewList
 import android.app.Activity
@@ -40,6 +42,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.VideoFolder
+import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.viewmodel.ContinueWatchingItem
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
@@ -50,6 +55,7 @@ import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import com.local.offlinemediaplayer.viewmodel.SortOption
+import java.io.File
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +82,7 @@ fun VideoFolderScreen(
 
     val folders by libraryViewModel.videoFolders.collectAsStateWithLifecycle()
     val searchQuery by libraryViewModel.folderSearchQuery.collectAsStateWithLifecycle()
+    val continueWatching by libraryViewModel.continueWatching.collectAsStateWithLifecycle()
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     // Refresh State
@@ -190,15 +197,21 @@ fun VideoFolderScreen(
                     0 -> {
                         // FOLDERS VIEW
                         val filteredFolders =
-                                if (searchQuery.isEmpty()) {
-                                    folders
-                                } else {
-                                    folders.filter {
-                                        it.name.contains(searchQuery, ignoreCase = true)
+                                remember(folders, searchQuery) {
+                                    if (searchQuery.isEmpty()) {
+                                        folders
+                                    } else {
+                                        folders.filter {
+                                            it.name.contains(searchQuery, ignoreCase = true)
+                                        }
                                     }
                                 }
 
-                        if (filteredFolders.isEmpty()) {
+                        // Continue Watching is only shown on the unfiltered folder view
+                        val showContinueWatching =
+                                searchQuery.isEmpty() && continueWatching.isNotEmpty()
+
+                        if (filteredFolders.isEmpty() && !showContinueWatching) {
                             Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
@@ -218,7 +231,16 @@ fun VideoFolderScreen(
                                         verticalArrangement = Arrangement.spacedBy(24.dp),
                                         modifier = Modifier.fillMaxSize()
                                 ) {
-                                    items(filteredFolders) { folder ->
+                                    if (showContinueWatching) {
+                                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                            ContinueWatchingRow(
+                                                    items = continueWatching,
+                                                    accentColor = primaryAccent,
+                                                    onVideoClick = onVideoClick
+                                            )
+                                        }
+                                    }
+                                    items(filteredFolders, key = { it.id }) { folder ->
                                         FolderItem(folder, onFolderClick, primaryAccent)
                                     }
                                 }
@@ -228,7 +250,16 @@ fun VideoFolderScreen(
                                         verticalArrangement = Arrangement.spacedBy(12.dp),
                                         modifier = Modifier.fillMaxSize()
                                 ) {
-                                    items(filteredFolders) { folder ->
+                                    if (showContinueWatching) {
+                                        item {
+                                            ContinueWatchingRow(
+                                                    items = continueWatching,
+                                                    accentColor = primaryAccent,
+                                                    onVideoClick = onVideoClick
+                                            )
+                                        }
+                                    }
+                                    items(filteredFolders, key = { it.id }) { folder ->
                                         FolderListItem(folder, onFolderClick, primaryAccent)
                                     }
                                 }
@@ -273,12 +304,13 @@ private fun MoviesListContent(
         libraryViewModel: LibraryViewModel,
         onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
         isGridView: Boolean,
-        onToggleView: () -> Unit
+        onToggleView: () -> Unit,
+        playlistViewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val movies by libraryViewModel.sortedMovies.collectAsStateWithLifecycle()
-    val sortOption by libraryViewModel.movieSortOption.collectAsStateWithLifecycle()
     val searchQuery by
             libraryViewModel.folderSearchQuery.collectAsStateWithLifecycle() // Reuse existing search query
+    val watchProgress by libraryViewModel.watchProgressMap.collectAsStateWithLifecycle()
 
     // Properties Dialog State
     var showPropertiesDialog by remember { mutableStateOf(false) }
@@ -286,13 +318,20 @@ private fun MoviesListContent(
     // Delete Dialog
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
+    // Playlist Dialog State
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var selectedVideoForPlaylist by remember { mutableStateOf<MediaFile?>(null) }
+
     var showSortMenu by remember { mutableStateOf(false) }
 
     val filteredMovies =
-            if (searchQuery.isEmpty()) {
-                movies
-            } else {
-                movies.filter { it.title.contains(searchQuery, ignoreCase = true) }
+            remember(movies, searchQuery) {
+                if (searchQuery.isEmpty()) {
+                    movies
+                } else {
+                    movies.filter { it.title.contains(searchQuery, ignoreCase = true) }
+                }
             }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -412,7 +451,10 @@ private fun MoviesListContent(
                                 onVideoClick = { onVideoClick(movie, filteredMovies) },
                                 onLongClick = {}, // No selection mode in Movies tab for simplicity
                                 accentColor = primaryAccent,
-                                onAddToPlaylist = {}, // Simplification
+                                onAddToPlaylist = {
+                                    selectedVideoForPlaylist = movie
+                                    showAddToPlaylistDialog = true
+                                },
                                 isSelectionMode = false,
                                 isSelected = false,
                                 onDelete = {
@@ -423,7 +465,8 @@ private fun MoviesListContent(
                                 onProperties = {
                                     selectedVideoForProperties = movie
                                     showPropertiesDialog = true
-                                }
+                                },
+                                progress = watchProgress[movie.id] ?: 0f
                         )
                     }
                 }
@@ -439,7 +482,10 @@ private fun MoviesListContent(
                                 video = movie,
                                 onVideoClick = { onVideoClick(movie, filteredMovies) },
                                 onLongClick = {},
-                                onAddToPlaylist = {},
+                                onAddToPlaylist = {
+                                    selectedVideoForPlaylist = movie
+                                    showAddToPlaylistDialog = true
+                                },
                                 isSelectionMode = false,
                                 isSelected = false,
                                 onDelete = {
@@ -450,7 +496,8 @@ private fun MoviesListContent(
                                 onProperties = {
                                     selectedVideoForProperties = movie
                                     showPropertiesDialog = true
-                                }
+                                },
+                                progress = watchProgress[movie.id] ?: 0f
                         )
                     }
                 }
@@ -473,6 +520,128 @@ private fun MoviesListContent(
                 onDismiss = { showDeleteConfirmDialog = false }
         )
     }
+
+    if (showAddToPlaylistDialog && selectedVideoForPlaylist != null) {
+        AddToPlaylistDialog(
+                song = selectedVideoForPlaylist!!,
+                playlistViewModel = playlistViewModel,
+                onDismiss = { showAddToPlaylistDialog = false },
+                onCreateNew = { showCreatePlaylistDialog = true }
+        )
+    }
+
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+                onDismiss = { showCreatePlaylistDialog = false },
+                onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = true) }
+        )
+    }
+}
+
+@Composable
+private fun ContinueWatchingRow(
+        items: List<ContinueWatchingItem>,
+        accentColor: Color,
+        onVideoClick: (MediaFile, List<MediaFile>) -> Unit
+) {
+    val playlist = remember(items) { items.map { it.media } }
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Text(
+                text = "CONTINUE WATCHING",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items, key = { it.media.id }) { item ->
+                ContinueWatchingCard(
+                        item = item,
+                        accentColor = accentColor,
+                        onClick = { onVideoClick(item.media, playlist) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingCard(
+        item: ContinueWatchingItem,
+        accentColor: Color,
+        onClick: () -> Unit
+) {
+    val video = item.media
+    Column(modifier = Modifier.width(180.dp).clickable(onClick = onClick)) {
+        Box(
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            AsyncImage(
+                    model = video.thumbnailPath?.let { File(it) } ?: video.uri,
+                    contentDescription = video.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+            )
+
+            // Play affordance
+            Box(
+                    modifier =
+                            Modifier.align(Alignment.Center)
+                                    .size(36.dp)
+                                    .background(Color.Black.copy(alpha = 0.5f), androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                )
+            }
+
+            // Remaining time badge
+            val remaining = (item.duration - item.position).coerceAtLeast(0L)
+            Surface(
+                    color = Color.Black.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
+            ) {
+                Text(
+                        text = "${FormatUtils.formatDuration(remaining)} left",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+
+            if (item.progress > 0f) {
+                LinearProgressIndicator(
+                        progress = { item.progress },
+                        modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(3.dp),
+                        color = accentColor,
+                        trackColor = Color.Black.copy(alpha = 0.4f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+                text = video.title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
+    }
 }
 
 @Composable
@@ -487,7 +656,7 @@ fun FolderItem(folder: VideoFolder, onClick: (String) -> Unit, accentColor: Colo
                                 .background(MaterialTheme.colorScheme.surface)
         ) {
             AsyncImage(
-                    model = folder.thumbnailUri,
+                    model = folder.thumbnailPath?.let { File(it) } ?: folder.thumbnailUri,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -565,7 +734,7 @@ fun FolderListItem(folder: VideoFolder, onClick: (String) -> Unit, accentColor: 
                         Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black)
         ) {
             AsyncImage(
-                    model = folder.thumbnailUri,
+                    model = folder.thumbnailPath?.let { File(it) } ?: folder.thumbnailUri,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,

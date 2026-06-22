@@ -119,25 +119,27 @@ fun VideoListScreen(
 
         // Sort state
         val videoSortOption by libraryViewModel.videoSortOption.collectAsStateWithLifecycle()
+        val videoPlayCounts by libraryViewModel.videoPlayCountMap.collectAsStateWithLifecycle()
+        val watchProgress by libraryViewModel.watchProgressMap.collectAsStateWithLifecycle()
         var showSortMenu by remember { mutableStateOf(false) }
 
         // Back Handler to exit selection mode
         BackHandler(enabled = isSelectionMode) { libraryViewModel.toggleSelectionMode(false) }
 
-        val filteredVideos = remember(videos, searchQuery, videoSortOption) {
-                var result = if (searchQuery.isEmpty()) {
+        val filteredVideos = remember(videos, searchQuery, videoSortOption, videoPlayCounts) {
+                val result = if (searchQuery.isEmpty()) {
                         videos
                 } else {
                         videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
                 }
-                
+
                 when (videoSortOption) {
                         SortOption.TITLE_ASC -> result.sortedBy { it.title.lowercase() }
                         SortOption.TITLE_DESC -> result.sortedByDescending { it.title.lowercase() }
                         SortOption.DURATION_ASC -> result.sortedBy { it.duration }
                         SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
-                        SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
-                        SortOption.MOST_PLAYED -> result.sortedByDescending { it.id }
+                        SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.dateAdded }
+                        SortOption.MOST_PLAYED -> result.sortedByDescending { videoPlayCounts[it.id] ?: 0 }
                 }
         }
 
@@ -498,7 +500,8 @@ fun VideoListScreen(
                                                                         selectedVideoForProperties =
                                                                                 video
                                                                         showPropertiesDialog = true
-                                                                }
+                                                                },
+                                                                progress = watchProgress[video.id] ?: 0f
                                                         )
                                                 }
                                         }
@@ -558,7 +561,8 @@ fun VideoListScreen(
                                                                         selectedVideoForProperties =
                                                                                 video
                                                                         showPropertiesDialog = true
-                                                                }
+                                                                },
+                                                                progress = watchProgress[video.id] ?: 0f
                                                         )
                                                 }
                                         }
@@ -609,9 +613,11 @@ fun VideoListItem(
         isSelectionMode: Boolean,
         isSelected: Boolean,
         onDelete: () -> Unit,
-        onProperties: () -> Unit
+        onProperties: () -> Unit,
+        progress: Float = 0f
 ) {
         var showMenu by remember { mutableStateOf(false) }
+        val accentColor = LocalAppTheme.current.primaryColor
 
         Row(
                 modifier =
@@ -655,6 +661,19 @@ fun VideoListItem(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                         )
+
+                        // Resume progress bar (bottom edge)
+                        if (progress > 0f) {
+                                LinearProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .height(3.dp),
+                                        color = accentColor,
+                                        trackColor = Color.Black.copy(alpha = 0.4f)
+                                )
+                        }
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
@@ -679,6 +698,13 @@ fun VideoListItem(
                                                 text = " • ${FormatUtils.formatSize(video.size)}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                }
+                                if (video.resolution.isNotEmpty()) {
+                                        Text(
+                                                text = " • ${video.resolution}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = accentColor
                                         )
                                 }
                         }
@@ -760,7 +786,8 @@ fun VideoCardItem(
         isSelectionMode: Boolean,
         isSelected: Boolean,
         onDelete: () -> Unit,
-        onProperties: () -> Unit
+        onProperties: () -> Unit,
+        progress: Float = 0f
 ) {
         var showMenu by remember { mutableStateOf(false) }
 
@@ -810,6 +837,24 @@ fun VideoCardItem(
                                         )
                                 }
                         } else {
+                                // Resolution badge (bottom-start)
+                                if (video.resolution.isNotEmpty()) {
+                                        Surface(
+                                                color = accentColor,
+                                                shape = RoundedCornerShape(4.dp),
+                                                modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
+                                        ) {
+                                                Text(
+                                                        text = video.resolution,
+                                                        color = Color.White,
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                                fontWeight = FontWeight.Bold
+                                                        ),
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                        }
+                                }
+
                                 Surface(
                                         color = Color.Black.copy(alpha = 0.8f),
                                         shape = RoundedCornerShape(4.dp),
@@ -827,6 +872,19 @@ fun VideoCardItem(
                                                                 horizontal = 6.dp,
                                                                 vertical = 2.dp
                                                         )
+                                        )
+                                }
+
+                                // Resume progress bar (bottom edge)
+                                if (progress > 0f) {
+                                        LinearProgressIndicator(
+                                                progress = { progress },
+                                                modifier = Modifier
+                                                        .align(Alignment.BottomCenter)
+                                                        .fillMaxWidth()
+                                                        .height(3.dp),
+                                                color = accentColor,
+                                                trackColor = Color.Black.copy(alpha = 0.4f)
                                         )
                                 }
                         }

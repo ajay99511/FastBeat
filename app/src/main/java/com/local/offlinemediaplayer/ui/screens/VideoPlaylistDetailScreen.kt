@@ -73,7 +73,10 @@ fun VideoPlaylistDetailScreen(
         return
     }
 
-    val videos = playlist.mediaIds.mapNotNull { id -> allVideos.find { it.id == id } }
+    val videosById = remember(allVideos) { allVideos.associateBy { it.id } }
+    val videos = remember(playlist.mediaIds, videosById) {
+        playlist.mediaIds.mapNotNull { id -> videosById[id] }
+    }
 
     // Colors
     val primaryAccent = LocalAppTheme.current.primaryColor

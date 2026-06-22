@@ -27,6 +27,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** A partially-watched video with its saved resume position. */
+data class ContinueWatchingItem(
+    val media: MediaFile,
+    val position: Long,
+    val duration: Long
+) {
+    val progress: Float
+        get() = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+}
+
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val app: Application,
@@ -89,20 +99,23 @@ class LibraryViewModel @Inject constructor(
     val moviesList = videoList.map { list -> list.filter { it.duration >= 3600000 } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val sortedMovies = combine(moviesList, _movieSortOption) { list, sort ->
-        when (sort) {
-            SortOption.TITLE_ASC -> list.sortedBy { it.title }
-            SortOption.TITLE_DESC -> list.sortedByDescending { it.title }
-            SortOption.DURATION_ASC -> list.sortedBy { it.duration }
-            SortOption.DURATION_DESC -> list.sortedByDescending { it.duration }
-            SortOption.DATE_ADDED_DESC -> list.sortedByDescending { it.id }
-            SortOption.MOST_PLAYED -> list.sortedByDescending { it.id } // Not applicable for movies
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // --- Play Count Map for MOST_PLAYED sorting ---
+    // --- Play Count Maps for MOST_PLAYED sorting ---
     private val _playCountMap = MutableStateFlow<Map<Long, Int>>(emptyMap())
     val playCountMap = _playCountMap.asStateFlow()
+
+    private val _videoPlayCountMap = MutableStateFlow<Map<Long, Int>>(emptyMap())
+    val videoPlayCountMap = _videoPlayCountMap.asStateFlow()
+
+    val sortedMovies = combine(moviesList, _movieSortOption, _videoPlayCountMap) { list, sort, playCounts ->
+        when (sort) {
+            SortOption.TITLE_ASC -> list.sortedBy { it.title.lowercase() }
+            SortOption.TITLE_DESC -> list.sortedByDescending { it.title.lowercase() }
+            SortOption.DURATION_ASC -> list.sortedBy { it.duration }
+            SortOption.DURATION_DESC -> list.sortedByDescending { it.duration }
+            SortOption.DATE_ADDED_DESC -> list.sortedByDescending { it.dateAdded }
+            SortOption.MOST_PLAYED -> list.sortedByDescending { playCounts[it.id] ?: 0 }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         // Refresh play counts whenever the audio list changes
@@ -116,18 +129,52 @@ class LibraryViewModel @Inject constructor(
                 }
             }
         }
+        // Refresh video play counts whenever the video list changes
+        viewModelScope.launch(Dispatchers.IO) {
+            videoList.collect { list ->
+                if (list.isNotEmpty()) {
+                    val analytics = mediaDao.getAnalyticsForIds(list.map { it.id })
+                    _videoPlayCountMap.value = analytics.associate { it.mediaId to it.playCount }
+                } else {
+                    _videoPlayCountMap.value = emptyMap()
+                }
+            }
+        }
     }
 
     val videoFolders = videoList.map { videos ->
         videos.groupBy { it.bucketId }.map { (bucketId, bucketVideos) ->
+            // Prefer a representative video that already has a cached thumbnail to avoid
+            // decoding raw video URIs in the folder grid.
+            val representative = bucketVideos.firstOrNull { it.thumbnailPath != null }
+                ?: bucketVideos.firstOrNull()
             VideoFolder(
                 id = bucketId,
                 name = bucketVideos.firstOrNull()?.bucketName ?: "Unknown",
                 videoCount = bucketVideos.size,
-                thumbnailUri = bucketVideos.firstOrNull()?.uri ?: android.net.Uri.EMPTY
+                thumbnailUri = representative?.uri ?: android.net.Uri.EMPTY,
+                thumbnailPath = representative?.thumbnailPath
             )
         }.sortedBy { it.name }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // --- Continue Watching (resume) ---
+    val continueWatching = combine(videoList, mediaDao.getContinueWatching()) { videos, history ->
+        val byId = videos.associateBy { it.id }
+        history.mapNotNull { h ->
+            byId[h.mediaId]?.let { media ->
+                val total = if (h.duration > 0) h.duration else media.duration
+                ContinueWatchingItem(media, h.position, total)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Map of video mediaId -> resume progress fraction (0f..1f) for thumbnail progress bars.
+    val watchProgressMap = combine(videoList, mediaDao.getAllVideoHistory()) { videos, history ->
+        val ids = videos.mapTo(HashSet()) { it.id }
+        history.filter { it.mediaId in ids && it.duration > 0 }
+            .associate { it.mediaId to (it.position.toFloat() / it.duration).coerceIn(0f, 1f) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val filteredAudioList = combine(audioList, _searchQuery, _sortOption, _playCountMap) { list, query, sort, playCounts ->
         var result = list

@@ -29,6 +29,10 @@ interface MediaDao {
     @Query("SELECT * FROM playback_history WHERE mediaType = 'VIDEO' AND position > 0 AND (duration = 0 OR position < (duration * 0.95)) ORDER BY timestamp DESC LIMIT 10")
     fun getContinueWatching(): Flow<List<PlaybackHistory>>
 
+    // All in-progress video history (used to render resume progress bars on video thumbnails)
+    @Query("SELECT * FROM playback_history WHERE mediaType = 'VIDEO' AND position > 0")
+    fun getAllVideoHistory(): Flow<List<PlaybackHistory>>
+
     // --- Analytics ---
     @Query("INSERT OR IGNORE INTO media_analytics (mediaId, playCount, skipCount, lastPlayed) VALUES (:mediaId, 0, 0, :timestamp)")
     suspend fun initAnalytics(mediaId: Long, timestamp: Long)

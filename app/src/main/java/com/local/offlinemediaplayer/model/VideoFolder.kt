@@ -6,5 +6,7 @@ data class VideoFolder(
     val id: String,
     val name: String,
     val videoCount: Int,
-    val thumbnailUri: Uri
+    val thumbnailUri: Uri,
+    // Cached thumbnail file path of a representative video (preferred over decoding the raw video uri)
+    val thumbnailPath: String? = null
 )

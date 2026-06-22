@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -58,7 +59,9 @@ fun VideoNavigationHost(
         composable("video_list/{bucketId}") { backStackEntry ->
             val bucketId = backStackEntry.arguments?.getString("bucketId") ?: ""
             val allVideos by libraryViewModel.videoList.collectAsStateWithLifecycle()
-            val folderVideos = allVideos.filter { it.bucketId == bucketId }
+            val folderVideos = remember(allVideos, bucketId) {
+                allVideos.filter { it.bucketId == bucketId }
+            }
 
             // Video List has its own header with search toggle, but we can pass initial state if needed.
             // Since VideoList hides the main FastBeat header, `isSearchVisible` from MainScreen

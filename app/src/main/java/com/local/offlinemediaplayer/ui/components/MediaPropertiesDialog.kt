@@ -77,6 +77,14 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
                     PropertyItem(label = "Folder", value = mediaFile.bucketName)
                 }
 
+                if (mediaFile.dateAdded > 0) {
+                    PropertyItem(label = "Date added", value = FormatUtils.formatDate(mediaFile.dateAdded))
+                }
+
+                if (mediaFile.dateModified > 0) {
+                    PropertyItem(label = "Date modified", value = FormatUtils.formatDate(mediaFile.dateModified))
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Close Button
