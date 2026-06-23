@@ -254,12 +254,12 @@ fun AudioListScreen(
                                     onDismissRequest = { showSortMenu = false },
                                     modifier = Modifier.background(cardBg)
                                 ) {
-                                    SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Most Played", SortOption.MOST_PLAYED, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, sortOption, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, sortOption, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, sortOption, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, sortOption, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, sortOption, libraryViewModel) { showSortMenu = false }
+                                    SortMenuItem("Most Played", SortOption.MOST_PLAYED, sortOption, libraryViewModel) { showSortMenu = false }
                                 }
                             }
                         }
@@ -485,11 +485,29 @@ private fun AudioListItemStyled(
 private fun SortMenuItem(
     label: String,
     option: SortOption,
+    selectedOption: SortOption,
     libraryViewModel: LibraryViewModel,
     onSelect: () -> Unit
 ) {
+    val isSelected = option == selectedOption
     DropdownMenuItem(
-        text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
+        text = {
+            Text(
+                label,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        },
+        trailingIcon = {
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        },
         onClick = {
             libraryViewModel.updateSortOption(option)
             onSelect()
@@ -499,11 +517,11 @@ private fun SortMenuItem(
 
 private fun getSortLabel(option: SortOption): String {
     return when(option) {
-        SortOption.TITLE_ASC -> "title"
-        SortOption.TITLE_DESC -> "title"
-        SortOption.DURATION_ASC -> "runtime"
-        SortOption.DURATION_DESC -> "runtime"
-        SortOption.DATE_ADDED_DESC -> "date"
+        SortOption.TITLE_ASC -> "A-Z"
+        SortOption.TITLE_DESC -> "Z-A"
+        SortOption.DURATION_ASC -> "shortest"
+        SortOption.DURATION_DESC -> "longest"
+        SortOption.DATE_ADDED_DESC -> "latest"
         SortOption.MOST_PLAYED -> "most played"
     }
 }

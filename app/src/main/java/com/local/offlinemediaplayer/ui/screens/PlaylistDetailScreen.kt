@@ -81,7 +81,10 @@ fun PlaylistDetailScreen(
         return
     }
 
-    val songs = playlist.mediaIds.mapNotNull { id -> allAudio.find { it.id == id } }
+    val audioById = remember(allAudio) { allAudio.associateBy { it.id } }
+    val songs = remember(playlist.mediaIds, audioById) {
+        playlist.mediaIds.mapNotNull { audioById[it] }
+    }
 
     // Colors
     val primaryAccent = LocalAppTheme.current.primaryColor
@@ -91,6 +94,7 @@ fun PlaylistDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var showAddSongsDialog by remember { mutableStateOf(false) }
 
     // Sort state — restored from persistence, keyed by playlistId
     val (persistedSort, persistedAsc) = playlistViewModel.getAudioPlaylistSort(playlistId)
@@ -150,8 +154,8 @@ fun PlaylistDetailScreen(
                         .background(
                                 Brush.verticalGradient(
                                         colors = listOf(
-                                                Color(0xFF3D1E0C),
-                                                Color(0xFF2A1408),
+                                                primaryAccent.copy(alpha = 0.28f),
+                                                primaryAccent.copy(alpha = 0.08f),
                                                 MaterialTheme.colorScheme.background
                                         )
                                 )
@@ -194,7 +198,7 @@ fun PlaylistDetailScreen(
                         placeholder = {
                             Text(
                                     "Search ${playlist.name}...",
-                                    color = Color(0xFF7A7A7A),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodyMedium
                             )
                         },
@@ -202,7 +206,7 @@ fun PlaylistDetailScreen(
                             Icon(
                                     Icons.Default.Search,
                                     contentDescription = null,
-                                    tint = Color(0xFF7A7A7A),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                             )
                         },
@@ -321,6 +325,25 @@ fun PlaylistDetailScreen(
                         DropdownMenuItem(
                                 text = {
                                     Text(
+                                            "Add songs",
+                                            color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showAddSongsDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                            Icons.Default.Add,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                        )
+                        DropdownMenuItem(
+                                text = {
+                                    Text(
                                             "Rename",
                                             color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -339,7 +362,7 @@ fun PlaylistDetailScreen(
                         )
                         DropdownMenuItem(
                                 text = {
-                                    Text("Delete", color = Color(0xFFFF8A80))
+                                    Text("Delete", color = MaterialTheme.colorScheme.error)
                                 },
                                 onClick = {
                                     showMenu = false
@@ -350,7 +373,7 @@ fun PlaylistDetailScreen(
                                     Icon(
                                             Icons.Outlined.Delete,
                                             null,
-                                            tint = Color(0xFFFF8A80)
+                                            tint = MaterialTheme.colorScheme.error
                                     )
                                 }
                         )
@@ -466,12 +489,25 @@ fun PlaylistDetailScreen(
                                 .weight(1f),
                         contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                            text = if (searchQuery.isNotEmpty()) "No results found"
-                            else "No songs yet.\nAdd some tracks from the library!",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                                text = if (searchQuery.isNotEmpty()) "No results found"
+                                else "No songs yet.\nAdd some tracks from the library!",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                        )
+                        if (searchQuery.isEmpty()) {
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                    onClick = { showAddSongsDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Add songs", color = Color.White)
+                            }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -484,7 +520,7 @@ fun PlaylistDetailScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    itemsIndexed(sortedAndFilteredSongs) { index, song ->
+                    itemsIndexed(sortedAndFilteredSongs, key = { _, song -> song.id }) { index, song ->
                         AudioPlaylistItemCard(
                                 song = song,
                                 accentColor = primaryAccent,
@@ -507,6 +543,15 @@ fun PlaylistDetailScreen(
                     currentName = playlist.name,
                     onDismiss = { showRenameDialog = false },
                     onRename = { newName -> playlistViewModel.renamePlaylist(playlistId, newName) }
+            )
+        }
+
+        if (showAddSongsDialog) {
+            com.local.offlinemediaplayer.ui.components.AddSongsToPlaylistDialog(
+                    allSongs = allAudio,
+                    existingIds = playlist.mediaIds.toSet(),
+                    onConfirm = { ids -> playlistViewModel.addSongsToPlaylist(playlistId, ids) },
+                    onDismiss = { showAddSongsDialog = false }
             )
         }
 

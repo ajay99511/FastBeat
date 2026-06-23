@@ -128,6 +128,24 @@ class PlaylistRepository @Inject constructor(
         )
     }
 
+    /**
+     * Returns the id of the playlist with [name]/[isVideo], creating it if it doesn't exist.
+     * Avoids relying on the reactive flow having emitted yet (race-free).
+     */
+    suspend fun getOrCreatePlaylistId(name: String, isVideo: Boolean): String {
+        mediaDao.getPlaylistIdByName(name, isVideo)?.let { return it }
+        val newId = java.util.UUID.randomUUID().toString()
+        mediaDao.insertPlaylist(
+            PlaylistEntity(
+                id = newId,
+                name = name,
+                createdAt = System.currentTimeMillis(),
+                isVideo = isVideo
+            )
+        )
+        return newId
+    }
+
     suspend fun deletePlaylist(id: String) {
         mediaDao.deletePlaylist(id)
     }

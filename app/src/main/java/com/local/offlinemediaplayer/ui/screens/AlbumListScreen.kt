@@ -369,7 +369,7 @@ fun AlbumListItem(
     onLongClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
-    val primaryAccent = Color(0xFFE11D48)
+    val primaryAccent = MaterialTheme.colorScheme.primary
 
     Row(
         modifier = Modifier
@@ -403,7 +403,7 @@ fun AlbumListItem(
                 contentDescription = album.name,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.DarkGray),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Crop
             )
              // Play Button Overlay (Mini)
@@ -473,7 +473,7 @@ fun AlbumItemStyled(
     onLongClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
-    val primaryAccent = Color(0xFFE11D48)
+    val primaryAccent = MaterialTheme.colorScheme.primary
 
     Card(
         modifier = Modifier

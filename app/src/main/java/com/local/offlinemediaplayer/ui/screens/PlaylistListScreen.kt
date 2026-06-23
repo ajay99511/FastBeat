@@ -162,6 +162,7 @@ fun PlaylistListScreen(
                     PlaylistListItem(
                         name = playlist.name,
                         count = playlist.mediaIds.size,
+                        isVideo = isVideo,
                         onClick = { onPlaylistClick(playlist.id) },
                         onRename = if (onRename != null) { { playlistToRename = playlist.id to playlist.name } } else null,
                         onDelete = if (onDelete != null) { { playlistToDelete = playlist.id } } else null
@@ -200,6 +201,7 @@ fun PlaylistListScreen(
 private fun PlaylistListItem(
     name: String,
     count: Int,
+    isVideo: Boolean = false,
     onClick: () -> Unit,
     onRename: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
@@ -249,7 +251,7 @@ private fun PlaylistListItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "$count videos", // Changed text slightly for generic feel
+                    text = "$count ${if (isVideo) "video" else "song"}${if (count != 1) "s" else ""}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

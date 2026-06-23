@@ -478,21 +478,12 @@ constructor(
         val isFav = isCurrentTrackFavorite.value
 
         viewModelScope.launch(Dispatchers.IO) {
-            // Find Favorites playlist, or create if missing
-            var favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo }
-            if (favPlaylist == null) {
-                playlistRepository.createPlaylist("Favorites", false)
-                // Small delay to ensure DB insertion propagates to Flow before we fetch again
-                delay(100)
-                favPlaylist = playlists.value.find { it.name == "Favorites" && !it.isVideo }
-            }
-
-            if (favPlaylist != null) {
-                if (isFav) {
-                    playlistRepository.removeSongFromPlaylist(favPlaylist.id, track.id)
-                } else {
-                    playlistRepository.addSongToPlaylist(favPlaylist.id, track.id)
-                }
+            // Resolve (or create) the Favorites playlist atomically against the DB — no flow race.
+            val favId = playlistRepository.getOrCreatePlaylistId("Favorites", false)
+            if (isFav) {
+                playlistRepository.removeSongFromPlaylist(favId, track.id)
+            } else {
+                playlistRepository.addSongToPlaylist(favId, track.id)
             }
         }
     }
@@ -648,8 +639,7 @@ constructor(
         }
         val id = currentMediaItem.mediaId.toLongOrNull()
         if (id != null) {
-            val track =
-                    audioList.value.find { it.id == id } ?: mediaRepository.videoList.value.find { it.id == id }
+            val track = mediaRepository.mediaById.value[id]
             _currentTrack.value = track
             _currentIndex.value = controller.currentMediaItemIndex
 
@@ -834,11 +824,12 @@ constructor(
 
     // --- Persistent Queue Logic ---
     private suspend fun restoreQueue(allMedia: List<MediaFile>) {
+        val mediaById = allMedia.associateBy { it.id }
         val savedQueueItems = mediaDao.getSavedQueue()
         if (savedQueueItems.isNotEmpty()) {
             val restoredQueue =
                     savedQueueItems
-                            .mapNotNull { item -> allMedia.find { it.id == item.mediaId } }
+                            .mapNotNull { item -> mediaById[item.mediaId] }
                             .filter { !it.isVideo }
 
             var finalQueue = restoredQueue
@@ -864,7 +855,7 @@ constructor(
                 // AUDIO track
                 val lastAudio = mediaDao.getLastPlayedAudio()
                 if (lastAudio != null) {
-                    val track = allMedia.find { it.id == lastAudio.mediaId }
+                    val track = mediaById[lastAudio.mediaId]
                     if (track != null) {
                         finalQueue = listOf(track)
                         finalIndex = 0
@@ -1129,6 +1120,29 @@ constructor(
     }
 
     /**
+     * Play all songs by an artist. Sets the artist as the playlist context so autoFill
+     * won't append random library songs when the artist's tracks finish.
+     */
+    fun playArtist(artistName: String, songs: List<MediaFile>, shuffle: Boolean) {
+        if (songs.isNotEmpty()) {
+            _currentPlaylistContext.value = "ARTIST_$artistName"
+            persistPlaylistContext("ARTIST_$artistName")
+            setQueue(songs, 0, shuffle)
+        }
+    }
+
+    /**
+     * Play a specific track from an artist context.
+     */
+    fun playFromArtist(artistName: String, songs: List<MediaFile>, startIndex: Int) {
+        if (songs.isNotEmpty() && startIndex in songs.indices) {
+            _currentPlaylistContext.value = "ARTIST_$artistName"
+            persistPlaylistContext("ARTIST_$artistName")
+            setQueue(songs, startIndex, false)
+        }
+    }
+
+    /**
      * Play a specific track from a playlist context.
      * Sets the playlist as the context so autoFill won't add random library songs.
      */
@@ -1354,6 +1368,55 @@ constructor(
 
     fun dismissPlayerError() {
         _playerError.value = null
+    }
+
+    /** Set an exact playback speed (used by the audio speed picker). */
+    fun setPlaybackSpeed(speed: Float) {
+        _player.value?.setPlaybackSpeed(speed)
+        _playbackSpeed.value = speed
+    }
+
+    // --- Sleep Timer (night-only) ---
+    // Per product requirement, the sleep timer is only usable between 10 PM and 5 AM
+    // based on the device's local time. The window is detected automatically.
+    private val _sleepTimerEndMillis = MutableStateFlow<Long?>(null)
+    val sleepTimerEndMillis = _sleepTimerEndMillis.asStateFlow()
+
+    private var sleepTimerJob: Job? = null
+
+    /** True when the current device-local time falls within the night window [22:00, 05:00). */
+    fun isSleepTimerAllowed(): Boolean {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return hour >= 22 || hour < 5
+    }
+
+    /**
+     * Start a sleep timer that pauses playback after [durationMinutes]. Only honored while the
+     * device time is inside the night window; otherwise the request is rejected with a message.
+     */
+    fun setSleepTimer(durationMinutes: Int) {
+        if (!isSleepTimerAllowed()) {
+            viewModelScope.launch {
+                _userMessage.emit("Sleep timer is only available between 10 PM and 5 AM")
+            }
+            return
+        }
+        sleepTimerJob?.cancel()
+        val durationMs = durationMinutes * 60_000L
+        _sleepTimerEndMillis.value = System.currentTimeMillis() + durationMs
+        sleepTimerJob = viewModelScope.launch {
+            delay(durationMs)
+            withContext(Dispatchers.Main) { _player.value?.pause() }
+            _sleepTimerEndMillis.value = null
+            _userMessage.emit("Sleep timer ended — playback paused")
+        }
+        viewModelScope.launch { _userMessage.emit("Sleep timer set for $durationMinutes min") }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerEndMillis.value = null
     }
 
     // --- Track Selection (Audio & Subtitles) ---
@@ -1871,9 +1934,64 @@ constructor(
         }
     }
 
+    /**
+     * Remove a single track from the queue (cannot remove the currently playing track here).
+     * Keeps the player timeline and the local/persisted queue in sync.
+     */
+    fun removeFromQueue(track: MediaFile) {
+        val controller = _player.value ?: return
+        if (track.id == _currentTrack.value?.id) return // guard: don't drop the playing track
+
+        for (i in 0 until controller.mediaItemCount) {
+            if (controller.getMediaItemAt(i).mediaId == track.id.toString()) {
+                controller.removeMediaItem(i)
+                break
+            }
+        }
+        val queue = _currentQueue.value.toMutableList()
+        queue.removeAll { it.id == track.id }
+        _currentQueue.value = queue
+        _currentIndex.value = controller.currentMediaItemIndex
+        updateDisplayQueue()
+        persistQueue(queue)
+    }
+
+    /** Clear all upcoming tracks, keeping only the one currently playing. */
+    fun clearQueueExceptCurrent() {
+        val controller = _player.value ?: return
+        val current = _currentTrack.value ?: return
+
+        for (i in controller.mediaItemCount - 1 downTo 0) {
+            if (controller.getMediaItemAt(i).mediaId != current.id.toString()) {
+                controller.removeMediaItem(i)
+            }
+        }
+        val newQueue = listOf(current)
+        _currentQueue.value = newQueue
+        _currentIndex.value = controller.currentMediaItemIndex
+        updateDisplayQueue()
+        persistQueue(newQueue)
+    }
+
+    /** Persist the current queue as a new audio playlist. */
+    fun saveQueueAsPlaylist(name: String) {
+        val queue = _currentQueue.value
+        if (queue.isEmpty() || name.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            playlistRepository.createPlaylist(name.trim(), false)
+            val created = playlistRepository.playlistsFlow.firstOrNull()
+                ?.find { it.name.equals(name.trim(), ignoreCase = true) && !it.isVideo }
+            if (created != null) {
+                playlistRepository.updatePlaylistTracks(created.id, queue.map { it.id })
+                _userMessage.emit("Saved queue as \"${name.trim()}\"")
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopPositionUpdates()
+        sleepTimerJob?.cancel()
         controllerFuture?.let { MediaController.releaseFuture(it) }
         // Note: MediaRepository is @Singleton and outlives this ViewModel.
         // cleanup() is not called here to avoid breaking other ViewModels that share it.
