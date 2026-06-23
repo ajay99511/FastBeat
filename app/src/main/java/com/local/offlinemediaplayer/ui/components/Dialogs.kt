@@ -12,7 +12,9 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
@@ -217,6 +219,129 @@ fun AddToPlaylistDialog(
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
+}
+
+/**
+ * Multi-select picker for adding tracks to an existing playlist. Songs already in the
+ * playlist are filtered out. Returns the chosen media ids via [onConfirm].
+ */
+@Composable
+fun AddSongsToPlaylistDialog(
+    allSongs: List<MediaFile>,
+    existingIds: Set<Long>,
+    onConfirm: (List<Long>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val primaryAccent = LocalAppTheme.current.primaryColor
+    var query by remember { mutableStateOf("") }
+    val selected = remember { mutableStateListOf<Long>() }
+
+    val available = remember(allSongs, existingIds) { allSongs.filter { it.id !in existingIds } }
+    val filtered = remember(available, query) {
+        if (query.isBlank()) available
+        else available.filter {
+            it.title.contains(query, true) || (it.artist?.contains(query, true) == true)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                "Add songs",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Search library...") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryAccent,
+                        cursorColor = primaryAccent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                if (filtered.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text(
+                            if (available.isEmpty()) "All songs are already in this playlist"
+                            else "No matching songs",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        items(filtered, key = { it.id }) { song ->
+                            val checked = selected.contains(song.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (checked) selected.remove(song.id) else selected.add(song.id)
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = {
+                                        if (checked) selected.remove(song.id) else selected.add(song.id)
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = primaryAccent)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        song.title,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        song.artist ?: "Unknown",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (selected.isNotEmpty()) {
+                        onConfirm(selected.toList())
+                        onDismiss()
+                    }
+                },
+                enabled = selected.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(if (selected.isEmpty()) "Add" else "Add (${selected.size})")
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

@@ -73,6 +73,9 @@ class LibraryViewModel @Inject constructor(
     private val _albumSearchQuery = MutableStateFlow("")
     val albumSearchQuery = _albumSearchQuery.asStateFlow()
 
+    private val _artistSearchQuery = MutableStateFlow("")
+    val artistSearchQuery = _artistSearchQuery.asStateFlow()
+
     private val _folderSearchQuery = MutableStateFlow("")
     val folderSearchQuery = _folderSearchQuery.asStateFlow()
 
@@ -186,7 +189,7 @@ class LibraryViewModel @Inject constructor(
             SortOption.TITLE_DESC -> result.sortedByDescending { it.title }
             SortOption.DURATION_ASC -> result.sortedBy { it.duration }
             SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
-            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.id }
+            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.dateAdded }
             SortOption.MOST_PLAYED -> result.sortedByDescending { playCounts[it.id] ?: 0 }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -204,8 +207,28 @@ class LibraryViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // --- Artists (derived from the audio library, grouped by artist name) ---
+    val artists = audioList.map { list ->
+        list.groupBy { it.artist?.takeIf { a -> a.isNotBlank() } ?: "Unknown Artist" }
+            .map { (name, songs) ->
+                com.local.offlinemediaplayer.model.Artist(
+                    name = name,
+                    songCount = songs.size,
+                    albumCount = songs.mapNotNull { it.albumId.takeIf { id -> id > 0 } }.distinct().size,
+                    albumArtUri = songs.firstOrNull { it.albumArtUri != null }?.albumArtUri
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredArtists = combine(artists, _artistSearchQuery) { list, query ->
+        if (query.isEmpty()) list
+        else list.filter { it.name.contains(query, true) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun updateSearchQuery(query: String) { _searchQuery.value = query }
     fun updateAlbumSearchQuery(query: String) { _albumSearchQuery.value = query }
+    fun updateArtistSearchQuery(query: String) { _artistSearchQuery.value = query }
     fun updateFolderSearchQuery(query: String) { _folderSearchQuery.value = query }
     fun updateSortOption(option: SortOption) {
         _sortOption.value = option

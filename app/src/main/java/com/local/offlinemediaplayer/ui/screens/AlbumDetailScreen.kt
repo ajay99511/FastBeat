@@ -60,15 +60,17 @@ fun AlbumDetailScreen(
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
-    val album = albums.find { it.id == albumId }
-    val albumSongs = allAudio.filter { it.albumId == albumId }
+    val album = remember(albums, albumId) { albums.find { it.id == albumId } }
+    val albumSongs = remember(allAudio, albumId) { allAudio.filter { it.albumId == albumId } }
 
-    // Check if album is "Favorited" (i.e., all its songs are in Favorites playlist)
-    val favPlaylist = playlists.find { it.name == "Favorites" }
-    val isFavorite =
-            if (favPlaylist != null && albumSongs.isNotEmpty()) {
-                albumSongs.all { favPlaylist.mediaIds.contains(it.id) }
-            } else false
+    // Check if album is "Favorited" (i.e., all its songs are in the Favorites playlist).
+    // Uses a Set for O(1) membership instead of repeated List.contains scans.
+    val favIds = remember(playlists) {
+        playlists.find { it.name == "Favorites" && !it.isVideo }?.mediaIds?.toSet() ?: emptySet()
+    }
+    val isFavorite = remember(albumSongs, favIds) {
+        albumSongs.isNotEmpty() && albumSongs.all { favIds.contains(it.id) }
+    }
 
     // LibraryViewModel selections
     val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
@@ -397,7 +399,7 @@ fun AlbumDetailScreen(
                 }
 
                 // Song List
-                itemsIndexed(albumSongs) { index, song ->
+                itemsIndexed(albumSongs, key = { _, song -> song.id }) { index, song ->
                     val isSelected = selectedIds.contains(song.id)
                     AlbumSongRow(
                             index = index + 1,

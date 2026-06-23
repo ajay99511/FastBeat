@@ -3,12 +3,10 @@ package com.local.offlinemediaplayer.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.data.db.MediaDao
-import com.local.offlinemediaplayer.data.db.PlayEvent
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Calendar
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +14,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 // --- Data classes for UI consumption ---
 
@@ -189,14 +186,5 @@ class AnalyticsViewModel @Inject constructor(
         c.set(Calendar.SECOND, 0)
         c.set(Calendar.MILLISECOND, 0)
         return c.timeInMillis
-    }
-
-    fun recordPlay(mediaId: Long) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val now = System.currentTimeMillis()
-            mediaDao.initAnalytics(mediaId, now)
-            mediaDao.incrementPlayCount(mediaId, now)
-            mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
-        }
     }
 }

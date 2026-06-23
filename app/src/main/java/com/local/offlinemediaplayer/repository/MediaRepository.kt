@@ -17,7 +17,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +51,13 @@ class MediaRepository @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
+
+    // Shared id -> MediaFile index across audio/video/image, so callers can resolve a media item
+    // in O(1) instead of repeatedly scanning the lists with find{}.
+    val mediaById: StateFlow<Map<Long, MediaFile>> =
+        combine(_audioList, _videoList, _imageList) { audio, video, images ->
+            (audio + video + images).associateBy { it.id }
+        }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyMap())
 
     suspend fun scanMedia(): Pair<List<MediaFile>, List<MediaFile>> {
         // Atomic guard — only one scan can run at a time (prevents TOCTOU race)

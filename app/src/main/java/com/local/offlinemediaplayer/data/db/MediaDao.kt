@@ -107,6 +107,9 @@ interface MediaDao {
     @Query("SELECT COUNT(*) FROM playlists WHERE name = :name AND isVideo = :isVideo")
     suspend fun getPlaylistCount(name: String, isVideo: Boolean): Int
 
+    @Query("SELECT id FROM playlists WHERE name = :name AND isVideo = :isVideo LIMIT 1")
+    suspend fun getPlaylistIdByName(name: String, isVideo: Boolean): String?
+
     // Reactive playlist count for Library Stats
     @Query("SELECT COUNT(*) FROM playlists")
     fun getPlaylistCountFlow(): Flow<Int>

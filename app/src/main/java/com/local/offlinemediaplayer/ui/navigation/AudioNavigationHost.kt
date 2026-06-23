@@ -61,6 +61,9 @@ fun AudioNavigationHost(
                     onNavigateToPlayer = { navController.navigate("now_playing") },
                     onNavigateToPlaylist = { id -> navController.navigate("playlist_detail/$id") },
                     onNavigateToAlbum = { id -> navController.navigate("album_detail/$id") },
+                    onNavigateToArtist = { name ->
+                        navController.navigate("artist_detail/${android.net.Uri.encode(name)}")
+                    },
                     isSearchVisible = isSearchVisible
             )
         }
@@ -82,6 +85,17 @@ fun AudioNavigationHost(
                             ?: return@composable
             AlbumDetailScreen(
                     albumId = albumId,
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToPlayer = { navController.navigate("now_playing") }
+            )
+        }
+        composable("artist_detail/{artistName}") { backStackEntry ->
+            val artistName =
+                    backStackEntry.arguments?.getString("artistName")?.let { android.net.Uri.decode(it) }
+                            ?: return@composable
+            ArtistDetailScreen(
+                    artistName = artistName,
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                     onNavigateToPlayer = { navController.navigate("now_playing") }

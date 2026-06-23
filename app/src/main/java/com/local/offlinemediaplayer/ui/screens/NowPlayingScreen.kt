@@ -66,6 +66,8 @@ fun NowPlayingScreen(
     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsStateWithLifecycle()
     val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentTrackFavorite.collectAsStateWithLifecycle()
+    val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
+    val sleepTimerEnd by viewModel.sleepTimerEndMillis.collectAsStateWithLifecycle()
 
     // Queue State - uses displayQueue which shows shuffled order when shuffle is enabled
     val displayQueue by viewModel.displayQueue.collectAsStateWithLifecycle()
@@ -80,6 +82,9 @@ fun NowPlayingScreen(
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showSaveQueueDialog by remember { mutableStateOf(false) }
 
     // Delete Intent Launcher
     val context = LocalContext.current
@@ -197,6 +202,38 @@ fun NowPlayingScreen(
                                 showAddToPlaylistDialog = true
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Playback speed (${formatSpeed(playbackSpeed)})") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Speed,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showSpeedDialog = true
+                            }
+                        )
+                        // Sleep timer is night-only; show it inside the 10 PM–5 AM window,
+                        // or whenever a timer is currently running (so it can be cancelled).
+                        if (viewModel.isSleepTimerAllowed() || sleepTimerEnd != null) {
+                            DropdownMenuItem(
+                                text = { Text(if (sleepTimerEnd != null) "Sleep timer (on)" else "Sleep timer") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Bedtime,
+                                        contentDescription = null,
+                                        tint = if (sleepTimerEnd != null) primaryAccent else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showSleepTimerDialog = true
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Delete") },
                             leadingIcon = {
@@ -378,7 +415,10 @@ fun NowPlayingScreen(
                     displayQueue.getOrNull(index)?.let { track ->
                         viewModel.playTrackFromQueue(track)
                     }
-                }
+                },
+                onRemove = { track -> viewModel.removeFromQueue(track) },
+                onClear = { viewModel.clearQueueExceptCurrent() },
+                onSaveAsPlaylist = { showSaveQueueDialog = true }
             )
         }
     }
@@ -411,13 +451,166 @@ fun NowPlayingScreen(
             onDismiss = { showDeleteConfirmDialog = false }
         )
     }
+
+    // Playback Speed Dialog
+    if (showSpeedDialog) {
+        PlaybackSpeedDialog(
+            currentSpeed = playbackSpeed,
+            onSelect = { speed ->
+                viewModel.setPlaybackSpeed(speed)
+                showSpeedDialog = false
+            },
+            onDismiss = { showSpeedDialog = false }
+        )
+    }
+
+    // Save Queue as Playlist Dialog
+    if (showSaveQueueDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showSaveQueueDialog = false },
+            onCreate = { name -> viewModel.saveQueueAsPlaylist(name) }
+        )
+    }
+
+    // Sleep Timer Dialog
+    if (showSleepTimerDialog) {
+        SleepTimerDialog(
+            isActive = sleepTimerEnd != null,
+            onSelect = { minutes ->
+                viewModel.setSleepTimer(minutes)
+                showSleepTimerDialog = false
+            },
+            onCancelTimer = {
+                viewModel.cancelSleepTimer()
+                showSleepTimerDialog = false
+            },
+            onDismiss = { showSleepTimerDialog = false }
+        )
+    }
+}
+
+private fun formatSpeed(speed: Float): String {
+    return if (speed % 1f == 0f) "${speed.toInt()}x" else "${speed}x"
+}
+
+@Composable
+private fun PlaybackSpeedDialog(
+    currentSpeed: Float,
+    onSelect: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+    val primaryAccent = LocalAppTheme.current.primaryColor
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text("Playback speed", color = MaterialTheme.colorScheme.onSurface)
+        },
+        text = {
+            Column {
+                speeds.forEach { speed ->
+                    val isSelected = kotlin.math.abs(speed - currentSpeed) < 0.001f
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(speed) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = formatSpeed(speed) + if (speed == 1.0f) " (Normal)" else "",
+                            color = if (isSelected) primaryAccent else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = "Selected", tint = primaryAccent)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
+}
+
+@Composable
+private fun SleepTimerDialog(
+    isActive: Boolean,
+    onSelect: (Int) -> Unit,
+    onCancelTimer: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val options = listOf(15, 30, 45, 60)
+    val primaryAccent = LocalAppTheme.current.primaryColor
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text("Sleep timer", color = MaterialTheme.colorScheme.onSurface)
+        },
+        text = {
+            Column {
+                Text(
+                    "Pause playback after:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                options.forEach { minutes ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(minutes) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Bedtime,
+                            contentDescription = null,
+                            tint = primaryAccent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text("$minutes minutes", color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Available only between 10 PM and 5 AM.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            if (isActive) {
+                TextButton(onClick = onCancelTimer) {
+                    Text("Cancel timer", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
 }
 
 @Composable
 fun QueueSheetContent(
     queue: List<MediaFile>,
     currentIndex: Int,
-    onTrackClick: (Int) -> Unit
+    onTrackClick: (Int) -> Unit,
+    onRemove: (MediaFile) -> Unit,
+    onClear: () -> Unit,
+    onSaveAsPlaylist: () -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -429,12 +622,31 @@ fun QueueSheetContent(
     }
 
     Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.6f)) {
-        Text(
-            text = "Playing Queue",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(16.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Playing Queue",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (queue.isNotEmpty()) {
+                    IconButton(onClick = onSaveAsPlaylist) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.PlaylistAdd,
+                            contentDescription = "Save queue as playlist",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(onClick = onClear) {
+                        Text("Clear", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
 
@@ -442,14 +654,14 @@ fun QueueSheetContent(
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            itemsIndexed(queue) { index, track ->
+            itemsIndexed(queue, key = { _, track -> track.id }) { index, track ->
                 val isPlaying = index == currentIndex
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(if (isPlaying) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent)
                         .clickable { onTrackClick(index) }
-                        .padding(16.dp),
+                        .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isPlaying) {
@@ -486,6 +698,18 @@ fun QueueSheetContent(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
+
+                    // Remove from queue (not shown for the currently playing track)
+                    if (!isPlaying) {
+                        IconButton(onClick = { onRemove(track) }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Remove from queue",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
