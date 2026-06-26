@@ -16,6 +16,12 @@ interface MediaDao {
     @Query("SELECT * FROM playback_history WHERE mediaId = :mediaId")
     suspend fun getHistory(mediaId: Long): PlaybackHistory?
 
+    // Position-only update used by the service's onTaskRemoved() so that swiping the app
+    // away durably records the latest position WITHOUT clobbering mediaType or the saved
+    // audio/subtitle track selections written by the full saveHistory() path.
+    @Query("UPDATE playback_history SET position = :position, duration = :duration, timestamp = :timestamp WHERE mediaId = :mediaId")
+    suspend fun updateHistoryPosition(mediaId: Long, position: Long, duration: Long, timestamp: Long)
+
     @Query("SELECT * FROM playback_history ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastPlayed(): PlaybackHistory?
 

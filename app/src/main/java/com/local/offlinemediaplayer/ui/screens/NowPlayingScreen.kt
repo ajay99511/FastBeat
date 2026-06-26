@@ -68,6 +68,7 @@ fun NowPlayingScreen(
     val isFavorite by viewModel.isCurrentTrackFavorite.collectAsStateWithLifecycle()
     val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
     val sleepTimerEnd by viewModel.sleepTimerEndMillis.collectAsStateWithLifecycle()
+    val queueSourceLabel by viewModel.queueSourceLabel.collectAsStateWithLifecycle()
 
     // Queue State - uses displayQueue which shows shuffled order when shuffle is enabled
     val displayQueue by viewModel.displayQueue.collectAsStateWithLifecycle()
@@ -159,7 +160,7 @@ fun NowPlayingScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "From \"${currentTrack?.artist ?: "Unknown"}\"",
+                        text = "From \"$queueSourceLabel\"",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )

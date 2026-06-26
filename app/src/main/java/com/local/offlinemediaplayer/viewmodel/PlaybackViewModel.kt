@@ -325,6 +325,23 @@ constructor(
                     }
                     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    // Human-readable label for WHERE the current queue is playing from (playlist / album /
+    // artist / library). Derived from the persisted playlist context so the Now Playing
+    // screen can show the real source instead of the track's artist.
+    val queueSourceLabel =
+            combine(_currentPlaylistContext, playlists, _albums) { context, allPlaylists, albumList ->
+                        when {
+                            context == null -> "Library"
+                            context.startsWith("ALBUM_") -> {
+                                val albumId = context.removePrefix("ALBUM_").toLongOrNull()
+                                albumList.find { it.id == albumId }?.name ?: "Album"
+                            }
+                            context.startsWith("ARTIST_") -> context.removePrefix("ARTIST_")
+                            else -> allPlaylists.find { it.id == context }?.name ?: "Playlist"
+                        }
+                    }
+                    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Library")
+
     private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
     val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
 
@@ -837,6 +854,18 @@ constructor(
     // --- Persistent Queue Logic ---
     private suspend fun restoreQueue(allMedia: List<MediaFile>) {
         val mediaById = allMedia.associateBy { it.id }
+
+        // PRECEDENCE: a saved audio session means a video interrupted music and the process
+        // died before it could be restored in-app. Recover that full session first and stop —
+        // it is the authoritative snapshot of the interrupted music session.
+        val savedSession = loadSavedAudioSession(mediaById)
+        if (savedSession != null) {
+            _currentPlaylistContext.value = sharedPrefs.getString("last_playlist_context", null)
+            applyAudioSession(savedSession)
+            clearSavedAudioState()
+            return
+        }
+
         val savedQueueItems = mediaDao.getSavedQueue()
         if (savedQueueItems.isNotEmpty()) {
             val restoredQueue =
@@ -910,6 +939,9 @@ constructor(
     }
 
     private fun persistQueue(queue: List<MediaFile>) {
+        // Central guard: the persisted "current_queue" is the AUDIO session only. Never write a
+        // video into it, so video playback can't wipe the music queue on the next cold start.
+        if (queue.any { it.isVideo }) return
         viewModelScope.launch(Dispatchers.IO) {
             val entities = queue.mapIndexed { index, media -> QueueItemEntity(media.id, index) }
             mediaDao.replaceQueue(entities)
@@ -932,6 +964,73 @@ constructor(
         sharedPrefs.edit {
             if (context != null) putString("last_playlist_context", context)
             else remove("last_playlist_context")
+        }
+    }
+
+    // --- Saved Audio Session Persistence (survives a video interruption + process death) ---
+    // When a video interrupts an active music session we snapshot the audio session both
+    // in-memory (for the fast in-app restore) AND to disk here, so that if the process is
+    // killed while the video is open the whole music session (queue, index, position,
+    // shuffle, repeat) can be recovered on next launch instead of being lost.
+    private val SAVED_AUDIO_SESSION_KEY = "saved_audio_session"
+
+    private fun persistSavedAudioState(state: AudioPlayerState) {
+        try {
+            val ids = org.json.JSONArray()
+            state.queue.forEach { ids.put(it.id) }
+            val json =
+                    org.json.JSONObject().apply {
+                        put("queueIds", ids)
+                        put("index", state.currentIndex)
+                        put("currentId", state.queue.getOrNull(state.currentIndex)?.id ?: -1L)
+                        put("position", state.position)
+                        put("shuffle", state.isShuffleEnabled)
+                        put("repeat", state.repeatMode)
+                    }
+            sharedPrefs.edit { putString(SAVED_AUDIO_SESSION_KEY, json.toString()) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to persist saved audio session", e)
+        }
+    }
+
+    private fun clearSavedAudioState() {
+        sharedPrefs.edit { remove(SAVED_AUDIO_SESSION_KEY) }
+    }
+
+    /**
+     * Reconstructs a previously interrupted audio session from disk, resolving media IDs against
+     * the freshly-scanned library and dropping any that no longer exist. Returns null when there
+     * is no saved session or none of its tracks survive. The restored session is always paused
+     * (we never auto-blast audio on cold start).
+     */
+    private fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? {
+        val raw = sharedPrefs.getString(SAVED_AUDIO_SESSION_KEY, null) ?: return null
+        return try {
+            val json = org.json.JSONObject(raw)
+            val idsArray = json.getJSONArray("queueIds")
+            val queue = mutableListOf<MediaFile>()
+            for (i in 0 until idsArray.length()) {
+                val track = mediaById[idsArray.getLong(i)]
+                if (track != null && !track.isVideo) queue.add(track)
+            }
+            if (queue.isEmpty()) return null
+
+            val currentId = json.optLong("currentId", -1L)
+            val index =
+                    queue.indexOfFirst { it.id == currentId }.takeIf { it >= 0 }
+                            ?: json.getInt("index").coerceIn(0, queue.size - 1)
+
+            AudioPlayerState(
+                    queue = queue,
+                    currentIndex = index,
+                    position = json.getLong("position"),
+                    isPlaying = false, // never auto-play on cold start
+                    isShuffleEnabled = json.getBoolean("shuffle"),
+                    repeatMode = json.getInt("repeat")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load saved audio session", e)
+            null
         }
     }
 
@@ -1002,6 +1101,9 @@ constructor(
                             isShuffleEnabled = _isShuffleEnabled.value,
                             repeatMode = _repeatMode.value
                     )
+            // Also persist to disk so the music session survives if the process is killed
+            // while the video is open (in-memory savedAudioState would be lost).
+            savedAudioState?.let { persistSavedAudioState(it) }
         }
 
         _isPlayerLocked.value = false
@@ -1056,36 +1158,46 @@ constructor(
     private fun restoreAudioSession() {
         val state = savedAudioState
         if (state != null) {
-            // Restore internal StateFlows
-            _currentQueue.value = state.queue
-            _currentIndex.value = state.currentIndex
-            _isShuffleEnabled.value = state.isShuffleEnabled
-            _repeatMode.value = state.repeatMode
+            applyAudioSession(state)
+            // Clear both the in-memory and on-disk snapshots after a successful restore.
+            savedAudioState = null
+            clearSavedAudioState()
+        } else {
+            // No state to restore (e.g. video played without prior music), just stop
+            clearSavedAudioState()
+            _player.value?.stop()
+            _player.value?.clearMediaItems()
+            _currentTrack.value = null
+            _currentQueue.value = emptyList()
+        }
+    }
 
-            // Restore Player State
+    /**
+     * Applies a saved audio session to both the UI StateFlows and the underlying player.
+     * Shared by the in-app "close video" restore and the cold-start recovery path. Player
+     * interaction is dispatched to Main; playback only resumes when [state.isPlaying] is true.
+     */
+    private fun applyAudioSession(state: AudioPlayerState) {
+        _currentQueue.value = state.queue
+        _displayQueue.value = state.queue
+        _currentIndex.value = state.currentIndex
+        _isShuffleEnabled.value = state.isShuffleEnabled
+        _repeatMode.value = state.repeatMode
+
+        // Immediately update the UI track so the miniplayer reappears correctly
+        if (state.queue.isNotEmpty() && state.currentIndex < state.queue.size) {
+            _currentTrack.value = state.queue[state.currentIndex]
+        }
+
+        viewModelScope.launch(Dispatchers.Main) {
             _player.value?.let { controller ->
                 val items = state.queue.map { it.toMediaItem() }
                 controller.setMediaItems(items, state.currentIndex, state.position)
                 controller.shuffleModeEnabled = state.isShuffleEnabled
                 controller.repeatMode = state.repeatMode
                 controller.prepare()
-                // Conditionally play/pause based on saved state (or pause to avoid sudden blasting)
                 if (state.isPlaying) controller.play() else controller.pause()
             }
-
-            // Immediately update the UI track so the miniplayer reappears correctly
-            if (state.queue.isNotEmpty() && state.currentIndex < state.queue.size) {
-                _currentTrack.value = state.queue[state.currentIndex]
-            }
-
-            // Clear the saved state after restoration
-            savedAudioState = null
-        } else {
-            // No state to restore (e.g. video played without prior music), just stop
-            _player.value?.stop()
-            _player.value?.clearMediaItems()
-            _currentTrack.value = null
-            _currentQueue.value = emptyList()
         }
     }
 
@@ -1214,9 +1326,20 @@ constructor(
                 updateDisplayQueue()
             }
 
-            // Persist
-            persistQueue(mediaList)
-            withContext(Dispatchers.Main) { persistQueueIndex(startIndex) }
+            // Persist queue + index together, audio only. Writing both in the same IO job (queue
+            // first, then index) means a persisted index can never outlive the queue it points
+            // into. Video is never written into the audio queue, so an interrupting video can't
+            // destroy the saved music session.
+            if (mediaList.none { it.isVideo }) {
+                // Starting a fresh audio queue supersedes any pending interrupted session.
+                savedAudioState = null
+                clearSavedAudioState()
+
+                val entities =
+                        mediaList.mapIndexed { index, media -> QueueItemEntity(media.id, index) }
+                mediaDao.replaceQueue(entities)
+                persistQueueIndex(startIndex)
+            }
         }
     }
 
@@ -1250,8 +1373,11 @@ constructor(
             }
         }
 
-        persistQueue(mediaList)
-        withContext(Dispatchers.Main) { persistQueueIndex(startIndex) }
+        // Audio only — a video folder/playlist must never overwrite the persisted music queue.
+        if (mediaList.none { it.isVideo }) {
+            persistQueue(mediaList)
+            withContext(Dispatchers.Main) { persistQueueIndex(startIndex) }
+        }
     }
 
     private var displayQueueUpdateJob: Job? = null
