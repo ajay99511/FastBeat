@@ -142,6 +142,18 @@ constructor(
     // Persistence (used for queue index)
     private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
 
+    // --- VIDEO BRIGHTNESS ---
+    // User-set video player brightness (0.01f..1f). -1f is a sentinel meaning
+    // "never set / follow the system brightness" so we don't override on first launch.
+    private val _videoBrightness = MutableStateFlow(sharedPrefs.getFloat("video_brightness", -1f))
+    val videoBrightness = _videoBrightness.asStateFlow()
+
+    fun setVideoBrightness(value: Float) {
+        val clamped = value.coerceIn(0.01f, 1f)
+        _videoBrightness.value = clamped
+        sharedPrefs.edit { putFloat("video_brightness", clamped) }
+    }
+
     // Media Lists
 
     val audioList = mediaRepository.audioList

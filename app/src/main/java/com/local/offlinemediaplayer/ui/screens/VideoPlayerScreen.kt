@@ -184,6 +184,17 @@ fun VideoPlayerScreen(
         }
     }
 
+    // Re-apply the user's persisted brightness when the player opens, so the choice
+    // survives app relaunches. A sentinel of -1f means "never set" -> follow system.
+    LaunchedEffect(Unit) {
+        val saved = viewModel.videoBrightness.value
+        if (saved >= 0f) {
+            val layoutParams = activity?.window?.attributes
+            layoutParams?.screenBrightness = saved.coerceIn(0.01f, 1f)
+            activity?.window?.attributes = layoutParams
+        }
+    }
+
     BackHandler {
         if (showBookmarksDialog) {
             showBookmarksDialog = false
@@ -281,13 +292,26 @@ fun VideoPlayerScreen(
                                                     )
                                             val layoutParams = activity?.window?.attributes
                                             var bright = layoutParams?.screenBrightness ?: -1f
-                                            if (bright < 0) bright = 0.5f
+                                            if (bright < 0)
+                                                    bright =
+                                                            viewModel.videoBrightness.value.takeIf {
+                                                                it >= 0f
+                                                            }
+                                                                    ?: 0.5f
                                             initialBrightness = bright
                                             initialSeekPosition = currentPosition
                                         },
                                         onDragEnd = {
                                             if (gestureMode == GestureMode.SEEK)
                                                     viewModel.seekTo(initialSeekPosition)
+                                            // Persist brightness once the gesture finishes so it
+                                            // survives relaunches, without writing on every frame.
+                                            if (gestureMode == GestureMode.BRIGHTNESS) {
+                                                val bright =
+                                                        activity?.window?.attributes?.screenBrightness
+                                                                ?: -1f
+                                                if (bright >= 0f) viewModel.setVideoBrightness(bright)
+                                            }
                                             gestureMode = GestureMode.NONE
                                             isControlsVisible = true
                                         },
