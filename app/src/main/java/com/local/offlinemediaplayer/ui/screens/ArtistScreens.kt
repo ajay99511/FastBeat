@@ -187,8 +187,15 @@ fun ArtistDetailScreen(
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
+    // Match by the same normalized key used to build the artist list. A song's
+    // tag may list several artists ("Dhanush, Anirudh"), so it belongs here if
+    // ANY of its names resolves to this artist's key.
     val artistSongs = remember(allAudio, artistName) {
-        allAudio.filter { (it.artist?.takeIf { a -> a.isNotBlank() } ?: "Unknown Artist") == artistName }
+        val targetKey = com.local.offlinemediaplayer.model.ArtistGrouping.key(artistName)
+        allAudio.filter { song ->
+            com.local.offlinemediaplayer.model.ArtistGrouping.splitTokens(song.artist)
+                .any { name -> com.local.offlinemediaplayer.model.ArtistGrouping.key(name) == targetKey }
+        }
     }
     val albumArtUri = remember(artistSongs) { artistSongs.firstOrNull { it.albumArtUri != null }?.albumArtUri }
 

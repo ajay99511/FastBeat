@@ -207,12 +207,22 @@ class LibraryViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // --- Artists (derived from the audio library, grouped by artist name) ---
+    // --- Artists (derived from the audio library) ---
+    // A single tag can name several performers ("Dhanush, Anirudh"), so every
+    // song is fanned out into one (name, song) pair per artist it mentions.
+    // Those names are then collapsed by a normalized key (see ArtistGrouping)
+    // to merge inconsistent spellings, and a tidy label is chosen per group.
     val artists = audioList.map { list ->
-        list.groupBy { it.artist?.takeIf { a -> a.isNotBlank() } ?: "Unknown Artist" }
-            .map { (name, songs) ->
+        list.flatMap { song ->
+            com.local.offlinemediaplayer.model.ArtistGrouping.splitTokens(song.artist)
+                .map { name -> name to song }
+        }
+            .groupBy { (name, _) -> com.local.offlinemediaplayer.model.ArtistGrouping.key(name) }
+            .map { (_, pairs) ->
+                val songs = pairs.map { it.second }.distinctBy { it.id }
                 com.local.offlinemediaplayer.model.Artist(
-                    name = name,
+                    name = com.local.offlinemediaplayer.model.ArtistGrouping
+                        .displayName(pairs.map { it.first }),
                     songCount = songs.size,
                     albumCount = songs.mapNotNull { it.albumId.takeIf { id -> id > 0 } }.distinct().size,
                     albumArtUri = songs.firstOrNull { it.albumArtUri != null }?.albumArtUri

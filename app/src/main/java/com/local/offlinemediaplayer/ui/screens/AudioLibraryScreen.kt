@@ -47,7 +47,7 @@ fun AudioLibraryScreen(
     onNavigateToArtist: (String) -> Unit,
     isSearchVisible: Boolean
 ) {
-    // 0 = Tracks, 1 = Artists, 2 = Albums, 3 = Playlists
+    // 0 = Tracks, 1 = Albums, 2 = Playlists, 3 = Artists
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
 
@@ -60,7 +60,7 @@ fun AudioLibraryScreen(
         if (pagerState.currentPage != 0 && isSelectionMode) {
             libraryViewModel.toggleSelectionMode(false)
         }
-        if (pagerState.currentPage != 2 && isAlbumSelectionMode) {
+        if (pagerState.currentPage != 1 && isAlbumSelectionMode) {
             libraryViewModel.toggleAlbumSelectionMode(false)
         }
     }
@@ -102,7 +102,7 @@ fun AudioLibraryScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val tabs = listOf("TRACKS", "ARTISTS", "ALBUMS", "PLAYLISTS")
+                val tabs = listOf("TRACKS", "ALBUMS", "PLAYLISTS", "ARTISTS")
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = pagerState.currentPage == index,
@@ -149,15 +149,6 @@ fun AudioLibraryScreen(
                         )
                     }
                     1 -> {
-                        // ARTISTS VIEW
-                        ArtistListScreen(
-                            viewModel = viewModel,
-                            libraryViewModel = libraryViewModel,
-                            onArtistClick = onNavigateToArtist,
-                            isSearchVisible = isSearchVisible
-                        )
-                    }
-                    2 -> {
                         // ALBUMS VIEW
                         AlbumListScreen(
                             viewModel = viewModel,
@@ -170,7 +161,7 @@ fun AudioLibraryScreen(
                             isSearchVisible = isSearchVisible
                         )
                     }
-                    3 -> {
+                    2 -> {
                         // PLAYLISTS VIEW
                         PlaylistListScreen(
                             viewModel = viewModel,
@@ -180,6 +171,15 @@ fun AudioLibraryScreen(
                             isVideo = false, // Explicitly Audio
                             onRename = { id, newName -> playlistViewModel.renamePlaylist(id, newName) },
                             onDelete = { id -> playlistViewModel.deletePlaylist(id) }
+                        )
+                    }
+                    3 -> {
+                        // ARTISTS VIEW
+                        ArtistListScreen(
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            onArtistClick = onNavigateToArtist,
+                            isSearchVisible = isSearchVisible
                         )
                     }
                 }
