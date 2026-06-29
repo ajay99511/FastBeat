@@ -207,6 +207,20 @@ class LibraryViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // --- Decades (derived from albums, grouped into 10-year buckets by first year) ---
+    val decades = albums.map { list ->
+        list.groupBy { (it.firstYear ?: 0) / 10 * 10 }
+            .map { (decadeStart, albumsInDecade) ->
+                com.local.offlinemediaplayer.model.Decade(
+                    startYear = decadeStart,
+                    albumCount = albumsInDecade.size,
+                    albumArtUri = albumsInDecade.firstOrNull { it.albumArtUri != null }?.albumArtUri
+                )
+            }
+            // Newest decade first; the "Unknown" bucket (startYear 0) naturally sorts last.
+            .sortedByDescending { it.startYear }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // --- Artists (derived from the audio library) ---
     // A single tag can name several performers ("Dhanush, Anirudh"), so every
     // song is fanned out into one (name, song) pair per artist it mentions.

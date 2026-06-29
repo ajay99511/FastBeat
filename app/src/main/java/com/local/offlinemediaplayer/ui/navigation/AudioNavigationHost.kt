@@ -67,7 +67,22 @@ fun AudioNavigationHost(
                     onNavigateToSmartPlaylist = { typeId ->
                         navController.navigate("smart_playlist_detail/$typeId")
                     },
+                    onNavigateToDecade = { decadeStart ->
+                        navController.navigate("decade_detail/$decadeStart")
+                    },
                     isSearchVisible = isSearchVisible
+            )
+        }
+        composable("decade_detail/{decadeStart}") { backStackEntry ->
+            val decadeStart =
+                    backStackEntry.arguments?.getString("decadeStart")?.toIntOrNull()
+                            ?: return@composable
+            DecadeDetailScreen(
+                    decadeStart = decadeStart,
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onAlbumClick = { id -> navController.navigate("album_detail/$id") },
+                    onNavigateToPlayer = { navController.navigate("now_playing") }
             )
         }
         composable("smart_playlist_detail/{typeId}") { backStackEntry ->

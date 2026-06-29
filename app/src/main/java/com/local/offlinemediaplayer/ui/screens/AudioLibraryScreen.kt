@@ -46,10 +46,11 @@ fun AudioLibraryScreen(
     onNavigateToAlbum: (Long) -> Unit,
     onNavigateToArtist: (String) -> Unit,
     onNavigateToSmartPlaylist: (String) -> Unit,
+    onNavigateToDecade: (Int) -> Unit,
     isSearchVisible: Boolean
 ) {
-    // 0 = Tracks, 1 = Albums, 2 = Playlists, 3 = Artists
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 4 })
+    // 0 = Tracks, 1 = Albums, 2 = Playlists, 3 = Artists, 4 = Decades
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
     // Lifted state observation
@@ -103,7 +104,7 @@ fun AudioLibraryScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val tabs = listOf("TRACKS", "ALBUMS", "PLAYLISTS", "ARTISTS")
+                val tabs = listOf("TRACKS", "ALBUMS", "PLAYLISTS", "ARTISTS", "DECADES")
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = pagerState.currentPage == index,
@@ -182,6 +183,14 @@ fun AudioLibraryScreen(
                             libraryViewModel = libraryViewModel,
                             onArtistClick = onNavigateToArtist,
                             isSearchVisible = isSearchVisible
+                        )
+                    }
+                    4 -> {
+                        // DECADES VIEW
+                        DecadeListScreen(
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            onDecadeClick = onNavigateToDecade
                         )
                     }
                 }
