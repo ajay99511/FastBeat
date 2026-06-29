@@ -74,15 +74,23 @@ object ArtistGrouping {
 
     /**
      * Stable grouping key for a single artist name. Two spellings of the same
-     * artist (ignoring case, surrounding/duplicated whitespace and a leading
-     * "The ") produce the same key. Pass one name from [splitTokens], not a
-     * whole multi-artist tag.
+     * artist (ignoring case, surrounding/duplicated whitespace, dots and a
+     * leading "The ") produce the same key. Pass one name from [splitTokens],
+     * not a whole multi-artist tag.
      */
     fun key(name: String?): String {
         val cleaned = name?.replace(WHITESPACE, " ")?.trim().orEmpty()
         if (cleaned.isEmpty()) return UNKNOWN_ARTIST.lowercase()
 
+        // Drop dots so initial-style spellings collapse together
+        // ("A.R. Rahman" == "AR Rahman" == "a r rahman"), then re-normalize the
+        // whitespace the removal may have exposed. Fall back to the plain
+        // lowercase form if stripping dots would leave nothing.
         val lower = cleaned.lowercase()
+            .replace(".", "")
+            .replace(WHITESPACE, " ")
+            .trim()
+            .ifEmpty { cleaned.lowercase() }
         // Strip a single leading "the " but never reduce the name to nothing.
         val withoutThe = if (lower.startsWith("the ")) lower.removePrefix("the ").trim() else lower
         return withoutThe.ifEmpty { lower }

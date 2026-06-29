@@ -150,50 +150,58 @@ fun PlaylistListScreen(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-        // 1b. Smart / Auto playlists (audio only) — derived from existing analytics, read-only.
-        if (showSmart) {
-            val smartPlaylists by smartPlaylistViewModel.smartPlaylists.collectAsStateWithLifecycle()
-            SmartPlaylistsSection(
-                smartPlaylists = smartPlaylists,
-                onClick = { typeId -> onSmartPlaylistClick?.invoke(typeId) }
-            )
-        }
+        // Smart (auto) playlists are collected here but rendered as the first item of the
+        // LazyColumn below, so they scroll together with the user's playlists instead of
+        // occupying fixed height and squeezing the list into a tiny viewport.
+        val smartPlaylists by smartPlaylistViewModel.smartPlaylists.collectAsStateWithLifecycle()
 
-        // 2. Playlist List
-        if (playlists.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.FormatListNumbered,
-                        contentDescription = null,
-                        tint = Color.Gray,
-                        modifier = Modifier.size(64.dp)
+        // 2. Scrollable content: smart section + the user's playlists (or empty state) all
+        //    live in one LazyColumn so the whole screen scrolls and every playlist is reachable.
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding) // Space for MiniPlayer
+        ) {
+            // 1b. Smart / Auto playlists (audio only) — derived from existing analytics, read-only.
+            if (showSmart) {
+                item(key = "smart-section") {
+                    SmartPlaylistsSection(
+                        smartPlaylists = smartPlaylists,
+                        onClick = { typeId -> onSmartPlaylistClick?.invoke(typeId) }
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "No playlists created",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    TextButton(
-                        onClick = onCreateClick,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text("Create your first playlist", color = MaterialTheme.colorScheme.primary)
-                    }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding) // Space for MiniPlayer
-            ) {
+
+            if (playlists.isEmpty()) {
+                item(key = "empty-state") {
+                    Box(
+                        modifier = Modifier
+                            .fillParentMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.FormatListNumbered,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "No playlists created",
+                                color = Color.Gray,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            TextButton(
+                                onClick = onCreateClick,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text("Create your first playlist", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            } else {
                 items(playlists, key = { it.id }) { playlist ->
                     PlaylistListItem(
                         name = playlist.name,
