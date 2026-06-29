@@ -1,9 +1,11 @@
 
 package com.local.offlinemediaplayer.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +27,13 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FiberNew
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
@@ -46,8 +52,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -234,65 +243,113 @@ private fun PlaylistListItem(
     onDelete: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val primary = MaterialTheme.colorScheme.primary
+    val hasMenu = onRename != null || onDelete != null
 
-    Box {
-        Row(
+    // Outer Box anchors the long-press context menu to this row, and provides the
+    // inter-card spacing now that each item is a self-contained card (no divider).
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp)
+    ) {
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = onClick,
-                    onLongClick = if (onRename != null || onDelete != null) {
-                        { showMenu = true }
-                    } else null
-                )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                    onLongClick = if (hasMenu) { { showMenu = true } } else null
+                ),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
+            ),
+            elevation = CardDefaults.cardElevation(0.dp),
+            border = BorderStroke(1.dp, primary.copy(alpha = 0.08f))
         ) {
-            // Icon / Placeholder
-            Card(
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.size(56.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Gradient art tile — the "futuristic" accent, tinted from the live theme color.
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .size(58.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    primary.copy(alpha = 0.90f),
+                                    primary.copy(alpha = 0.45f)
+                                )
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.FormatListNumbered,
+                        imageVector = if (isVideo) Icons.Default.Movie else Icons.Default.LibraryMusic,
                         contentDescription = null,
-                        tint = Color.Gray
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                // Info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isVideo) Icons.Default.Videocam else Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = primary.copy(alpha = 0.9f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "$count ${if (isVideo) "video" else "song"}${if (count != 1) "s" else ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Open affordance — a subtle circular chevron (decorative; tap anywhere opens).
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "$count ${if (isVideo) "video" else "song"}${if (count != 1) "s" else ""}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Chevron
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
-        // Dropdown Menu for Context Actions
+        // Dropdown Menu for Context Actions (unchanged behavior)
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
@@ -320,13 +377,6 @@ private fun PlaylistListItem(
             }
         }
     }
-
-    // Divider
-    HorizontalDivider(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        thickness = 0.5.dp,
-        modifier = Modifier.padding(horizontal = 16.dp)
-    )
 }
 
 /** Icon for each auto-generated playlist type (UI concern kept out of the ViewModel). */
