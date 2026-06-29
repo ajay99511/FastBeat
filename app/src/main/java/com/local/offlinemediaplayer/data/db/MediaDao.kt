@@ -55,6 +55,11 @@ interface MediaDao {
     @Query("SELECT mediaId FROM media_analytics ORDER BY playCount DESC LIMIT 1")
     fun getOverallFavoriteMediaIdFlow(): Flow<Long?>
 
+    // Reactive stream of all analytics rows. Used to derive Smart/Auto playlists
+    // (Most Played, Forgotten, Never Played, Most Skipped) in the ViewModel layer.
+    @Query("SELECT * FROM media_analytics")
+    fun getAllAnalyticsFlow(): Flow<List<MediaAnalytics>>
+
     // --- Advanced Analytics (New) ---
 
     // Playtime

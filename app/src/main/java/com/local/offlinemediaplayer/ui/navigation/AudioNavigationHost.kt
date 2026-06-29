@@ -64,7 +64,19 @@ fun AudioNavigationHost(
                     onNavigateToArtist = { name ->
                         navController.navigate("artist_detail/${android.net.Uri.encode(name)}")
                     },
+                    onNavigateToSmartPlaylist = { typeId ->
+                        navController.navigate("smart_playlist_detail/$typeId")
+                    },
                     isSearchVisible = isSearchVisible
+            )
+        }
+        composable("smart_playlist_detail/{typeId}") { backStackEntry ->
+            val typeId = backStackEntry.arguments?.getString("typeId") ?: return@composable
+            SmartPlaylistDetailScreen(
+                    typeId = typeId,
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToPlayer = { navController.navigate("now_playing") }
             )
         }
         composable("now_playing") {

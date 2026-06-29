@@ -568,9 +568,9 @@ fun AudioPlaylistItemCard(
         song: MediaFile,
         accentColor: Color,
         onClick: () -> Unit,
-        onRemove: () -> Unit,
         onPlayNext: () -> Unit,
-        onAddToQueue: () -> Unit
+        onAddToQueue: () -> Unit,
+        onRemove: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -728,25 +728,27 @@ fun AudioPlaylistItemCard(
                                 )
                             }
                     )
-                    DropdownMenuItem(
-                            text = {
-                                Text(
-                                        "Remove from Playlist",
-                                        color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                onRemove()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                        Icons.Default.Delete,
-                                        null,
-                                        tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                    )
+                    if (onRemove != null) {
+                        DropdownMenuItem(
+                                text = {
+                                    Text(
+                                            "Remove from Playlist",
+                                            color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onRemove()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                            Icons.Default.Delete,
+                                            null,
+                                            tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                        )
+                    }
                 }
             }
         }

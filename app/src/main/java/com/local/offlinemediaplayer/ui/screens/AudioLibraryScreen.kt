@@ -45,6 +45,7 @@ fun AudioLibraryScreen(
     onNavigateToPlaylist: (String) -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
     onNavigateToArtist: (String) -> Unit,
+    onNavigateToSmartPlaylist: (String) -> Unit,
     isSearchVisible: Boolean
 ) {
     // 0 = Tracks, 1 = Albums, 2 = Playlists, 3 = Artists
@@ -170,7 +171,8 @@ fun AudioLibraryScreen(
                             onCreateClick = { showCreateDialog = true },
                             isVideo = false, // Explicitly Audio
                             onRename = { id, newName -> playlistViewModel.renamePlaylist(id, newName) },
-                            onDelete = { id -> playlistViewModel.deletePlaylist(id) }
+                            onDelete = { id -> playlistViewModel.deletePlaylist(id) },
+                            onSmartPlaylistClick = onNavigateToSmartPlaylist
                         )
                     }
                     3 -> {

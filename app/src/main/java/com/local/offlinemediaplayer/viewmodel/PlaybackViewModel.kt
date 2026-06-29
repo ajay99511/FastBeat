@@ -337,6 +337,9 @@ constructor(
                                 albumList.find { it.id == albumId }?.name ?: "Album"
                             }
                             context.startsWith("ARTIST_") -> context.removePrefix("ARTIST_")
+                            context.startsWith("SMART_") ->
+                                SmartPlaylistType.fromId(context.removePrefix("SMART_"))?.title
+                                    ?: "Smart Playlist"
                             else -> allPlaylists.find { it.id == context }?.name ?: "Playlist"
                         }
                     }
@@ -1274,6 +1277,29 @@ constructor(
         if (songs.isNotEmpty() && startIndex in songs.indices) {
             _currentPlaylistContext.value = playlistId
             persistPlaylistContext(playlistId)
+            setQueue(songs, startIndex, false)
+        }
+    }
+
+    /**
+     * Play all songs from a smart (auto-generated) playlist. Sets a SMART_ context so autoFill
+     * won't append random library songs when the queue finishes. [typeId] is SmartPlaylistType.id.
+     */
+    fun playSmartPlaylist(typeId: String, songs: List<MediaFile>, shuffle: Boolean) {
+        if (songs.isNotEmpty()) {
+            _currentPlaylistContext.value = "SMART_$typeId"
+            persistPlaylistContext("SMART_$typeId")
+            setQueue(songs, 0, shuffle)
+        }
+    }
+
+    /**
+     * Play a specific track from a smart playlist context.
+     */
+    fun playFromSmartPlaylist(typeId: String, songs: List<MediaFile>, startIndex: Int) {
+        if (songs.isNotEmpty() && startIndex in songs.indices) {
+            _currentPlaylistContext.value = "SMART_$typeId"
+            persistPlaylistContext("SMART_$typeId")
             setQueue(songs, startIndex, false)
         }
     }
