@@ -35,7 +35,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
-import com.local.offlinemediaplayer.viewmodel.AlbumSortOption
+import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
+import com.local.offlinemediaplayer.viewmodel.AlbumSortField
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
@@ -65,7 +66,7 @@ fun AlbumListScreen(
 ) {
     val albums by libraryViewModel.filteredAlbums.collectAsStateWithLifecycle()
     val searchQuery by libraryViewModel.albumSearchQuery.collectAsStateWithLifecycle()
-    val sortOption by libraryViewModel.albumSortOption.collectAsStateWithLifecycle()
+    val sortState by libraryViewModel.albumSortState.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
@@ -196,75 +197,13 @@ fun AlbumListScreen(
                         )
                     }
 
-                    DropdownMenu(
+                    SortDropdownMenu(
                         expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Name (A-Z)") },
-                            onClick = {
-                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.NAME_ASC)
-                                showSortMenu = false
-                            },
-                            trailingIcon = {
-                                if (sortOption == AlbumSortOption.NAME_ASC) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow, // Checkmark proxy or similar if needed, or just highlight
-                                        contentDescription = "Selected",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Artist (A-Z)") },
-                            onClick = {
-                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.ARTIST_ASC)
-                                showSortMenu = false
-                            },
-                             trailingIcon = {
-                                if (sortOption == AlbumSortOption.ARTIST_ASC) {
-                                     Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Selected",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Year (Newest)") },
-                            onClick = {
-                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.YEAR_DESC)
-                                showSortMenu = false
-                            },
-                             trailingIcon = {
-                                if (sortOption == AlbumSortOption.YEAR_DESC) {
-                                     Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Selected",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Song Count") },
-                            onClick = {
-                                libraryViewModel.updateAlbumSortOption(AlbumSortOption.SONG_COUNT_DESC)
-                                showSortMenu = false
-                            },
-                             trailingIcon = {
-                                if (sortOption == AlbumSortOption.SONG_COUNT_DESC) {
-                                     Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Selected",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        )
-                    }
+                        onDismissRequest = { showSortMenu = false },
+                        fields = AlbumSortField.entries,
+                        sortState = sortState,
+                        onSortChange = { libraryViewModel.updateAlbumSort(it) }
+                    )
                 }
             }
         }

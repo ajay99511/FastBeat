@@ -49,12 +49,13 @@ import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
+import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
-import com.local.offlinemediaplayer.viewmodel.SortOption
+import com.local.offlinemediaplayer.viewmodel.SortField
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -308,6 +309,7 @@ private fun MoviesListContent(
         playlistViewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val movies by libraryViewModel.sortedMovies.collectAsStateWithLifecycle()
+    val movieSortState by libraryViewModel.movieSortState.collectAsStateWithLifecycle()
     val searchQuery by
             libraryViewModel.folderSearchQuery.collectAsStateWithLifecycle() // Reuse existing search query
     val watchProgress by libraryViewModel.watchProgressMap.collectAsStateWithLifecycle()
@@ -359,56 +361,13 @@ private fun MoviesListContent(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    DropdownMenu(
+                    SortDropdownMenu(
                             expanded = showSortMenu,
                             onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                    ) {
-                        DropdownMenuItem(
-                                text = {
-                                    Text(
-                                            "Latest Added",
-                                            color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                onClick = {
-                                    libraryViewModel.updateMovieSortOption(SortOption.DATE_ADDED_DESC)
-                                    showSortMenu = false
-                                }
-                        )
-                        DropdownMenuItem(
-                                text = {
-                                    Text("Longest", color = MaterialTheme.colorScheme.onSurface)
-                                },
-                                onClick = {
-                                    libraryViewModel.updateMovieSortOption(SortOption.DURATION_DESC)
-                                    showSortMenu = false
-                                }
-                        )
-                        DropdownMenuItem(
-                                text = {
-                                    Text("Shortest", color = MaterialTheme.colorScheme.onSurface)
-                                },
-                                onClick = {
-                                    libraryViewModel.updateMovieSortOption(SortOption.DURATION_ASC)
-                                    showSortMenu = false
-                                }
-                        )
-                        DropdownMenuItem(
-                                text = { Text("A-Z", color = MaterialTheme.colorScheme.onSurface) },
-                                onClick = {
-                                    libraryViewModel.updateMovieSortOption(SortOption.TITLE_ASC)
-                                    showSortMenu = false
-                                }
-                        )
-                        DropdownMenuItem(
-                                text = { Text("Z-A", color = MaterialTheme.colorScheme.onSurface) },
-                                onClick = {
-                                    libraryViewModel.updateMovieSortOption(SortOption.TITLE_DESC)
-                                    showSortMenu = false
-                                }
-                        )
-                    }
+                            fields = SortField.entries,
+                            sortState = movieSortState,
+                            onSortChange = { libraryViewModel.updateMovieSort(it) }
+                    )
                 }
 
                 // View Toggle

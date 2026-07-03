@@ -57,9 +57,11 @@ import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
+import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
-import com.local.offlinemediaplayer.viewmodel.SortOption
+import com.local.offlinemediaplayer.viewmodel.SortField
+import com.local.offlinemediaplayer.viewmodel.applySort
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
@@ -118,7 +120,7 @@ fun VideoListScreen(
         var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
         // Sort state
-        val videoSortOption by libraryViewModel.videoSortOption.collectAsStateWithLifecycle()
+        val videoSortState by libraryViewModel.videoSortState.collectAsStateWithLifecycle()
         val videoPlayCounts by libraryViewModel.videoPlayCountMap.collectAsStateWithLifecycle()
         val watchProgress by libraryViewModel.watchProgressMap.collectAsStateWithLifecycle()
         var showSortMenu by remember { mutableStateOf(false) }
@@ -126,21 +128,13 @@ fun VideoListScreen(
         // Back Handler to exit selection mode
         BackHandler(enabled = isSelectionMode) { libraryViewModel.toggleSelectionMode(false) }
 
-        val filteredVideos = remember(videos, searchQuery, videoSortOption, videoPlayCounts) {
+        val filteredVideos = remember(videos, searchQuery, videoSortState, videoPlayCounts) {
                 val result = if (searchQuery.isEmpty()) {
                         videos
                 } else {
                         videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
                 }
-
-                when (videoSortOption) {
-                        SortOption.TITLE_ASC -> result.sortedBy { it.title.lowercase() }
-                        SortOption.TITLE_DESC -> result.sortedByDescending { it.title.lowercase() }
-                        SortOption.DURATION_ASC -> result.sortedBy { it.duration }
-                        SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
-                        SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.dateAdded }
-                        SortOption.MOST_PLAYED -> result.sortedByDescending { videoPlayCounts[it.id] ?: 0 }
-                }
+                result.applySort(videoSortState, videoPlayCounts)
         }
 
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -361,26 +355,27 @@ fun VideoListScreen(
                                                 modifier = Modifier.clickable { showSortMenu = true },
                                                 verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                                Icon(Icons.Default.SwapVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                                Icon(
+                                                        imageVector = if (videoSortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                                                        contentDescription = if (videoSortState.ascending) "Sorted ascending" else "Sorted descending",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(16.dp)
+                                                )
                                                 Spacer(Modifier.width(4.dp))
                                                 Text(
-                                                        text = "Sort: ${getVideoSortLabel(videoSortOption)}",
+                                                        text = "Sort: ${videoSortState.field.label}",
                                                         style = MaterialTheme.typography.labelMedium,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                         }
 
-                                        DropdownMenu(
+                                        SortDropdownMenu(
                                                 expanded = showSortMenu,
                                                 onDismissRequest = { showSortMenu = false },
-                                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                                        ) {
-                                                DropdownMenuItem(text = { Text("Latest") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.DATE_ADDED_DESC); showSortMenu = false })
-                                                DropdownMenuItem(text = { Text("Title (A-Z)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.TITLE_ASC); showSortMenu = false })
-                                                DropdownMenuItem(text = { Text("Title (Z-A)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.TITLE_DESC); showSortMenu = false })
-                                                DropdownMenuItem(text = { Text("Runtime (Shortest)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.DURATION_ASC); showSortMenu = false })
-                                                DropdownMenuItem(text = { Text("Runtime (Longest)") }, onClick = { libraryViewModel.updateVideoSortOption(SortOption.DURATION_DESC); showSortMenu = false })
-                                        }
+                                                fields = SortField.entries,
+                                                sortState = videoSortState,
+                                                onSortChange = { libraryViewModel.updateVideoSort(it) }
+                                        )
                                 }
                         }
                 }
@@ -1021,15 +1016,4 @@ fun VideoCardItem(
                         }
                 }
 }
-}
-
-private fun getVideoSortLabel(option: SortOption): String {
-    return when(option) {
-        SortOption.TITLE_ASC -> "Title (A-Z)"
-        SortOption.TITLE_DESC -> "Title (Z-A)"
-        SortOption.DURATION_ASC -> "Runtime (Shortest)"
-        SortOption.DURATION_DESC -> "Runtime (Longest)"
-        SortOption.DATE_ADDED_DESC -> "Latest"
-        SortOption.MOST_PLAYED -> "Most Played"
-    }
 }

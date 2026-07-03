@@ -47,12 +47,54 @@ class LibraryViewModel @Inject constructor(
 
     private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
 
-    private fun saveSortPreference(key: String, ordinal: Int) {
-        sharedPrefs.edit { putInt(key, ordinal) }
+    private fun <T> saveSortState(prefix: String, state: SortState<T>)
+            where T : Enum<T>, T : SortableField {
+        sharedPrefs.edit {
+            putInt("${prefix}_field", state.field.ordinal)
+            putBoolean("${prefix}_asc", state.ascending)
+        }
     }
 
-    private fun loadSortPreference(key: String, default: Int): Int {
-        return sharedPrefs.getInt(key, default)
+    /**
+     * Loads a media sort state, migrating once from the legacy combined-enum
+     * preference (stored under [legacyKey] as a [SortOption] ordinal) if the
+     * new field/direction keys have not been written yet.
+     */
+    private fun loadMediaSortState(prefix: String, legacyKey: String): SortState<SortField> {
+        val fieldKey = "${prefix}_field"
+        if (!sharedPrefs.contains(fieldKey)) {
+            val legacy = SortOption.entries.getOrNull(sharedPrefs.getInt(legacyKey, -1))
+            val migrated = when (legacy) {
+                SortOption.TITLE_ASC -> SortState(SortField.TITLE, ascending = true)
+                SortOption.TITLE_DESC -> SortState(SortField.TITLE, ascending = false)
+                SortOption.DURATION_ASC -> SortState(SortField.DURATION, ascending = true)
+                SortOption.DURATION_DESC -> SortState(SortField.DURATION, ascending = false)
+                SortOption.MOST_PLAYED -> SortState(SortField.MOST_PLAYED)
+                SortOption.DATE_ADDED_DESC, null -> SortState(SortField.DATE_ADDED)
+            }
+            saveSortState(prefix, migrated)
+            return migrated
+        }
+        val field = SortField.entries.getOrElse(sharedPrefs.getInt(fieldKey, 0)) { SortField.DATE_ADDED }
+        return SortState(field, sharedPrefs.getBoolean("${prefix}_asc", field.defaultAscending))
+    }
+
+    /** Album counterpart of [loadMediaSortState], migrating from [AlbumSortOption]. */
+    private fun loadAlbumSortState(prefix: String, legacyKey: String): SortState<AlbumSortField> {
+        val fieldKey = "${prefix}_field"
+        if (!sharedPrefs.contains(fieldKey)) {
+            val legacy = AlbumSortOption.entries.getOrNull(sharedPrefs.getInt(legacyKey, -1))
+            val migrated = when (legacy) {
+                AlbumSortOption.ARTIST_ASC -> SortState(AlbumSortField.ARTIST)
+                AlbumSortOption.YEAR_DESC -> SortState(AlbumSortField.YEAR)
+                AlbumSortOption.SONG_COUNT_DESC -> SortState(AlbumSortField.SONG_COUNT)
+                AlbumSortOption.NAME_ASC, null -> SortState(AlbumSortField.NAME)
+            }
+            saveSortState(prefix, migrated)
+            return migrated
+        }
+        val field = AlbumSortField.entries.getOrElse(sharedPrefs.getInt(fieldKey, 0)) { AlbumSortField.NAME }
+        return SortState(field, sharedPrefs.getBoolean("${prefix}_asc", field.defaultAscending))
     }
 
     val isRefreshing = mediaRepository.isRefreshing
@@ -79,25 +121,17 @@ class LibraryViewModel @Inject constructor(
     private val _folderSearchQuery = MutableStateFlow("")
     val folderSearchQuery = _folderSearchQuery.asStateFlow()
 
-    private val _albumSortOption = MutableStateFlow(
-        AlbumSortOption.entries[loadSortPreference("sort_albums", AlbumSortOption.NAME_ASC.ordinal)]
-    )
-    val albumSortOption = _albumSortOption.asStateFlow()
+    private val _albumSortState = MutableStateFlow(loadAlbumSortState("sort_albums", "sort_albums"))
+    val albumSortState = _albumSortState.asStateFlow()
 
-    private val _sortOption = MutableStateFlow(
-        SortOption.entries[loadSortPreference("sort_audio", SortOption.DATE_ADDED_DESC.ordinal)]
-    )
-    val sortOption = _sortOption.asStateFlow()
+    private val _audioSortState = MutableStateFlow(loadMediaSortState("sort_audio", "sort_audio"))
+    val audioSortState = _audioSortState.asStateFlow()
 
-    private val _videoSortOption = MutableStateFlow(
-        SortOption.entries[loadSortPreference("sort_video", SortOption.DATE_ADDED_DESC.ordinal)]
-    )
-    val videoSortOption = _videoSortOption.asStateFlow()
+    private val _videoSortState = MutableStateFlow(loadMediaSortState("sort_video", "sort_video"))
+    val videoSortState = _videoSortState.asStateFlow()
 
-    private val _movieSortOption = MutableStateFlow(
-        SortOption.entries[loadSortPreference("sort_movies", SortOption.DATE_ADDED_DESC.ordinal)]
-    )
-    val movieSortOption = _movieSortOption.asStateFlow()
+    private val _movieSortState = MutableStateFlow(loadMediaSortState("sort_movies", "sort_movies"))
+    val movieSortState = _movieSortState.asStateFlow()
 
     val moviesList = videoList.map { list -> list.filter { it.duration >= 3600000 } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -109,15 +143,8 @@ class LibraryViewModel @Inject constructor(
     private val _videoPlayCountMap = MutableStateFlow<Map<Long, Int>>(emptyMap())
     val videoPlayCountMap = _videoPlayCountMap.asStateFlow()
 
-    val sortedMovies = combine(moviesList, _movieSortOption, _videoPlayCountMap) { list, sort, playCounts ->
-        when (sort) {
-            SortOption.TITLE_ASC -> list.sortedBy { it.title.lowercase() }
-            SortOption.TITLE_DESC -> list.sortedByDescending { it.title.lowercase() }
-            SortOption.DURATION_ASC -> list.sortedBy { it.duration }
-            SortOption.DURATION_DESC -> list.sortedByDescending { it.duration }
-            SortOption.DATE_ADDED_DESC -> list.sortedByDescending { it.dateAdded }
-            SortOption.MOST_PLAYED -> list.sortedByDescending { playCounts[it.id] ?: 0 }
-        }
+    val sortedMovies = combine(moviesList, _movieSortState, _videoPlayCountMap) { list, sort, playCounts ->
+        list.applySort(sort, playCounts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
@@ -179,32 +206,26 @@ class LibraryViewModel @Inject constructor(
             .associate { it.mediaId to (it.position.toFloat() / it.duration).coerceIn(0f, 1f) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    val filteredAudioList = combine(audioList, _searchQuery, _sortOption, _playCountMap) { list, query, sort, playCounts ->
+    val filteredAudioList = combine(audioList, _searchQuery, _audioSortState, _playCountMap) { list, query, sort, playCounts ->
         var result = list
         if (query.isNotEmpty()) {
             result = result.filter { it.title.contains(query, true) || (it.artist?.contains(query, true) == true) }
         }
-        when (sort) {
-            SortOption.TITLE_ASC -> result.sortedBy { it.title }
-            SortOption.TITLE_DESC -> result.sortedByDescending { it.title }
-            SortOption.DURATION_ASC -> result.sortedBy { it.duration }
-            SortOption.DURATION_DESC -> result.sortedByDescending { it.duration }
-            SortOption.DATE_ADDED_DESC -> result.sortedByDescending { it.dateAdded }
-            SortOption.MOST_PLAYED -> result.sortedByDescending { playCounts[it.id] ?: 0 }
-        }
+        result.applySort(sort, playCounts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val filteredAlbums = combine(albums, _albumSearchQuery, _albumSortOption) { list, query, sort ->
+    val filteredAlbums = combine(albums, _albumSearchQuery, _albumSortState) { list, query, sort ->
         var result = list
         if (query.isNotEmpty()) {
             result = result.filter { it.name.contains(query, true) || it.artist.contains(query, true) }
         }
-        when (sort) {
-            AlbumSortOption.NAME_ASC -> result.sortedBy { it.name.lowercase() }
-            AlbumSortOption.ARTIST_ASC -> result.sortedBy { it.artist.lowercase() }
-            AlbumSortOption.YEAR_DESC -> result.sortedByDescending { it.firstYear ?: 0 }
-            AlbumSortOption.SONG_COUNT_DESC -> result.sortedByDescending { it.songCount }
+        val comparator: Comparator<com.local.offlinemediaplayer.model.Album> = when (sort.field) {
+            AlbumSortField.NAME -> compareBy { it.name.lowercase() }
+            AlbumSortField.ARTIST -> compareBy { it.artist.lowercase() }
+            AlbumSortField.YEAR -> compareBy { it.firstYear ?: 0 }
+            AlbumSortField.SONG_COUNT -> compareBy { it.songCount }
         }
+        result.sortedWith(if (sort.ascending) comparator else comparator.reversed())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // --- Decades (derived from albums, grouped into 10-year buckets by first year) ---
@@ -254,21 +275,21 @@ class LibraryViewModel @Inject constructor(
     fun updateAlbumSearchQuery(query: String) { _albumSearchQuery.value = query }
     fun updateArtistSearchQuery(query: String) { _artistSearchQuery.value = query }
     fun updateFolderSearchQuery(query: String) { _folderSearchQuery.value = query }
-    fun updateSortOption(option: SortOption) {
-        _sortOption.value = option
-        saveSortPreference("sort_audio", option.ordinal)
+    fun updateAudioSort(state: SortState<SortField>) {
+        _audioSortState.value = state
+        saveSortState("sort_audio", state)
     }
-    fun updateVideoSortOption(option: SortOption) {
-        _videoSortOption.value = option
-        saveSortPreference("sort_video", option.ordinal)
+    fun updateVideoSort(state: SortState<SortField>) {
+        _videoSortState.value = state
+        saveSortState("sort_video", state)
     }
-    fun updateAlbumSortOption(option: AlbumSortOption) {
-        _albumSortOption.value = option
-        saveSortPreference("sort_albums", option.ordinal)
+    fun updateAlbumSort(state: SortState<AlbumSortField>) {
+        _albumSortState.value = state
+        saveSortState("sort_albums", state)
     }
-    fun updateMovieSortOption(option: SortOption) {
-        _movieSortOption.value = option
-        saveSortPreference("sort_movies", option.ordinal)
+    fun updateMovieSort(state: SortState<SortField>) {
+        _movieSortState.value = state
+        saveSortState("sort_movies", state)
     }
 
     private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())

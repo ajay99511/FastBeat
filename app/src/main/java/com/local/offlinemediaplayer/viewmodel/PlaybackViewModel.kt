@@ -60,6 +60,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Legacy combined field+direction sort enums. Superseded by SortState (see
+// Sorting.kt); retained only so persisted preference ordinals can be migrated
+// in LibraryViewModel. Do not reorder or remove entries.
 enum class SortOption {
     TITLE_ASC,
     TITLE_DESC,

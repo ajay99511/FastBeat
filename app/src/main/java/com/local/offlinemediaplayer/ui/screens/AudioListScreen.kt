@@ -45,11 +45,12 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
-import com.local.offlinemediaplayer.viewmodel.SortOption
+import com.local.offlinemediaplayer.viewmodel.SortField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +65,7 @@ fun AudioListScreen(
     // Observe Filtered List
     val audioList by libraryViewModel.filteredAudioList.collectAsStateWithLifecycle()
     val searchQuery by libraryViewModel.searchQuery.collectAsStateWithLifecycle()
-    val sortOption by libraryViewModel.sortOption.collectAsStateWithLifecycle()
+    val sortState by libraryViewModel.audioSortState.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
@@ -101,7 +102,6 @@ fun AudioListScreen(
 
     // Colors from Theme
     val primaryAccent = LocalAppTheme.current.primaryColor
-    val cardBg = MaterialTheme.colorScheme.surface
 
     // Refresh State
     val isRefreshing by libraryViewModel.isRefreshing.collectAsStateWithLifecycle()
@@ -240,27 +240,27 @@ fun AudioListScreen(
                                     modifier = Modifier.clickable { showSortMenu = true },
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.SwapVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                    Icon(
+                                        imageVector = if (sortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                                        contentDescription = if (sortState.ascending) "Sorted ascending" else "Sorted descending",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(Modifier.width(4.dp))
                                     Text(
-                                        text = "Sort: ${getSortLabel(sortOption)}",
+                                        text = "Sort: ${sortState.field.label}",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
 
-                                DropdownMenu(
+                                SortDropdownMenu(
                                     expanded = showSortMenu,
                                     onDismissRequest = { showSortMenu = false },
-                                    modifier = Modifier.background(cardBg)
-                                ) {
-                                    SortMenuItem("Latest", SortOption.DATE_ADDED_DESC, sortOption, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Title (A-Z)", SortOption.TITLE_ASC, sortOption, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Title (Z-A)", SortOption.TITLE_DESC, sortOption, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Runtime (Shortest)", SortOption.DURATION_ASC, sortOption, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Runtime (Longest)", SortOption.DURATION_DESC, sortOption, libraryViewModel) { showSortMenu = false }
-                                    SortMenuItem("Most Played", SortOption.MOST_PLAYED, sortOption, libraryViewModel) { showSortMenu = false }
-                                }
+                                    fields = SortField.entries,
+                                    sortState = sortState,
+                                    onSortChange = { libraryViewModel.updateAudioSort(it) }
+                                )
                             }
                         }
                     }
@@ -479,51 +479,6 @@ private fun AudioListItemStyled(
 
     // Thin divider
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-}
-
-@Composable
-private fun SortMenuItem(
-    label: String,
-    option: SortOption,
-    selectedOption: SortOption,
-    libraryViewModel: LibraryViewModel,
-    onSelect: () -> Unit
-) {
-    val isSelected = option == selectedOption
-    DropdownMenuItem(
-        text = {
-            Text(
-                label,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-        },
-        trailingIcon = {
-            if (isSelected) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        },
-        onClick = {
-            libraryViewModel.updateSortOption(option)
-            onSelect()
-        }
-    )
-}
-
-private fun getSortLabel(option: SortOption): String {
-    return when(option) {
-        SortOption.TITLE_ASC -> "A-Z"
-        SortOption.TITLE_DESC -> "Z-A"
-        SortOption.DURATION_ASC -> "shortest"
-        SortOption.DURATION_DESC -> "longest"
-        SortOption.DATE_ADDED_DESC -> "latest"
-        SortOption.MOST_PLAYED -> "most played"
-    }
 }
 
 private fun formatDuration(millis: Long): String {
