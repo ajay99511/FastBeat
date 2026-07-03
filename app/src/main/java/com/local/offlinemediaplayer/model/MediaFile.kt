@@ -17,5 +17,7 @@ data class MediaFile(
     val resolution: String = "",
     val dateModified: Long = 0,
     val dateAdded: Long = 0,
-    val thumbnailPath: String? = null
+    val thumbnailPath: String? = null,
+    /** Release year from the audio tag, null when missing/implausible. Audio only. */
+    val year: Int? = null
 )
