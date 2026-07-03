@@ -138,7 +138,8 @@ class MediaRepository @Inject constructor(
                             MediaStore.Audio.Media.ALBUM_ID,
                             MediaStore.Audio.Media.SIZE,
                             MediaStore.Audio.Media.DATE_MODIFIED,
-                            MediaStore.Audio.Media.DATE_ADDED
+                            MediaStore.Audio.Media.DATE_ADDED,
+                            MediaStore.Audio.Media.YEAR
                     )
                 }
         val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 45000" else null
@@ -153,6 +154,7 @@ class MediaRepository @Inject constructor(
                 val audioSizeColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.SIZE) else -1
                 val audioDateModifiedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED) else -1
                 val audioDateAddedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED) else -1
+                val audioYearColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.YEAR) else -1
 
                 val bucketIdColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_ID) else -1
                 val bucketNameColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME) else -1
@@ -178,6 +180,7 @@ class MediaRepository @Inject constructor(
                     var resolution = ""
                     var dateModified: Long = 0
                     var dateAdded: Long = 0
+                    var year: Int? = null
 
                     if (isVideo) {
                         bucketId = if (bucketIdColumn != -1) cursor.getString(bucketIdColumn) ?: "" else ""
@@ -201,13 +204,17 @@ class MediaRepository @Inject constructor(
                         size = if (audioSizeColumn != -1) cursor.getLong(audioSizeColumn) else 0
                         dateModified = if (audioDateModifiedColumn != -1) cursor.getLong(audioDateModifiedColumn) else 0
                         dateAdded = if (audioDateAddedColumn != -1) cursor.getLong(audioDateAddedColumn) else 0
+                        // Same plausibility floor used for Album.firstYear.
+                        val rawYear = if (audioYearColumn != -1) cursor.getInt(audioYearColumn) else 0
+                        year = if (rawYear > 1900) rawYear else null
                         val sArtworkUri = "content://media/external/audio/albumart".toUri()
                         albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId)
                     }
 
                     mediaList.add(
                             MediaFile(
-                                    id, contentUri, name, artist, duration, isVideo, false, albumArtUri, albumId, bucketId, bucketName, size, resolution, dateModified, dateAdded
+                                    id, contentUri, name, artist, duration, isVideo, false, albumArtUri, albumId, bucketId, bucketName, size, resolution, dateModified, dateAdded,
+                                    year = year
                             )
                     )
                 }

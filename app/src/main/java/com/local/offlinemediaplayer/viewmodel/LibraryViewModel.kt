@@ -228,14 +228,14 @@ class LibraryViewModel @Inject constructor(
         result.sortedWith(if (sort.ascending) comparator else comparator.reversed())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // --- Decades (derived from albums, grouped into 10-year buckets by first year) ---
-    val decades = albums.map { list ->
-        list.groupBy { (it.firstYear ?: 0) / 10 * 10 }
-            .map { (decadeStart, albumsInDecade) ->
+    // --- Decades (derived from songs, grouped into 10-year buckets by release year) ---
+    val decades = audioList.map { list ->
+        list.groupBy { (it.year ?: 0) / 10 * 10 }
+            .map { (decadeStart, songsInDecade) ->
                 com.local.offlinemediaplayer.model.Decade(
                     startYear = decadeStart,
-                    albumCount = albumsInDecade.size,
-                    albumArtUri = albumsInDecade.firstOrNull { it.albumArtUri != null }?.albumArtUri
+                    songCount = songsInDecade.size,
+                    albumArtUri = songsInDecade.firstOrNull { it.albumArtUri != null }?.albumArtUri
                 )
             }
             // Newest decade first; the "Unknown" bucket (startYear 0) naturally sorts last.

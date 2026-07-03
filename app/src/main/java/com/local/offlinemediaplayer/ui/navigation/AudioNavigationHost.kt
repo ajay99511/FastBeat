@@ -81,7 +81,6 @@ fun AudioNavigationHost(
                     decadeStart = decadeStart,
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
-                    onAlbumClick = { id -> navController.navigate("album_detail/$id") },
                     onNavigateToPlayer = { navController.navigate("now_playing") }
             )
         }
