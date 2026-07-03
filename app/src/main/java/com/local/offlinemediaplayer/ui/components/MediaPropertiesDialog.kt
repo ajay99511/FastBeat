@@ -1,7 +1,9 @@
 package com.local.offlinemediaplayer.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
@@ -49,40 +51,63 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Properties List
-                PropertyItem(label = "Title", value = mediaFile.title)
+                // Properties List (scrollable so all fields stay reachable on small screens)
+                Column(
+                        modifier = Modifier
+                                .weight(1f, fill = false)
+                                .verticalScroll(rememberScrollState())
+                ) {
+                    PropertyItem(label = "Title", value = mediaFile.title)
 
-                if (!mediaFile.artist.isNullOrBlank() && mediaFile.artist != "<unknown>") {
-                    PropertyItem(label = "Artist", value = mediaFile.artist)
-                }
+                    if (mediaFile.displayName.isNotEmpty() && mediaFile.displayName != mediaFile.title) {
+                        PropertyItem(label = "File name", value = mediaFile.displayName)
+                    }
 
-                PropertyItem(label = "Path", value = mediaFile.uri.path ?: "Unknown")
+                    if (!mediaFile.artist.isNullOrBlank() && mediaFile.artist != "<unknown>") {
+                        PropertyItem(label = "Artist", value = mediaFile.artist)
+                    }
 
-                if (mediaFile.size > 0) {
-                    PropertyItem(label = "Size", value = FormatUtils.formatSize(mediaFile.size))
-                }
+                    if (!mediaFile.album.isNullOrBlank() && mediaFile.album != "<unknown>") {
+                        PropertyItem(label = "Album", value = mediaFile.album)
+                    }
 
-                if (mediaFile.duration > 0) {
+                    mediaFile.year?.let { PropertyItem(label = "Year", value = it.toString()) }
+
+                    if (mediaFile.duration > 0) {
+                        PropertyItem(
+                                label = "Duration",
+                                value = FormatUtils.formatDuration(mediaFile.duration)
+                        )
+                    }
+
+                    if (mediaFile.size > 0) {
+                        PropertyItem(label = "Size", value = FormatUtils.formatSize(mediaFile.size))
+                    }
+
+                    if (mediaFile.resolution.isNotEmpty()) {
+                        PropertyItem(label = "Resolution", value = mediaFile.resolution)
+                    }
+
+                    if (mediaFile.mimeType.isNotEmpty()) {
+                        PropertyItem(label = "Format", value = mediaFile.mimeType)
+                    }
+
+                    if (mediaFile.bucketName.isNotEmpty()) {
+                        PropertyItem(label = "Folder", value = mediaFile.bucketName)
+                    }
+
                     PropertyItem(
-                            label = "Duration",
-                            value = FormatUtils.formatDuration(mediaFile.duration)
+                            label = "Path",
+                            value = mediaFile.path.ifEmpty { mediaFile.uri.path ?: "Unknown" }
                     )
-                }
 
-                if (mediaFile.resolution.isNotEmpty()) {
-                    PropertyItem(label = "Resolution", value = mediaFile.resolution)
-                }
+                    if (mediaFile.dateAdded > 0) {
+                        PropertyItem(label = "Date added", value = FormatUtils.formatDate(mediaFile.dateAdded))
+                    }
 
-                if (mediaFile.bucketName.isNotEmpty()) {
-                    PropertyItem(label = "Folder", value = mediaFile.bucketName)
-                }
-
-                if (mediaFile.dateAdded > 0) {
-                    PropertyItem(label = "Date added", value = FormatUtils.formatDate(mediaFile.dateAdded))
-                }
-
-                if (mediaFile.dateModified > 0) {
-                    PropertyItem(label = "Date modified", value = FormatUtils.formatDate(mediaFile.dateModified))
+                    if (mediaFile.dateModified > 0) {
+                        PropertyItem(label = "Date modified", value = FormatUtils.formatDate(mediaFile.dateModified))
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

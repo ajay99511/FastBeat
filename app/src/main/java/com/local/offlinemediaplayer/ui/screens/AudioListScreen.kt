@@ -45,6 +45,8 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
+import com.local.offlinemediaplayer.ui.components.RenameMediaDialog
 import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -89,6 +91,23 @@ fun AudioListScreen(
         }
     }
 
+    // Rename Flow
+    val renameIntentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            libraryViewModel.onRenamePermissionGranted()
+        } else {
+            libraryViewModel.onRenameDenied()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.renameIntentEvent.collect { intentSender ->
+            renameIntentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
     val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(viewModel) {
         viewModel.userMessage.collect { msg ->
@@ -96,9 +115,17 @@ fun AudioListScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        libraryViewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Dialog State
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var selectedSongForProperties by remember { mutableStateOf<MediaFile?>(null) }
+    var selectedSongForRename by remember { mutableStateOf<MediaFile?>(null) }
 
     // Colors from Theme
     val primaryAccent = LocalAppTheme.current.primaryColor
@@ -338,7 +365,9 @@ fun AudioListScreen(
                             showDeleteConfirmDialog = true
                         },
                         onPlayNext = { viewModel.playNext(it) },
-                        onAddToQueue = { viewModel.addToQueue(it) }
+                        onAddToQueue = { viewModel.addToQueue(it) },
+                        onRename = { selectedSongForRename = song },
+                        onProperties = { selectedSongForProperties = song }
                     )
                 }
             }
@@ -352,6 +381,21 @@ fun AudioListScreen(
             count = selectedIds.size,
             onConfirm = { libraryViewModel.deleteSelectedMedia() },
             onDismiss = { showDeleteConfirmDialog = false }
+        )
+    }
+
+    selectedSongForProperties?.let { song ->
+        MediaPropertiesDialog(
+            mediaFile = song,
+            onDismiss = { selectedSongForProperties = null }
+        )
+    }
+
+    selectedSongForRename?.let { song ->
+        RenameMediaDialog(
+            file = song,
+            onDismiss = { selectedSongForRename = null },
+            onRename = { newName -> libraryViewModel.renameMedia(song, newName) }
         )
     }
 }
@@ -368,7 +412,9 @@ private fun AudioListItemStyled(
     isPlaying: Boolean = false,
     onDelete: () -> Unit,
     onPlayNext: (MediaFile) -> Unit,
-    onAddToQueue: (MediaFile) -> Unit
+    onAddToQueue: (MediaFile) -> Unit,
+    onRename: () -> Unit = {},
+    onProperties: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -463,6 +509,22 @@ private fun AudioListItemStyled(
                             onAddToPlaylist(song)
                         },
                         leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Rename", color = MaterialTheme.colorScheme.onSurface) },
+                        onClick = {
+                            showMenu = false
+                            onRename()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Properties", color = MaterialTheme.colorScheme.onSurface) },
+                        onClick = {
+                            showMenu = false
+                            onProperties()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurface) }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },

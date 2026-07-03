@@ -49,6 +49,7 @@ import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
+import com.local.offlinemediaplayer.ui.components.RenameMediaDialog
 import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -102,6 +103,31 @@ fun VideoFolderScreen(
     LaunchedEffect(Unit) {
         libraryViewModel.deleteIntentEvent.collect { intentSender ->
             intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
+    // Rename Flow Handling
+    val renameIntentLauncher =
+            rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartIntentSenderForResult()
+            ) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    libraryViewModel.onRenamePermissionGranted()
+                } else {
+                    libraryViewModel.onRenameDenied()
+                }
+            }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.renameIntentEvent.collect { intentSender ->
+            renameIntentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        libraryViewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -317,6 +343,8 @@ private fun MoviesListContent(
     // Properties Dialog State
     var showPropertiesDialog by remember { mutableStateOf(false) }
     var selectedVideoForProperties by remember { mutableStateOf<MediaFile?>(null) }
+    // Rename Dialog State
+    var selectedVideoForRename by remember { mutableStateOf<MediaFile?>(null) }
     // Delete Dialog
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -425,6 +453,7 @@ private fun MoviesListContent(
                                     selectedVideoForProperties = movie
                                     showPropertiesDialog = true
                                 },
+                                onRename = { selectedVideoForRename = movie },
                                 progress = watchProgress[movie.id] ?: 0f
                         )
                     }
@@ -456,6 +485,7 @@ private fun MoviesListContent(
                                     selectedVideoForProperties = movie
                                     showPropertiesDialog = true
                                 },
+                                onRename = { selectedVideoForRename = movie },
                                 progress = watchProgress[movie.id] ?: 0f
                         )
                     }
@@ -468,6 +498,14 @@ private fun MoviesListContent(
         MediaPropertiesDialog(
                 mediaFile = selectedVideoForProperties!!,
                 onDismiss = { showPropertiesDialog = false }
+        )
+    }
+
+    selectedVideoForRename?.let { video ->
+        RenameMediaDialog(
+                file = video,
+                onDismiss = { selectedVideoForRename = null },
+                onRename = { newName -> libraryViewModel.renameMedia(video, newName) }
         )
     }
 

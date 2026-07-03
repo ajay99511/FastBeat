@@ -122,6 +122,83 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
     )
 }
 
+/**
+ * Renames a media file on disk. Edits the base name only — the extension is
+ * shown as a fixed suffix and preserved by the caller.
+ */
+@Composable
+fun RenameMediaDialog(file: MediaFile, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+    val primaryAccent = LocalAppTheme.current.primaryColor
+    val currentBaseName = file.displayName.substringBeforeLast('.')
+    val extension = file.displayName.substringAfterLast('.', "")
+    var name by remember { mutableStateOf(currentBaseName) }
+
+    val invalidChars = remember { Regex("[/\\\\:*?\"<>|]") }
+    val hasInvalidChars = invalidChars.containsMatchIn(name)
+    val canRename = name.isNotBlank() && !hasInvalidChars && name.trim() != currentBaseName
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                "Rename File",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("File Name") },
+                    suffix = if (extension.isNotEmpty()) {
+                        { Text(".$extension", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    } else null,
+                    singleLine = true,
+                    isError = hasInvalidChars,
+                    supportingText = if (hasInvalidChars) {
+                        { Text("Cannot contain / \\ : * ? \" < > |") }
+                    } else null,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryAccent,
+                        focusedLabelColor = primaryAccent,
+                        cursorColor = primaryAccent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Renames the file on your device. Android may ask you to confirm.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (canRename) {
+                        onRename(name.trim())
+                        onDismiss()
+                    }
+                },
+                enabled = canRename,
+                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text("Rename") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
+}
+
 @Composable
 fun AddToPlaylistDialog(
     song: MediaFile,

@@ -127,7 +127,9 @@ class MediaRepository @Inject constructor(
                             MediaStore.Video.Media.WIDTH,
                             MediaStore.Video.Media.HEIGHT,
                             MediaStore.Video.Media.DATE_MODIFIED,
-                            MediaStore.Video.Media.DATE_ADDED
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.MIME_TYPE
                     )
                 } else {
                     arrayOf(
@@ -139,7 +141,11 @@ class MediaRepository @Inject constructor(
                             MediaStore.Audio.Media.SIZE,
                             MediaStore.Audio.Media.DATE_MODIFIED,
                             MediaStore.Audio.Media.DATE_ADDED,
-                            MediaStore.Audio.Media.YEAR
+                            MediaStore.Audio.Media.YEAR,
+                            MediaStore.Audio.Media.DISPLAY_NAME,
+                            MediaStore.Audio.Media.ALBUM,
+                            MediaStore.Audio.Media.DATA,
+                            MediaStore.Audio.Media.MIME_TYPE
                     )
                 }
         val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 45000" else null
@@ -155,6 +161,12 @@ class MediaRepository @Inject constructor(
                 val audioDateModifiedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED) else -1
                 val audioDateAddedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED) else -1
                 val audioYearColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.YEAR) else -1
+                val audioDisplayNameColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME) else -1
+                val audioAlbumColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM) else -1
+
+                // DISPLAY_NAME/DATA/MIME_TYPE share column names across audio and video.
+                val dataColumn = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                val mimeTypeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
 
                 val bucketIdColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_ID) else -1
                 val bucketNameColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME) else -1
@@ -181,6 +193,12 @@ class MediaRepository @Inject constructor(
                     var dateModified: Long = 0
                     var dateAdded: Long = 0
                     var year: Int? = null
+                    var album: String? = null
+
+                    val path = if (dataColumn != -1) cursor.getString(dataColumn) ?: "" else ""
+                    val mimeType = if (mimeTypeColumn != -1) cursor.getString(mimeTypeColumn) ?: "" else ""
+                    // Video "title" is already the display name; audio has a separate column.
+                    var displayName = if (isVideo) name else ""
 
                     if (isVideo) {
                         bucketId = if (bucketIdColumn != -1) cursor.getString(bucketIdColumn) ?: "" else ""
@@ -207,6 +225,8 @@ class MediaRepository @Inject constructor(
                         // Same plausibility floor used for Album.firstYear.
                         val rawYear = if (audioYearColumn != -1) cursor.getInt(audioYearColumn) else 0
                         year = if (rawYear > 1900) rawYear else null
+                        displayName = if (audioDisplayNameColumn != -1) cursor.getString(audioDisplayNameColumn) ?: "" else ""
+                        album = if (audioAlbumColumn != -1) cursor.getString(audioAlbumColumn) else null
                         val sArtworkUri = "content://media/external/audio/albumart".toUri()
                         albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId)
                     }
@@ -214,7 +234,11 @@ class MediaRepository @Inject constructor(
                     mediaList.add(
                             MediaFile(
                                     id, contentUri, name, artist, duration, isVideo, false, albumArtUri, albumId, bucketId, bucketName, size, resolution, dateModified, dateAdded,
-                                    year = year
+                                    year = year,
+                                    displayName = displayName,
+                                    path = path,
+                                    mimeType = mimeType,
+                                    album = album
                             )
                     )
                 }
@@ -283,6 +307,32 @@ class MediaRepository @Inject constructor(
             Log.e(TAG, "Failed to query media", e)
         }
         return albumList
+    }
+
+    /**
+     * Reflects a successful on-disk rename in the in-memory lists so the UI
+     * updates without a full rescan. Video titles are display names, so they
+     * follow the file; audio titles come from the tag and only follow when
+     * they previously mirrored the old file name (untagged files).
+     */
+    fun applyRename(id: Long, newDisplayName: String) {
+        fun MediaFile.renamed(): MediaFile {
+            val newPath =
+                    if (path.isNotEmpty()) {
+                        val parent = path.substringBeforeLast('/', "")
+                        if (parent.isEmpty()) newDisplayName else "$parent/$newDisplayName"
+                    } else path
+            val oldBaseName = displayName.substringBeforeLast('.')
+            val newBaseName = newDisplayName.substringBeforeLast('.')
+            val newTitle = when {
+                isVideo -> newDisplayName
+                title == displayName || title == oldBaseName -> newBaseName
+                else -> title
+            }
+            return copy(title = newTitle, displayName = newDisplayName, path = newPath)
+        }
+        _videoList.update { list -> list.map { if (it.id == id) it.renamed() else it } }
+        _audioList.update { list -> list.map { if (it.id == id) it.renamed() else it } }
     }
 
     fun removeMediaIds(ids: List<Long>) {

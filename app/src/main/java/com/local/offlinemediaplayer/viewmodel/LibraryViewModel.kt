@@ -2,10 +2,14 @@ package com.local.offlinemediaplayer.viewmodel
 
 import android.app.Application
 import android.app.PendingIntent
+import android.app.RecoverableSecurityException
+import android.content.ContentValues
 import android.content.Context
 import android.content.IntentSender
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
+import java.io.File
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -418,6 +422,128 @@ class LibraryViewModel @Inject constructor(
             _isAlbumSelectionMode.value = false
         }
         pendingAlbumDeleteIds = null
+    }
+
+    // --- File Rename ---
+    // Same consent pattern as deletion: Android 11+ asks up front via
+    // createWriteRequest; Android 10 retries after a RecoverableSecurityException
+    // grant; Android 8-9 renames the file directly and updates MediaStore.
+    private var pendingRename: Pair<MediaFile, String>? = null
+
+    private val _renameIntentEvent = MutableSharedFlow<IntentSender>()
+    val renameIntentEvent = _renameIntentEvent.asSharedFlow()
+
+    private val _userMessage = MutableSharedFlow<String>()
+    val userMessage = _userMessage.asSharedFlow()
+
+    /** Characters MediaStore/FAT/exFAT reject in file names. */
+    private val invalidFileNameChars = Regex("[/\\\\:*?\"<>|\\x00]")
+
+    /**
+     * Renames the file behind [file] to [newBaseName], preserving the original
+     * extension. Validation failures surface through [userMessage].
+     */
+    fun renameMedia(file: MediaFile, newBaseName: String) {
+        val sanitized = newBaseName.trim().trimEnd('.')
+        if (sanitized.isEmpty()) {
+            viewModelScope.launch { _userMessage.emit("Name cannot be empty") }
+            return
+        }
+        if (invalidFileNameChars.containsMatchIn(sanitized)) {
+            viewModelScope.launch { _userMessage.emit("Name contains invalid characters (/ \\ : * ? \" < > |)") }
+            return
+        }
+        val extension = file.displayName.substringAfterLast('.', "")
+        val newDisplayName = if (extension.isEmpty()) sanitized else "$sanitized.$extension"
+        if (newDisplayName == file.displayName) return
+
+        pendingRename = file to newDisplayName
+        viewModelScope.launch(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    val pendingIntent: PendingIntent =
+                        MediaStore.createWriteRequest(app.contentResolver, listOf(file.uri))
+                    _renameIntentEvent.emit(pendingIntent.intentSender)
+                } catch (e: Exception) {
+                    Log.e("LibraryViewModel", "createWriteRequest failed", e)
+                    pendingRename = null
+                    _userMessage.emit("Rename failed")
+                }
+            } else {
+                performPendingRename()
+            }
+        }
+    }
+
+    /** Call when the user grants the system write-permission dialog. */
+    fun onRenamePermissionGranted() {
+        viewModelScope.launch(Dispatchers.IO) { performPendingRename() }
+    }
+
+    /** Call when the user denies the system write-permission dialog. */
+    fun onRenameDenied() {
+        pendingRename = null
+    }
+
+    private suspend fun performPendingRename() {
+        val (file, newDisplayName) = pendingRename ?: return
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                // Pre-scoped-storage: MediaStore does not move the file for us,
+                // so rename on disk first, then point the row at the new path.
+                val oldFile = File(file.path)
+                val newFile = File(oldFile.parentFile, newDisplayName)
+                if (newFile.exists()) {
+                    _userMessage.emit("A file with that name already exists")
+                    pendingRename = null
+                    return
+                }
+                if (!oldFile.renameTo(newFile)) {
+                    _userMessage.emit("Rename failed")
+                    pendingRename = null
+                    return
+                }
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, newDisplayName)
+                    put(MediaStore.MediaColumns.DATA, newFile.absolutePath)
+                }
+                app.contentResolver.update(file.uri, values, null, null)
+                onRenameSuccess(file.id, newDisplayName)
+            } else {
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, newDisplayName)
+                }
+                val updated = app.contentResolver.update(file.uri, values, null, null)
+                if (updated > 0) {
+                    onRenameSuccess(file.id, newDisplayName)
+                } else {
+                    _userMessage.emit("Rename failed")
+                }
+            }
+            pendingRename = null
+        } catch (e: SecurityException) {
+            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                // Keep pendingRename so the retry after user consent can finish.
+                _renameIntentEvent.emit(e.userAction.actionIntent.intentSender)
+            } else {
+                Log.e("LibraryViewModel", "Rename rejected", e)
+                pendingRename = null
+                _userMessage.emit("Rename not permitted for this file")
+            }
+        } catch (e: Exception) {
+            // MediaStore throws IllegalStateException when the target name is taken.
+            Log.e("LibraryViewModel", "Rename failed", e)
+            pendingRename = null
+            _userMessage.emit(
+                if (e is IllegalStateException) "A file with that name already exists"
+                else "Rename failed"
+            )
+        }
+    }
+
+    private suspend fun onRenameSuccess(id: Long, newDisplayName: String) {
+        mediaRepository.applyRename(id, newDisplayName)
+        _userMessage.emit("Renamed to \"$newDisplayName\"")
     }
 
     // --- Image Deletion ---
