@@ -296,6 +296,30 @@ class LibraryViewModel @Inject constructor(
         saveSortState("sort_movies", state)
     }
 
+    // --- View layout (grid vs list) persistence ---
+    private val _videoGridView = MutableStateFlow(sharedPrefs.getBoolean("view_video_grid", true))
+    val videoGridView = _videoGridView.asStateFlow()
+
+    private val _folderGridView = MutableStateFlow(sharedPrefs.getBoolean("view_folder_grid", true))
+    val folderGridView = _folderGridView.asStateFlow()
+
+    private val _movieGridView = MutableStateFlow(sharedPrefs.getBoolean("view_movie_grid", true))
+    val movieGridView = _movieGridView.asStateFlow()
+
+    private val _albumListView = MutableStateFlow(sharedPrefs.getBoolean("view_album_list", false))
+    val albumListView = _albumListView.asStateFlow()
+
+    fun toggleVideoGridView() = toggleViewPref(_videoGridView, "view_video_grid")
+    fun toggleFolderGridView() = toggleViewPref(_folderGridView, "view_folder_grid")
+    fun toggleMovieGridView() = toggleViewPref(_movieGridView, "view_movie_grid")
+    fun toggleAlbumListView() = toggleViewPref(_albumListView, "view_album_list")
+
+    private fun toggleViewPref(state: MutableStateFlow<Boolean>, key: String) {
+        val newValue = !state.value
+        state.value = newValue
+        sharedPrefs.edit { putBoolean(key, newValue) }
+    }
+
     private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedMediaIds = _selectedMediaIds.asStateFlow()
 

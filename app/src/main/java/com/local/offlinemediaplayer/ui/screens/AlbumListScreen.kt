@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 //import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,8 +70,8 @@ fun AlbumListScreen(
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
-    // Local state for view mode (Grid vs List) - Persisted across recompositions but not app restarts
-    var isListView by rememberSaveable { mutableStateOf(false) }
+    // View mode (Grid vs List) - persisted in preferences via LibraryViewModel
+    val isListView by libraryViewModel.albumListView.collectAsStateWithLifecycle()
     var showSortMenu by remember { mutableStateOf(false) }
 
     val isAlbumSelectionMode by libraryViewModel.isAlbumSelectionMode.collectAsStateWithLifecycle()
@@ -179,7 +178,7 @@ fun AlbumListScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                 // View Toggle
-                IconButton(onClick = { isListView = !isListView }) {
+                IconButton(onClick = { libraryViewModel.toggleAlbumListView() }) {
                     Icon(
                         imageVector = if (isListView) Icons.Default.GridView else Icons.AutoMirrored.Filled.List,
                         contentDescription = if (isListView) "Grid View" else "List View",

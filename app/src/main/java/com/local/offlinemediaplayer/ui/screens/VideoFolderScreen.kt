@@ -28,7 +28,6 @@ import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,11 +75,11 @@ fun VideoFolderScreen(
     val coroutineScope = rememberCoroutineScope()
     var showCreateDialog by remember { mutableStateOf(false) }
 
-    // View Mode State: True = Grid, False = List
-    var isGridView by rememberSaveable { mutableStateOf(true) }
+    // View Mode State: True = Grid, False = List (persisted in preferences via LibraryViewModel)
+    val isGridView by libraryViewModel.folderGridView.collectAsStateWithLifecycle()
 
-    // Movies Tab Specific State
-    var isMoviesGridView by rememberSaveable { mutableStateOf(true) }
+    // Movies Tab Specific State (persisted in preferences via LibraryViewModel)
+    val isMoviesGridView by libraryViewModel.movieGridView.collectAsStateWithLifecycle()
 
     val folders by libraryViewModel.videoFolders.collectAsStateWithLifecycle()
     val searchQuery by libraryViewModel.folderSearchQuery.collectAsStateWithLifecycle()
@@ -195,7 +194,7 @@ fun VideoFolderScreen(
             // View Toggle Button (Only visible on Folders tab)
             if (pagerState.currentPage == 0) {
                 IconButton(
-                        onClick = { isGridView = !isGridView },
+                        onClick = { libraryViewModel.toggleFolderGridView() },
                         modifier = Modifier.padding(end = 8.dp)
                 ) {
                     Icon(
@@ -299,7 +298,7 @@ fun VideoFolderScreen(
                                 libraryViewModel = libraryViewModel,
                                 onVideoClick = onVideoClick,
                                 isGridView = isMoviesGridView,
-                                onToggleView = { isMoviesGridView = !isMoviesGridView }
+                                onToggleView = { libraryViewModel.toggleMovieGridView() }
                         )
                     }
                     2 -> {

@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
@@ -127,8 +128,8 @@ fun VideoListScreen(
                 }
         }
 
-        // Default to Grid View
-        var isGridView by remember { mutableStateOf(true) }
+        // Grid/List view (persisted in preferences via LibraryViewModel)
+        val isGridView by libraryViewModel.videoGridView.collectAsStateWithLifecycle()
         // Local Search State for this folder view
         var searchQuery by remember { mutableStateOf("") }
         var isSearchVisible by remember { mutableStateOf(false) }
@@ -136,7 +137,7 @@ fun VideoListScreen(
         // Playlist states
         var showAddToPlaylistDialog by remember { mutableStateOf(false) }
         var showCreatePlaylistDialog by remember { mutableStateOf(false) }
-        var selectedVideoForPlaylist by remember { mutableStateOf<MediaFile?>(null) }
+        var videosToAddToPlaylist by remember { mutableStateOf<List<MediaFile>>(emptyList()) }
 
         // Properties Dialog State
         var showPropertiesDialog by remember { mutableStateOf(false) }
@@ -220,6 +221,43 @@ fun VideoListScreen(
                                                                         .onBackground,
                                                         modifier = Modifier.weight(1f)
                                                 )
+
+                                                IconButton(
+                                                        onClick = {
+                                                                val selected =
+                                                                        videos.filter {
+                                                                                selectedIds.contains(
+                                                                                        it.id
+                                                                                )
+                                                                        }
+                                                                if (selected.isNotEmpty()) {
+                                                                        videosToAddToPlaylist =
+                                                                                selected
+                                                                        showAddToPlaylistDialog =
+                                                                                true
+                                                                }
+                                                        },
+                                                        modifier =
+                                                                Modifier.background(
+                                                                                MaterialTheme
+                                                                                        .colorScheme
+                                                                                        .surface,
+                                                                                CircleShape
+                                                                        )
+                                                                        .size(40.dp)
+                                                ) {
+                                                        Icon(
+                                                                Icons.AutoMirrored.Filled
+                                                                        .PlaylistAdd,
+                                                                contentDescription =
+                                                                        "Add to Playlist",
+                                                                tint =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primary
+                                                        )
+                                                }
+
+                                                Spacer(modifier = Modifier.width(8.dp))
 
                                                 IconButton(
                                                         onClick = {
@@ -331,7 +369,10 @@ fun VideoListScreen(
                                                 }
 
                                                 IconButton(
-                                                        onClick = { isGridView = !isGridView },
+                                                        onClick = {
+                                                                libraryViewModel
+                                                                        .toggleVideoGridView()
+                                                        },
                                                         modifier = Modifier.size(40.dp)
                                                 ) {
                                                         Icon(
@@ -502,8 +543,8 @@ fun VideoListScreen(
                                                                 },
                                                                 accentColor = primaryAccent,
                                                                 onAddToPlaylist = {
-                                                                        selectedVideoForPlaylist =
-                                                                                video
+                                                                        videosToAddToPlaylist =
+                                                                                listOf(video)
                                                                         showAddToPlaylistDialog =
                                                                                 true
                                                                 },
@@ -567,8 +608,8 @@ fun VideoListScreen(
                                                                         )
                                                                 },
                                                                 onAddToPlaylist = {
-                                                                        selectedVideoForPlaylist =
-                                                                                video
+                                                                        videosToAddToPlaylist =
+                                                                                listOf(video)
                                                                         showAddToPlaylistDialog =
                                                                                 true
                                                                 },
@@ -619,9 +660,9 @@ fun VideoListScreen(
                 )
         }
 
-        if (showAddToPlaylistDialog && selectedVideoForPlaylist != null) {
+        if (showAddToPlaylistDialog && videosToAddToPlaylist.isNotEmpty()) {
                 AddToPlaylistDialog(
-                        song = selectedVideoForPlaylist!!,
+                        songs = videosToAddToPlaylist,
                         onDismiss = { showAddToPlaylistDialog = false },
                         onCreateNew = { showCreatePlaylistDialog = true }
                 )
