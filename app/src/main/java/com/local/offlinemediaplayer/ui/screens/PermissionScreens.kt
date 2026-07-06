@@ -99,3 +99,47 @@ fun PermissionRationaleScreen(
         }
     }
 }
+
+/**
+ * Shown when media access was denied with "Don't ask again": the system
+ * permission dialog can no longer be displayed, so Settings is the only way.
+ */
+@Composable
+fun PermissionSettingsScreen(onOpenSettings: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+
+            Text(
+                text = "Media Access Needed",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Text(
+                text = "Media access is turned off for this app. To browse your videos, music and photos, enable the media permissions in system Settings, then return to the app.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Button(
+                onClick = onOpenSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Open App Settings")
+            }
+        }
+    }
+}

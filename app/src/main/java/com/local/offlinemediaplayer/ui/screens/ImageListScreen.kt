@@ -64,12 +64,21 @@ fun ImageListScreen(
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             viewModel.onImageDeleteSuccess()
+        } else {
+            viewModel.onDeleteCancelled()
         }
     }
 
     LaunchedEffect(Unit) {
         viewModel.deleteIntentEvent.collect { intentSender ->
             intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

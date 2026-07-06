@@ -94,6 +94,14 @@ fun NowPlayingScreen(
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             viewModel.onCurrentTrackDeleteSuccess()
+        } else {
+            viewModel.onDeleteCancelled()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

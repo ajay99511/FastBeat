@@ -96,6 +96,8 @@ fun VideoFolderScreen(
             ) { result ->
                 if (result.resultCode == Activity.RESULT_OK) {
                     libraryViewModel.onDeleteSuccess()
+                } else {
+                    libraryViewModel.onDeleteCancelled()
                 }
             }
 
