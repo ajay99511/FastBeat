@@ -94,8 +94,16 @@ fun AlbumDetailScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) {
                 libraryViewModel.onDeleteSuccess()
+            } else {
+                libraryViewModel.onDeleteCancelled()
             }
         }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     LaunchedEffect(Unit) {
         libraryViewModel.deleteIntentEvent.collect { intentSender ->

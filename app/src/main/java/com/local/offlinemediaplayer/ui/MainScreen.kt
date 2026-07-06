@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -50,6 +53,7 @@ import com.local.offlinemediaplayer.ui.screens.ImageListScreen
 import com.local.offlinemediaplayer.ui.screens.MeScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
+import com.local.offlinemediaplayer.ui.screens.PermissionSettingsScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
 import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
@@ -78,63 +82,110 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
 
-    // Define permissions based on Android version
-    val permissions =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                listOf(
-                        Manifest.permission.READ_MEDIA_VIDEO,
-                        Manifest.permission.READ_MEDIA_AUDIO,
-                        Manifest.permission.READ_MEDIA_IMAGES,
-                        Manifest.permission.POST_NOTIFICATIONS
-                )
-            } else {
-                listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
-
-    // Track permission state
-    var permissionsGranted by remember {
-        mutableStateOf(
-                permissions.all { permission ->
-                    ContextCompat.checkSelfPermission(context, permission) ==
-                            PermissionChecker.PERMISSION_GRANTED
-                }
-        )
+    // Media permissions gate the content. On Android 14+ a partial grant
+    // (READ_MEDIA_VISUAL_USER_SELECTED) counts as access, and an audio-only or
+    // visual-only grant still lets the app show what it can read.
+    val mediaPermissions = remember {
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+                    listOf(
+                            Manifest.permission.READ_MEDIA_VIDEO,
+                            Manifest.permission.READ_MEDIA_AUDIO,
+                            Manifest.permission.READ_MEDIA_IMAGES,
+                            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                    )
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                    listOf(
+                            Manifest.permission.READ_MEDIA_VIDEO,
+                            Manifest.permission.READ_MEDIA_AUDIO,
+                            Manifest.permission.READ_MEDIA_IMAGES
+                    )
+            else -> listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
     }
 
-    var shouldShowRationale by remember { mutableStateOf(false) }
+    // POST_NOTIFICATIONS is asked for in the same prompt on 13+ but declining
+    // it must never lock the user out of their media.
+    val requestedPermissions = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            mediaPermissions + Manifest.permission.POST_NOTIFICATIONS
+        } else {
+            mediaPermissions
+        }
+    }
 
-    // Permission launcher
+    fun hasMediaAccess(): Boolean =
+            mediaPermissions.any { permission ->
+                ContextCompat.checkSelfPermission(context, permission) ==
+                        PermissionChecker.PERMISSION_GRANTED
+            }
+
+    var mediaAccessGranted by remember { mutableStateOf(hasMediaAccess()) }
+    var denialState by remember { mutableStateOf(MediaPermissionDenial.NONE) }
+
     val permissionLauncher =
             rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { permissionsMap ->
-                val allGranted = permissionsMap.values.all { it }
-                permissionsGranted = allGranted
+            ) { _ ->
+                // Re-check from the framework instead of the result map: a
+                // partial visual grant reports READ_MEDIA_VIDEO/IMAGES as
+                // denied even though the app has usable access.
+                val granted = hasMediaAccess()
+                mediaAccessGranted = granted
 
-                if (allGranted) {
+                if (granted) {
                     viewModel.scanMedia()
                 } else {
-                    // Check if we should show rationale
-                    shouldShowRationale =
-                            permissions.any { permission ->
+                    // After a denial, no rationale available means the system
+                    // dialog will not be shown again — only Settings can help.
+                    val canAskAgain =
+                            mediaPermissions.any { permission ->
                                 (context as? ComponentActivity)
                                         ?.shouldShowRequestPermissionRationale(permission) == true
                             }
+                    denialState =
+                            if (canAskAgain) MediaPermissionDenial.CAN_ASK_AGAIN
+                            else MediaPermissionDenial.PERMANENT
                 }
             }
 
     // Request permissions on first launch
     LaunchedEffect(Unit) {
-        if (!permissionsGranted) {
-            permissionLauncher.launch(permissions.toTypedArray())
-        } else {
+        if (mediaAccessGranted) {
             viewModel.scanMedia()
+        } else {
+            permissionLauncher.launch(requestedPermissions.toTypedArray())
         }
+    }
+
+    // Re-check on resume so a grant made in system Settings (or a changed
+    // photo selection on Android 14+) is picked up without an app restart.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = hasMediaAccess()
+                if (granted && !mediaAccessGranted) {
+                    viewModel.scanMedia()
+                }
+                mediaAccessGranted = granted
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val openAppSettings = {
+        context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                }
+        )
     }
 
     // Main content or permission request UI
     when {
-        permissionsGranted -> {
+        mediaAccessGranted -> {
             CompositionLocalProvider(
                 LocalWindowSizeClass provides widthClass,
                 LocalDevicePosture provides devicePosture
@@ -142,27 +193,28 @@ fun MainScreen(
                 MediaPlayerAppContent(viewModel)
             }
         }
-        shouldShowRationale -> {
+        denialState == MediaPermissionDenial.PERMANENT -> {
+            PermissionSettingsScreen(onOpenSettings = openAppSettings)
+        }
+        denialState == MediaPermissionDenial.CAN_ASK_AGAIN -> {
             PermissionRationaleScreen(
-                    onRequestPermission = { permissionLauncher.launch(permissions.toTypedArray()) },
-                    onOpenSettings = {
-                        val intent =
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS.let { action ->
-                                    Intent(action).apply {
-                                        data = Uri.fromParts("package", context.packageName, null)
-                                    }
-                                }
-                        context.startActivity(intent)
-                    }
+                    onRequestPermission = {
+                        permissionLauncher.launch(requestedPermissions.toTypedArray())
+                    },
+                    onOpenSettings = openAppSettings
             )
         }
         else -> {
             PermissionRequestScreen(
-                    onRequestPermission = { permissionLauncher.launch(permissions.toTypedArray()) }
+                    onRequestPermission = {
+                        permissionLauncher.launch(requestedPermissions.toTypedArray())
+                    }
             )
         }
     }
 }
+
+private enum class MediaPermissionDenial { NONE, CAN_ASK_AGAIN, PERMANENT }
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable

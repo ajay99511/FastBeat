@@ -339,6 +339,90 @@ class LibraryViewModel @Inject constructor(
     private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
     val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
 
+    // --- Legacy (pre-Android 11) deletion ---
+    // contentResolver.delete() only works directly on files the app owns.
+    // Android 10 throws RecoverableSecurityException with a per-file consent
+    // intent; the queue below pauses on it and resumes from the UI result
+    // callback, so multi-file deletes survive one consent dialog per file.
+    private class LegacyDeleteState(
+        val remaining: ArrayDeque<MediaFile>,
+        val total: Int,
+        val deletedIds: MutableList<Long> = mutableListOf(),
+        val onComplete: suspend (List<Long>) -> Unit
+    )
+
+    private var legacyDeleteState: LegacyDeleteState? = null
+
+    private suspend fun startLegacyDelete(
+        files: List<MediaFile>,
+        onComplete: suspend (List<Long>) -> Unit
+    ) {
+        legacyDeleteState = LegacyDeleteState(
+            remaining = ArrayDeque(files),
+            total = files.size,
+            onComplete = onComplete
+        )
+        processLegacyDelete()
+    }
+
+    private suspend fun processLegacyDelete() {
+        val state = legacyDeleteState ?: return
+        while (state.remaining.isNotEmpty()) {
+            val file = state.remaining.first()
+            try {
+                app.contentResolver.delete(file.uri, null, null)
+                state.deletedIds.add(file.id)
+                state.remaining.removeFirst()
+            } catch (e: SecurityException) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                    // Paused: onDeleteConsentResult() resumes after the dialog.
+                    _deleteIntentEvent.emit(e.userAction.actionIntent.intentSender)
+                    return
+                }
+                Log.e("LibraryViewModel", "Delete rejected for ${file.displayName}", e)
+                state.remaining.removeFirst()
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Delete failed for ${file.displayName}", e)
+                state.remaining.removeFirst()
+            }
+        }
+        finishLegacyDelete(state)
+    }
+
+    private suspend fun finishLegacyDelete(state: LegacyDeleteState) {
+        legacyDeleteState = null
+        if (state.deletedIds.size < state.total) {
+            _userMessage.emit(
+                if (state.deletedIds.isEmpty()) "Couldn't delete the selected files"
+                else "Some files couldn't be deleted"
+            )
+        }
+        if (state.deletedIds.isNotEmpty()) {
+            state.onComplete(state.deletedIds.toList())
+        }
+    }
+
+    /**
+     * Routes a RESULT_OK from the system delete dialog. Returns true when a
+     * paused legacy queue consumed it (Android 10 consent grants access to the
+     * file — the delete itself is still ours to retry).
+     */
+    private fun resumeLegacyDeleteIfPending(): Boolean {
+        if (legacyDeleteState == null) return false
+        viewModelScope.launch(Dispatchers.IO) { processLegacyDelete() }
+        return true
+    }
+
+    /** Call when the user cancels the system delete dialog. */
+    fun onDeleteCancelled() {
+        val state = legacyDeleteState ?: return
+        legacyDeleteState = null
+        // Commit whatever was already deleted before the user backed out.
+        viewModelScope.launch(Dispatchers.IO) {
+            if (state.deletedIds.isNotEmpty()) state.onComplete(state.deletedIds.toList())
+        }
+    }
+
     fun toggleSelectionMode(enable: Boolean) {
         _isSelectionMode.value = enable
         if (!enable) _selectedMediaIds.value = emptySet()
@@ -385,17 +469,13 @@ class LibraryViewModel @Inject constructor(
                 val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
                 _deleteIntentEvent.emit(pendingIntent.intentSender)
             } else {
-                try {
-                    for (file in filesToDelete) app.contentResolver.delete(file.uri, null, null)
-                    onDeleteSuccess(idsToDelete)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                startLegacyDelete(filesToDelete) { deletedIds -> onDeleteSuccess(deletedIds) }
             }
         }
     }
 
     fun onDeleteSuccess() {
+        if (resumeLegacyDeleteIfPending()) return
         onDeleteSuccess(_selectedMediaIds.value.toList())
     }
 
@@ -426,17 +506,20 @@ class LibraryViewModel @Inject constructor(
                 val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
                 _deleteIntentEvent.emit(pendingIntent.intentSender)
             } else {
-                try {
-                    for (file in allSongsInAlbums) app.contentResolver.delete(file.uri, null, null)
-                    onAlbumDeleteSuccess()
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                startLegacyDelete(allSongsInAlbums) { deletedIds ->
+                    // Clean up only what was actually removed from disk.
+                    mediaRepository.removeMediaIds(deletedIds)
+                    playlistRepository.cleanupDeletedMedia(deletedIds)
+                    _selectedAlbumIds.value = emptySet()
+                    _isAlbumSelectionMode.value = false
+                    pendingAlbumDeleteIds = null
                 }
             }
         }
     }
 
     fun onAlbumDeleteSuccess() {
+        if (resumeLegacyDeleteIfPending()) return
         val albumIds = pendingAlbumDeleteIds ?: return
         val songIds = audioList.value.filter { albumIds.contains(it.albumId) }.map { it.id }
         viewModelScope.launch {
@@ -581,11 +664,9 @@ class LibraryViewModel @Inject constructor(
                 val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
                 _deleteIntentEvent.emit(pendingIntent.intentSender)
             } else {
-                try {
-                    app.contentResolver.delete(image.uri, null, null)
-                    onImageDeleteSuccess()
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                startLegacyDelete(listOf(image)) { deletedIds ->
+                    mediaRepository.removeMediaIds(deletedIds)
+                    playlistRepository.cleanupDeletedMedia(deletedIds)
                     _pendingImageDeleteId.value = null
                 }
             }
@@ -593,6 +674,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun onImageDeleteSuccess() {
+        if (resumeLegacyDeleteIfPending()) return
         val id = _pendingImageDeleteId.value ?: return
         viewModelScope.launch {
             mediaRepository.removeMediaIds(listOf(id))

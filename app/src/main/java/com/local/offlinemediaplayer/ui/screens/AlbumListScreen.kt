@@ -85,6 +85,14 @@ fun AlbumListScreen(
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             libraryViewModel.onAlbumDeleteSuccess()
+        } else {
+            libraryViewModel.onDeleteCancelled()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.userMessage.collect { msg ->
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
