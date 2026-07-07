@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,7 +55,7 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingScreen(
     viewModel: PlaybackViewModel,
@@ -262,150 +264,185 @@ fun NowPlayingScreen(
             }
         }
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .padding(padding)
-                .padding(horizontal = 24.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Album Art with drop shadow
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .aspectRatio(1f)
-                    .shadow(
-                        elevation = 24.dp,
-                        shape = RoundedCornerShape(28.dp),
-                        spotColor = primaryAccent.copy(alpha = 0.25f)
-                    )
-                    .clip(RoundedCornerShape(28.dp))
-            ) {
-                AsyncImage(
-                    model = currentTrack?.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentScale = ContentScale.Crop
-                )
+            // Responsive sizing: derived from the actual space available so the layout
+            // adapts to phones, tablets and landscape instead of using fixed dimensions.
+            val isTablet = maxWidth >= 600.dp
+            val isShortScreen = maxHeight < 480.dp
+            val horizontalPadding = if (isTablet) 32.dp else 24.dp
+            val contentWidth = if (isTablet) 560.dp else maxWidth
+            val artSize = minOf(
+                contentWidth - horizontalPadding * 2,
+                maxHeight * 0.45f,
+                if (isTablet) 420.dp else 340.dp
+            )
+            val titleFontSize = when {
+                isTablet -> 24.sp
+                maxWidth < 360.dp -> 18.sp
+                else -> 20.sp
             }
+            val playButtonSize = if (isTablet) 88.dp else 76.dp
+            val skipIconSize = if (isTablet) 40.dp else 36.dp
+            val sectionSpacing = if (isShortScreen) 12.dp else 24.dp
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Track Info Row (Title + Like)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = contentWidth)
+                    .fillMaxHeight()
+                    .padding(horizontal = horizontalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = currentTrack?.title ?: "",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onBackground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                Spacer(modifier = Modifier.height(if (isShortScreen) 8.dp else 16.dp))
+
+                // Album Art with drop shadow
+                Box(
+                    modifier = Modifier
+                        .size(artSize)
+                        .shadow(
+                            elevation = 24.dp,
+                            shape = RoundedCornerShape(28.dp),
+                            spotColor = primaryAccent.copy(alpha = 0.25f)
+                        )
+                        .clip(RoundedCornerShape(28.dp))
+                ) {
+                    AsyncImage(
+                        model = currentTrack?.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentScale = ContentScale.Crop
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Title banner: spans the full width edge to edge and scrolls
+                // (marquee) when the title is longer than the screen.
+                Text(
+                    text = currentTrack?.title ?: "",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = titleFontSize,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1200)
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Artist Row (Artist + Like)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text(
                         text = currentTrack?.artist ?: "Unknown Artist",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+
+                    IconButton(onClick = { viewModel.toggleFavorite() }) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
 
-                IconButton(onClick = { viewModel.toggleFavorite() }) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
+                Spacer(modifier = Modifier.height(sectionSpacing))
 
-            Spacer(modifier = Modifier.height(24.dp))
+                // Gradient Progress Bar (Extracted to prevent full screen recomposition)
+                PlaybackControlsWithProgress(
+                    currentPositionFlow = viewModel.currentPosition,
+                    duration = duration,
+                    progressBarGradient = progressBarGradient,
+                    onSeek = { viewModel.seekTo(it) }
+                )
 
-            // Gradient Progress Bar (Extracted to prevent full screen recomposition)
-            PlaybackControlsWithProgress(
-                currentPositionFlow = viewModel.currentPosition,
-                duration = duration,
-                progressBarGradient = progressBarGradient,
-                onSeek = { viewModel.seekTo(it) }
-            )
+                Spacer(modifier = Modifier.height(sectionSpacing))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Controls
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { viewModel.toggleShuffle() }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                IconButton(onClick = { viewModel.playPrevious() }) {
-                    Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "Previous",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                // Play/Pause (Gradient Circle with premium glow)
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .shadow(24.dp, CircleShape, spotColor = primaryAccent.copy(alpha = 0.5f))
-                        .clip(CircleShape)
-                        .background(playButtonGradient)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { viewModel.togglePlayPause() },
-                    contentAlignment = Alignment.Center
+                // Controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(42.dp)
-                    )
+                    IconButton(onClick = { viewModel.toggleShuffle() }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.playPrevious() }) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(skipIconSize)
+                        )
+                    }
+
+                    // Play/Pause (Gradient Circle with premium glow)
+                    Box(
+                        modifier = Modifier
+                            .size(playButtonSize)
+                            .shadow(24.dp, CircleShape, spotColor = primaryAccent.copy(alpha = 0.5f))
+                            .clip(CircleShape)
+                            .background(playButtonGradient)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { viewModel.togglePlayPause() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(playButtonSize * 0.55f)
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.playNext() }) {
+                        Icon(
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = "Next",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(skipIconSize)
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.toggleRepeat() }) {
+                        val icon = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat
+                        val tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = "Repeat",
+                            tint = tint,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
-                IconButton(onClick = { viewModel.playNext() }) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Next",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                IconButton(onClick = { viewModel.toggleRepeat() }) {
-                    val icon = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat
-                    val tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = "Repeat",
-                        tint = tint,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.height(if (isShortScreen) 16.dp else 48.dp))
             }
-
-            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 
