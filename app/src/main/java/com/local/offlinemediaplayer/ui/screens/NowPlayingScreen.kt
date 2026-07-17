@@ -30,10 +30,13 @@ import androidx.compose.material.icons.outlined.RepeatOne
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -50,6 +53,8 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.dragHandle
+import com.local.offlinemediaplayer.ui.components.rememberDragDropState
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
@@ -456,13 +461,13 @@ fun NowPlayingScreen(
             QueueSheetContent(
                 queue = displayQueue,
                 currentIndex = displayQueueIndex ?: 0,
-                onTrackClick = { index ->
-                    // Use playTrackFromQueue to properly handle shuffled playback
-                    displayQueue.getOrNull(index)?.let { track ->
-                        viewModel.playTrackFromQueue(track)
-                    }
-                },
+                // Reordering rearranges the player timeline, which only matches the visible
+                // order while shuffle is off (Media3 owns the shuffle order).
+                isReorderEnabled = !isShuffleEnabled,
+                // playTrackFromQueue handles both shuffled and non-shuffled playback
+                onTrackClick = { track -> viewModel.playTrackFromQueue(track) },
                 onRemove = { track -> viewModel.removeFromQueue(track) },
+                onReorder = { track, from, to -> viewModel.moveQueueItem(track, from, to) },
                 onClear = { viewModel.clearQueueExceptCurrent() },
                 onSaveAsPlaylist = { showSaveQueueDialog = true }
             )
@@ -653,12 +658,33 @@ private fun SleepTimerDialog(
 fun QueueSheetContent(
     queue: List<MediaFile>,
     currentIndex: Int,
-    onTrackClick: (Int) -> Unit,
+    isReorderEnabled: Boolean,
+    onTrackClick: (MediaFile) -> Unit,
     onRemove: (MediaFile) -> Unit,
+    onReorder: (track: MediaFile, fromIndex: Int, toIndex: Int) -> Unit,
     onClear: () -> Unit,
     onSaveAsPlaylist: () -> Unit
 ) {
     val listState = rememberLazyListState()
+
+    // Local working copy so items can be rearranged live while dragging; the final order is
+    // committed to the ViewModel once, when the drag ends. Resyncs whenever the real queue
+    // changes (reorder commit, removal, track change, ...).
+    val localQueue = remember(queue) { queue.toMutableStateList() }
+    val dragDropState = rememberDragDropState(
+        lazyListState = listState,
+        onMove = { from, to ->
+            if (from in localQueue.indices && to in localQueue.indices) {
+                localQueue.add(to, localQueue.removeAt(from))
+            }
+        },
+        onDragEnd = { from, to ->
+            queue.getOrNull(from)?.let { track -> onReorder(track, from, to) }
+        }
+    )
+
+    // Highlight by id (not index) so it stays correct while a drag is rearranging localQueue.
+    val currentTrackId = queue.getOrNull(currentIndex)?.id
 
     // Auto-scroll to current track
     LaunchedEffect(Unit) {
@@ -700,13 +726,29 @@ fun QueueSheetContent(
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            itemsIndexed(queue, key = { _, track -> track.id }) { index, track ->
-                val isPlaying = index == currentIndex
+            itemsIndexed(localQueue, key = { _, track -> track.id }) { index, track ->
+                val isPlaying = track.id == currentTrackId
+                val isDragging = index == dragDropState.draggingItemIndex
                 Row(
                     modifier = Modifier
+                        .then(
+                            if (isDragging) {
+                                Modifier
+                                    .zIndex(1f)
+                                    .graphicsLayer { translationY = dragDropState.draggingItemOffset }
+                            } else {
+                                Modifier.animateItem()
+                            }
+                        )
                         .fillMaxWidth()
-                        .background(if (isPlaying) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent)
-                        .clickable { onTrackClick(index) }
+                        .background(
+                            when {
+                                isDragging -> MaterialTheme.colorScheme.surfaceVariant
+                                isPlaying -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                else -> Color.Transparent
+                            }
+                        )
+                        .clickable { onTrackClick(track) }
                         .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -754,6 +796,23 @@ fun QueueSheetContent(
                                 contentDescription = "Remove from queue",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Drag handle for reordering (hidden while shuffle is on, since the
+                    // shuffled order can't be rearranged)
+                    if (isReorderEnabled) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .dragHandle(dragDropState, index),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DragHandle,
+                                contentDescription = "Drag to reorder",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
