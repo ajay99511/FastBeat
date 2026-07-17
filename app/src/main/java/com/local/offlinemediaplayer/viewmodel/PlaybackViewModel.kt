@@ -2174,6 +2174,42 @@ constructor(
     }
 
     /**
+     * Move a track to a new position in the queue (drag & drop from the Now Playing queue sheet).
+     * Indices are positions in the visible queue. Only supported while shuffle is off: with
+     * shuffle on the visible order is Media3's internal shuffle order, which a MediaController
+     * cannot rewrite. Keeps the player timeline, local state and the persisted queue in sync.
+     */
+    fun moveQueueItem(track: MediaFile, fromIndex: Int, toIndex: Int) {
+        val controller = _player.value ?: return
+        if (fromIndex == toIndex) return
+        if (controller.shuffleModeEnabled) {
+            viewModelScope.launch { _userMessage.emit("Turn off shuffle to reorder the queue") }
+            return
+        }
+
+        val queue = _currentQueue.value.toMutableList()
+        if (fromIndex !in queue.indices || toIndex !in queue.indices) return
+        if (fromIndex >= controller.mediaItemCount || toIndex >= controller.mediaItemCount) return
+        // Stale-drag guard: the queue can change underneath the sheet (e.g. a library deletion
+        // mid-drag). Only commit when the dragged item is still where the drag started.
+        if (queue[fromIndex].id != track.id) return
+
+        queue.add(toIndex, queue.removeAt(fromIndex))
+        _currentQueue.value = queue
+
+        controller.moveMediaItem(fromIndex, toIndex)
+        _currentIndex.value = controller.currentMediaItemIndex
+
+        updateDisplayQueue()
+        persistQueue(queue)
+        // The playing item's position may have shifted; keep the persisted index consistent
+        // with the queue that was just persisted (audio sessions only, matching persistQueue).
+        if (_currentTrack.value?.isVideo != true) {
+            persistQueueIndex(controller.currentMediaItemIndex)
+        }
+    }
+
+    /**
      * Remove a single track from the queue (cannot remove the currently playing track here).
      * Keeps the player timeline and the local/persisted queue in sync.
      */
