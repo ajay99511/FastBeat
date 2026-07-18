@@ -678,8 +678,11 @@ fun QueueSheetContent(
                 localQueue.add(to, localQueue.removeAt(from))
             }
         },
-        onDragEnd = { from, to ->
-            queue.getOrNull(from)?.let { track -> onReorder(track, from, to) }
+        onDragEnd = { key, from, to ->
+            // Resolve the moved track by its key, not by index: if the queue changed while
+            // the drag was in progress, an index lookup could name the wrong track. The
+            // ViewModel additionally verifies the track is still at `from` before committing.
+            localQueue.firstOrNull { it.id == key }?.let { track -> onReorder(track, from, to) }
         }
     )
 
@@ -728,14 +731,17 @@ fun QueueSheetContent(
         ) {
             itemsIndexed(localQueue, key = { _, track -> track.id }) { index, track ->
                 val isPlaying = track.id == currentTrackId
-                val isDragging = index == dragDropState.draggingItemIndex
+                val isDragging = track.id == dragDropState.draggingItemKey
                 Row(
                     modifier = Modifier
                         .then(
                             if (isDragging) {
                                 Modifier
                                     .zIndex(1f)
-                                    .graphicsLayer { translationY = dragDropState.draggingItemOffset }
+                                    .graphicsLayer {
+                                        translationY = dragDropState.draggingItemOffset
+                                        shadowElevation = 8.dp.toPx()
+                                    }
                             } else {
                                 Modifier.animateItem()
                             }
@@ -806,7 +812,7 @@ fun QueueSheetContent(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .dragHandle(dragDropState, index),
+                                .dragHandle(dragDropState, key = track.id),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(

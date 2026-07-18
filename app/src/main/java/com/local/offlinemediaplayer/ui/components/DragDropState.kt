@@ -21,21 +21,26 @@ import kotlinx.coroutines.launch
 
 /**
  * Drag-to-reorder support for a [androidx.compose.foundation.lazy.LazyColumn] whose items map
- * 1:1 to list indices (no headers inside the lazy list).
+ * 1:1 to list indices (no headers inside the lazy list) and use stable, unique keys.
+ *
+ * The dragged item is tracked by its lazy-list KEY, never by index: indices change on every
+ * reorder, and using them as gesture keys would cancel the active drag mid-gesture.
  *
  * While a drag is in progress [onMove] is invoked for every position the dragged item crosses so
  * the caller can rearrange a local working copy for live visual feedback. When the drag finishes,
- * [onDragEnd] is invoked exactly once with the item's original and final indices so the caller
- * can commit the reorder (e.g. to a ViewModel) as a single operation.
+ * [onDragEnd] is invoked exactly once with the dragged item's key plus its original and final
+ * indices so the caller can commit the reorder (e.g. to a ViewModel) as a single operation.
+ * Resolving the moved item by key (not index) keeps the commit safe even if the underlying
+ * list changed while the drag was in progress.
  *
- * Items are dragged from an explicit handle via [dragHandle]; apply [draggingItemOffset] as a
- * translation to the item currently being dragged.
+ * Items are dragged from an explicit handle via [dragHandle]; apply [DragDropState.draggingItemOffset]
+ * as a translation to the item whose key equals [DragDropState.draggingItemKey].
  */
 @Composable
 fun rememberDragDropState(
     lazyListState: LazyListState,
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
-    onDragEnd: (fromIndex: Int, toIndex: Int) -> Unit
+    onDragEnd: (key: Any, fromIndex: Int, toIndex: Int) -> Unit
 ): DragDropState {
     val scope = rememberCoroutineScope()
     val currentOnMove = rememberUpdatedState(onMove)
@@ -45,7 +50,7 @@ fun rememberDragDropState(
             state = lazyListState,
             scope = scope,
             onMove = { from, to -> currentOnMove.value(from, to) },
-            onDragEnd = { from, to -> currentOnDragEnd.value(from, to) }
+            onDragEnd = { key, from, to -> currentOnDragEnd.value(key, from, to) }
         )
     }
     // Consume auto-scroll requests emitted while dragging near the viewport edges.
@@ -62,50 +67,61 @@ class DragDropState internal constructor(
     private val state: LazyListState,
     private val scope: CoroutineScope,
     private val onMove: (fromIndex: Int, toIndex: Int) -> Unit,
-    private val onDragEnd: (fromIndex: Int, toIndex: Int) -> Unit
+    private val onDragEnd: (key: Any, fromIndex: Int, toIndex: Int) -> Unit
 ) {
-    /** Index the dragged item currently occupies, or null when no drag is active. */
-    var draggingItemIndex by mutableStateOf<Int?>(null)
+    /** Lazy-list key of the item being dragged, or null when no drag is active. */
+    var draggingItemKey by mutableStateOf<Any?>(null)
         private set
 
     internal val scrollChannel = Channel<Float>()
 
     private var draggingItemStartIndex = -1
+    private var draggingItemCurrentIndex = -1
     private var draggingItemDraggedDelta = 0f
     private var draggingItemInitialOffset = 0
 
-    /** Vertical translation to apply to the item at [draggingItemIndex]. */
+    /** Vertical translation to apply to the item whose key equals [draggingItemKey]. */
     val draggingItemOffset: Float
         get() = draggingItemLayoutInfo?.let { item ->
             draggingItemInitialOffset + draggingItemDraggedDelta - item.offset
         } ?: 0f
 
     private val draggingItemLayoutInfo: LazyListItemInfo?
-        get() = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == draggingItemIndex }
+        get() = state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == draggingItemKey }
 
-    internal fun onDragStart(index: Int) {
-        val item = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
-        draggingItemIndex = index
-        draggingItemStartIndex = index
+    internal fun onDragStart(key: Any) {
+        // Ignore a second pointer grabbing another handle while a drag is already active;
+        // letting it take over would corrupt the first drag's indices on commit.
+        if (draggingItemKey != null) return
+        val item = state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key } ?: return
+        draggingItemKey = key
+        draggingItemStartIndex = item.index
+        draggingItemCurrentIndex = item.index
         draggingItemInitialOffset = item.offset
         draggingItemDraggedDelta = 0f
     }
 
     internal fun onDragInterrupted() {
+        val key = draggingItemKey
         val startIndex = draggingItemStartIndex
-        val endIndex = draggingItemIndex
-        draggingItemIndex = null
+        val endIndex = draggingItemCurrentIndex
+        draggingItemKey = null
         draggingItemStartIndex = -1
+        draggingItemCurrentIndex = -1
         draggingItemInitialOffset = 0
         draggingItemDraggedDelta = 0f
-        if (startIndex >= 0 && endIndex != null && startIndex != endIndex) {
-            onDragEnd(startIndex, endIndex)
+        if (key != null && startIndex >= 0 && endIndex >= 0 && startIndex != endIndex) {
+            onDragEnd(key, startIndex, endIndex)
         }
     }
 
     internal fun onDrag(offset: Offset) {
         draggingItemDraggedDelta += offset.y
         val draggingItem = draggingItemLayoutInfo ?: return
+        // After a move, the layout lags the list mutation for one frame; item indices from
+        // the stale layout would be wrong to act on. Just accumulate the delta and wait.
+        if (draggingItem.index != draggingItemCurrentIndex) return
+
         val startOffset = draggingItem.offset + draggingItemOffset
         val endOffset = startOffset + draggingItem.size
         val middleOffset = startOffset + (endOffset - startOffset) / 2f
@@ -125,7 +141,7 @@ class DragDropState internal constructor(
                 }
             }
             onMove(draggingItem.index, targetItem.index)
-            draggingItemIndex = targetItem.index
+            draggingItemCurrentIndex = targetItem.index
         } else {
             val overscroll = when {
                 draggingItemDraggedDelta > 0 ->
@@ -142,13 +158,15 @@ class DragDropState internal constructor(
 }
 
 /**
- * Makes the receiving composable a drag handle that starts reordering the item at [index].
+ * Makes the receiving composable a drag handle that starts reordering the item with the given
+ * lazy-list [key]. The key must be the same stable value passed as the item's key in the lazy
+ * list (it survives reordering, unlike an index, so the gesture is never cancelled mid-drag).
  * Drags begin immediately (no long press) since the handle is an explicit affordance.
  */
-fun Modifier.dragHandle(dragDropState: DragDropState, index: Int): Modifier =
-    pointerInput(dragDropState, index) {
+fun Modifier.dragHandle(dragDropState: DragDropState, key: Any): Modifier =
+    pointerInput(dragDropState, key) {
         detectDragGestures(
-            onDragStart = { dragDropState.onDragStart(index) },
+            onDragStart = { dragDropState.onDragStart(key) },
             onDrag = { change, dragAmount ->
                 change.consume()
                 dragDropState.onDrag(dragAmount)
