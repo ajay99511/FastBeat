@@ -56,6 +56,20 @@ ui = "1.10.1"
 uiText = "1.10.2"
 room = "2.7.0-alpha11"
 
+# --- Testing ---
+kotest = "5.9.1"
+mockk = "1.13.13"
+turbine = "1.1.0"
+coroutinesTest = "1.9.0"
+robolectric = "4.14.1"
+kotestRobolectric = "0.5.0"
+roomTest = "2.7.2"
+hilt = "2.58"
+androidxTestCore = "1.6.1"
+androidxTestRunner = "1.6.2"
+androidxTestRules = "1.6.1"
+archCoreTesting = "2.2.0"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -74,6 +88,27 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "animationCore" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
+
+# --- Testing: JVM unit tests (src/test) ---
+kotest-runner-junit5 = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
+kotest-property = { group = "io.kotest", name = "kotest-property", version.ref = "kotest" }
+kotest-extensions-robolectric = { group = "io.kotest.extensions", name = "kotest-extensions-robolectric", version.ref = "kotestRobolectric" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-arch-core-testing = { group = "androidx.arch.core", name = "core-testing", version.ref = "archCoreTesting" }
+androidx-test-core-ktx = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
+room-testing = { group = "androidx.room", name = "room-testing", version.ref = "roomTest" }
+
+# --- Testing: instrumented / androidTest (src/androidTest) ---
+mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "mockk" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRules" }
+hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

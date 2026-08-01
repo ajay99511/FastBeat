@@ -16,3 +16,4 @@ app/release
 .cxx
 local.properties
 *.txt
+app/release/baselineProfiles

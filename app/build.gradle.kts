@@ -50,8 +50,12 @@ android {
     }
 
     testOptions {
-        unitTests.all {
-            it.useJUnitPlatform()
+        unitTests {
+            // Robolectric needs the merged manifest + resources on the test classpath.
+            isIncludeAndroidResources = true
+            all {
+                it.useJUnitPlatform()
+            }
         }
     }
 
@@ -113,14 +117,33 @@ dependencies {
     implementation("androidx.compose.material3.adaptive:adaptive-layout:1.0.0")
     implementation("androidx.compose.material3.adaptive:adaptive-navigation:1.0.0")
 
-    // Testing
-    testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
-    testImplementation("io.kotest:kotest-property:5.9.1")
-    testImplementation(libs.junit)
+    // ---------- Unit tests (src/test, JVM + Robolectric, JUnit Platform) ----------
+    testImplementation(libs.kotest.runner.junit5)     // Kotest on the JUnit 5 platform
+    testImplementation(libs.kotest.assertions.core)    // shouldBe / shouldContain matchers
+    testImplementation(libs.kotest.property)           // property-based testing
+    testImplementation(libs.kotest.extensions.robolectric) // @RobolectricTest for Kotest specs
+    testImplementation(libs.mockk)                     // idiomatic Kotlin mocking
+    testImplementation(libs.turbine)                   // Flow/StateFlow assertions
+    testImplementation(libs.kotlinx.coroutines.test)   // runTest, TestDispatcher
+    testImplementation(libs.robolectric)               // Android framework on the JVM
+    testImplementation(libs.androidx.arch.core.testing) // InstantTaskExecutorRule
+    testImplementation(libs.androidx.test.core.ktx)    // ApplicationProvider, etc.
+    testImplementation(libs.room.testing)              // in-memory Room + migration tests
+
+    // ---------- Instrumented tests (src/androidTest, on-device/emulator) ----------
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.mockk.android)
+    androidTestImplementation(libs.turbine)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.hilt.android.testing)   // HiltAndroidRule, @HiltAndroidTest
+    kspAndroidTest(libs.hilt.compiler)
+
+    // ---------- Debug-only tooling for Compose tests ----------
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
