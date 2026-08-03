@@ -1,9 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)  // ✅ Changed from explicit version to alias
-    id("com.google.dagger.hilt.android") version "2.58"
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -36,15 +35,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = "11"
-        freeCompilerArgs = listOf("-XXLanguage:+PropertyParamAnnotationDefaultTargetMode")
-    }
-
-    ksp {
-        arg("room.schemaLocation", "$projectDir/schemas")
-    }
-
     buildFeatures {
         compose = true
     }
@@ -58,13 +48,25 @@ android {
             }
         }
     }
+}
 
-    applicationVariants.all {
-        outputs.all {
-            // In Kotlin DSL, we must cast to 'BaseVariantOutputImpl' to set the file name
-            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output?.outputFileName = "FastBeat.apk"
-        }
+// AGP 9.0 archivesName — produces FastBeat-debug.apk / FastBeat-release.apk.
+// `base` is a Project-level extension (from the base plugin), so it must live at
+// the top level, not inside the android {} (ApplicationExtension) block.
+base {
+    archivesName = "FastBeat"
+}
+
+// KSP config (Room schema export). `ksp` is a Project-level extension from the
+// KSP plugin, so — like `base` — it belongs at the top level, not inside android {}.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Set Kotlin JVM target (replaces the deprecated android { kotlinOptions {} } DSL)
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
@@ -78,44 +80,44 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation(libs.google.material)
+    implementation(libs.material.icons.extended)
 
     // Hilt Dependency Injection
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-    implementation("com.google.dagger:hilt-android:2.58")
+    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.android)
     implementation(libs.androidx.compose.animation.core)
     implementation(libs.androidx.compose.ui)
-    ksp("com.google.dagger:hilt-compiler:2.58")
+    ksp(libs.hilt.compiler)
 
     // Navigation for switching screens
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation(libs.navigation.compose)
 
     // Media3 (Modern ExoPlayer replacement)
-    implementation("androidx.media3:media3-exoplayer:1.6.0")
-    implementation("androidx.media3:media3-session:1.6.0")
-    implementation("androidx.media3:media3-ui:1.6.0")
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.session)
+    implementation(libs.media3.ui)
 
     // Coil for loading album art
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation(libs.coil.compose)
 
     // Lifecycle integration
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.runtime.compose)
 
     // Gson for JSON Persistence
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.gson)
 
     // Room Database
-    implementation("androidx.room:room-runtime:2.7.2")
-    implementation("androidx.room:room-ktx:2.7.2")
-    ksp("androidx.room:room-compiler:2.7.2")
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     // Adaptive Layouts
-    implementation("androidx.window:window:1.3.0")
-    implementation("androidx.compose.material3.adaptive:adaptive:1.0.0")
-    implementation("androidx.compose.material3.adaptive:adaptive-layout:1.0.0")
-    implementation("androidx.compose.material3.adaptive:adaptive-navigation:1.0.0")
+    implementation(libs.window)
+    implementation(libs.adaptive)
+    implementation(libs.adaptive.layout)
+    implementation(libs.adaptive.navigation)
 
     // ---------- Unit tests (src/test, JVM + Robolectric, JUnit Platform) ----------
     testImplementation(libs.kotest.runner.junit5)     // Kotest on the JUnit 5 platform
