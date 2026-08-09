@@ -53,6 +53,7 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.EqualizerSheet
 import com.local.offlinemediaplayer.ui.components.dragHandle
 import com.local.offlinemediaplayer.ui.components.rememberDragDropState
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
@@ -93,6 +94,7 @@ fun NowPlayingScreen(
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showSaveQueueDialog by remember { mutableStateOf(false) }
+    var showEqualizerSheet by remember { mutableStateOf(false) }
 
     // Delete Intent Launcher
     val context = LocalContext.current
@@ -230,6 +232,20 @@ fun NowPlayingScreen(
                             onClick = {
                                 showMenu = false
                                 showSpeedDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Equalizer") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.GraphicEq,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showEqualizerSheet = true
                             }
                         )
                         // Sleep timer is night-only; show it inside the 10 PM–5 AM window,
@@ -536,6 +552,14 @@ fun NowPlayingScreen(
                 showSleepTimerDialog = false
             },
             onDismiss = { showSleepTimerDialog = false }
+        )
+    }
+
+    // Equalizer Sheet
+    if (showEqualizerSheet) {
+        EqualizerSheet(
+            viewModel = viewModel,
+            onDismiss = { showEqualizerSheet = false }
         )
     }
 }

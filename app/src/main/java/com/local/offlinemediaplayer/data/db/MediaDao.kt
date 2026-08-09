@@ -46,6 +46,11 @@ interface MediaDao {
     @Query("UPDATE media_analytics SET playCount = playCount + 1, lastPlayed = :timestamp WHERE mediaId = :mediaId")
     suspend fun incrementPlayCount(mediaId: Long, timestamp: Long)
 
+    // Records a skip (track abandoned before it crossed the play-count threshold). Does NOT touch
+    // lastPlayed so skips never masquerade as plays in "Forgotten"/"Recent Favorite" analytics.
+    @Query("UPDATE media_analytics SET skipCount = skipCount + 1 WHERE mediaId = :mediaId")
+    suspend fun incrementSkipCount(mediaId: Long)
+
     @Query("SELECT * FROM media_analytics WHERE mediaId = :mediaId")
     suspend fun getAnalytics(mediaId: Long): MediaAnalytics?
 
