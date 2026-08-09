@@ -24,6 +24,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.BookmarkEntity
 import com.local.offlinemediaplayer.data.db.MediaDao
@@ -116,7 +117,8 @@ constructor(
         private val playlistRepository: PlaylistRepository,
         private val mediaDao: MediaDao,
         private val thumbnailManager: ThumbnailManager,
-        private val mediaRepository: MediaRepository
+        private val mediaRepository: MediaRepository,
+        val audioEffects: AudioEffectsManager
 ) : AndroidViewModel(app) {
 
     companion object {
@@ -697,8 +699,18 @@ constructor(
                     }
 
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        // Skip detection: a manual jump (SEEK, i.e. next/previous) away from an audio
+                        // track that had NOT yet crossed the play-count threshold counts as a skip.
+                        // Auto-advance (AUTO), repeat (REPEAT) and new queues (PLAYLIST_CHANGED) are
+                        // deliberately excluded so natural end-of-track playback is never a skip.
+                        // _currentTrack still holds the OUTGOING track here, before it is replaced.
+                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !hasLoggedCurrentTrack) {
+                            _currentTrack.value?.let { outgoing ->
+                                if (!outgoing.isVideo) recordSkip(outgoing.id)
+                            }
+                        }
                         updateCurrentTrackFromPlayer(controller)
-                        // Logic moved to heartbeat to ensure duration threshold
+                        // Play-count logic stays in the heartbeat to ensure the duration threshold
                     }
 
                     override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
@@ -734,6 +746,16 @@ constructor(
             mediaDao.initAnalytics(mediaId, now)
             mediaDao.incrementPlayCount(mediaId, now)
             mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
+        }
+    }
+
+    // Records a skip for a track the user manually left before it counted as a play. This is what
+    // powers the "Most Skipped" smart playlist. initAnalytics ensures the row exists before the
+    // increment (both are IGNORE/UPDATE, so a genuine play recorded later is never lost).
+    private fun recordSkip(mediaId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mediaDao.initAnalytics(mediaId, System.currentTimeMillis())
+            mediaDao.incrementSkipCount(mediaId)
         }
     }
 

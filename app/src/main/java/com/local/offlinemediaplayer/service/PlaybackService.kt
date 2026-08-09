@@ -6,8 +6,10 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.db.MediaDao
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -20,6 +22,10 @@ class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
 
     @Inject lateinit var mediaDao: MediaDao
+
+    // App-scoped owner of the equalizer/effects chain. The service is the only component with a
+    // handle on the real ExoPlayer, so it is responsible for feeding it the audio session id.
+    @Inject lateinit var audioEffectsManager: AudioEffectsManager
 
     override fun onCreate() {
         super.onCreate()
@@ -35,6 +41,20 @@ class PlaybackService : MediaSessionService() {
                         .setHandleAudioBecomingNoisy(true)
                         .setWakeMode(C.WAKE_MODE_LOCAL)
                         .build()
+
+        // Bridge the ExoPlayer audio session id to the effects manager. onAudioSessionIdChanged
+        // fires once the audio track is initialised (and again if it is ever recreated), which is
+        // exactly when the equalizer must (re)attach.
+        player.addAnalyticsListener(
+                object : AnalyticsListener {
+                    override fun onAudioSessionIdChanged(
+                            eventTime: AnalyticsListener.EventTime,
+                            audioSessionId: Int
+                    ) {
+                        audioEffectsManager.onAudioSessionIdChanged(audioSessionId)
+                    }
+                }
+        )
 
         val sessionActivityPendingIntent =
                 android.app.PendingIntent.getActivity(
@@ -99,6 +119,9 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        // Detach effects before the session (and its audio session id) goes away, so the manager
+        // releases its native AudioEffect handles instead of holding a stale session.
+        audioEffectsManager.onAudioSessionIdChanged(0)
         mediaSession?.run {
             player.release()
             release()
