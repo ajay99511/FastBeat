@@ -3,7 +3,6 @@ package com.local.offlinemediaplayer.viewmodel
 import android.app.Application
 import android.app.PendingIntent
 import android.app.RecoverableSecurityException
-import android.content.ComponentName
 import android.content.Context
 import android.content.IntentSender
 import android.net.Uri
@@ -20,9 +19,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.BookmarkEntity
@@ -34,9 +30,9 @@ import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
+import com.local.offlinemediaplayer.playback.MediaControllerBinder
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
-import com.local.offlinemediaplayer.service.PlaybackService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,13 +40,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -117,6 +117,7 @@ class PlaybackViewModel
         private val thumbnailManager: ThumbnailManager,
         private val mediaRepository: MediaRepository,
         val audioEffects: AudioEffectsManager,
+        private val mediaControllerBinder: MediaControllerBinder,
     ) : AndroidViewModel(app) {
         companion object {
             private const val TAG = "PlaybackViewModel"
@@ -205,8 +206,9 @@ class PlaybackViewModel
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         // Player State
-        private val _player = MutableStateFlow<MediaController?>(null)
-        val player = _player.asStateFlow()
+        // The connection itself lives in MediaControllerBinder (P4-E.1). This ViewModel keeps
+        // interpreting the controller, but no longer owns building or releasing it.
+        val player: StateFlow<MediaController?> = mediaControllerBinder.controller
 
         private val _currentTrack = MutableStateFlow<MediaFile?>(null)
         val currentTrack = _currentTrack.asStateFlow()
@@ -275,7 +277,6 @@ class PlaybackViewModel
          */
         fun shouldEnterPipMode(): Boolean = _currentTrack.value?.isVideo == true && _isPlaying.value
 
-        private var controllerFuture: ListenableFuture<MediaController>? = null
         private var positionUpdateJob: Job? = null
 
         // --- BOOKMARKS FLOW ---
@@ -342,7 +343,7 @@ class PlaybackViewModel
         val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
 
         init {
-            initializeMediaController()
+            bindMediaController()
             viewModelScope.launch(Dispatchers.IO) {
                 playlistRepository.migrateLegacyData()
                 playlistRepository.ensureDefaultPlaylists()
@@ -362,7 +363,7 @@ class PlaybackViewModel
                         _displayQueue.value = updatedQueue
 
                         withContext(Dispatchers.Main) {
-                            _player.value?.let { controller ->
+                            player.value?.let { controller ->
                                 val itemsToRemove = mutableListOf<Int>()
                                 for (i in 0 until controller.mediaItemCount) {
                                     val mId = controller.getMediaItemAt(i).mediaId.toLongOrNull()
@@ -530,7 +531,7 @@ class PlaybackViewModel
                     persistQueue(queue)
 
                     withContext(Dispatchers.Main) {
-                        _player.value?.let { controller ->
+                        player.value?.let { controller ->
                             if (deletedIndex < controller.mediaItemCount) {
                                 // Safe removal: ExoPlayer handles transition to next track automatically
                                 controller.removeMediaItem(deletedIndex)
@@ -588,37 +589,41 @@ class PlaybackViewModel
         }
 
         // --- Player Initialization ---
-        private fun initializeMediaController() {
-            val sessionToken = SessionToken(app, ComponentName(app, PlaybackService::class.java))
-            controllerFuture = MediaController.Builder(app, sessionToken).buildAsync()
-            controllerFuture?.addListener(
-                {
-                    try {
-                        val controller = controllerFuture?.get()
-                        _player.value = controller
-                        setupPlayerListener(controller)
 
-                        if (controller != null) {
-                            _isPlaying.value = controller.isPlaying
-                            _isShuffleEnabled.value = controller.shuffleModeEnabled
-                            _repeatMode.value = controller.repeatMode
-                            _playbackSpeed.value = controller.playbackParameters.speed
-                            _videoSize.value = controller.videoSize
-                            updateCurrentTrackFromPlayer(controller)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to connect MediaController", e)
-                    }
-                },
-                MoreExecutors.directExecutor(),
-            )
+        /**
+         * Asks [MediaControllerBinder] to connect, then attaches this ViewModel's listener and seeds
+         * UI state from the controller as soon as one is available.
+         *
+         * Collected on [viewModelScope], i.e. Dispatchers.Main.immediate, so `addListener` still runs
+         * on the main thread exactly as it did when this lived inside the future callback. Because
+         * `controller` is a StateFlow, a controller that connected before this collector started is
+         * delivered immediately rather than missed.
+         */
+        private fun bindMediaController() {
+            mediaControllerBinder.connect()
+            mediaControllerBinder.controller
+                .filterNotNull()
+                .onEach { controller ->
+                    setupPlayerListener(controller)
+                    _isPlaying.value = controller.isPlaying
+                    _isShuffleEnabled.value = controller.shuffleModeEnabled
+                    _repeatMode.value = controller.repeatMode
+                    _playbackSpeed.value = controller.playbackParameters.speed
+                    _videoSize.value = controller.videoSize
+                    updateCurrentTrackFromPlayer(controller)
+                }.launchIn(viewModelScope)
         }
 
         private val _videoSize = MutableStateFlow(androidx.media3.common.VideoSize.UNKNOWN)
         val videoSize = _videoSize.asStateFlow()
 
+        /** Remembered so a re-emitted controller cannot accumulate duplicate listeners. */
+        private var playerListener: Player.Listener? = null
+
         private fun setupPlayerListener(controller: MediaController?) {
-            controller?.addListener(
+            if (controller == null) return
+            playerListener?.let { controller.removeListener(it) }
+            val listener =
                 object : Player.Listener {
                     override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                         _videoSize.value = videoSize
@@ -730,8 +735,9 @@ class PlaybackViewModel
                             pendingSubtitleTrackIndex = -1
                         }
                     }
-                },
-            )
+                }
+            playerListener = listener
+            controller.addListener(listener)
         }
 
         private fun recordPlay(mediaId: Long) {
@@ -802,7 +808,7 @@ class PlaybackViewModel
                     val updateInterval = POSITION_UPDATE_INTERVAL_MS
 
                     while (isActive) {
-                        _player.value?.let { player ->
+                        player.value?.let { player ->
                             try {
                                 val pos = player.currentPosition
                                 _currentPosition.value = pos
@@ -1035,7 +1041,7 @@ class PlaybackViewModel
 
                     // Set to player
                     withContext(Dispatchers.Main) {
-                        _player.value?.let { controller ->
+                        player.value?.let { controller ->
                             if (controller.mediaItemCount == 0) {
                                 val items = finalQueue.map { it.toMediaItem() }
                                 controller.setMediaItems(items, finalIndex, finalStartPos)
@@ -1281,8 +1287,8 @@ class PlaybackViewModel
             } else {
                 // No state to restore (e.g. video played without prior music), just stop
                 clearSavedAudioState()
-                _player.value?.stop()
-                _player.value?.clearMediaItems()
+                player.value?.stop()
+                player.value?.clearMediaItems()
                 _currentTrack.value = null
                 _currentQueue.value = emptyList()
             }
@@ -1306,7 +1312,7 @@ class PlaybackViewModel
             }
 
             viewModelScope.launch(Dispatchers.Main) {
-                _player.value?.let { controller ->
+                player.value?.let { controller ->
                     val items = state.queue.map { it.toMediaItem() }
                     controller.setMediaItems(items, state.currentIndex, state.position)
                     controller.shuffleModeEnabled = state.isShuffleEnabled
@@ -1479,7 +1485,7 @@ class PlaybackViewModel
                     _currentQueue.value = mediaList
                     _isShuffleEnabled.value = shuffle
 
-                    _player.value?.let { controller ->
+                    player.value?.let { controller ->
                         // Set shuffle mode BEFORE items to ensure the initial playback point
                         // respects the shuffle order if shuffle is enabled.
                         controller.shuffleModeEnabled = shuffle
@@ -1535,7 +1541,7 @@ class PlaybackViewModel
             // We use a simplified strategy: Replace the items but keep the current window/position
             withContext(Dispatchers.Main) {
                 // Ensure MediaController interaction is on Main
-                _player.value?.let { controller ->
+                player.value?.let { controller ->
                     // Current State
                     val currentMediaId = controller.currentMediaItem?.mediaId
                     val currentPos = controller.currentPosition
@@ -1572,7 +1578,7 @@ class PlaybackViewModel
          */
         private fun updateDisplayQueue() {
             displayQueueUpdateJob?.cancel()
-            val controller = _player.value
+            val controller = player.value
             val currentQueueSnapshot = _currentQueue.value
 
             if (controller == null || currentQueueSnapshot.isEmpty()) {
@@ -1624,7 +1630,7 @@ class PlaybackViewModel
          * the track in the controller's timeline and seeks to it.
          */
         fun playTrackFromQueue(track: MediaFile) {
-            _player.value?.let { controller ->
+            player.value?.let { controller ->
                 // Find the index of this track in the controller's timeline
                 for (i in 0 until controller.mediaItemCount) {
                     if (controller.getMediaItemAt(i).mediaId == track.id.toString()) {
@@ -1667,7 +1673,7 @@ class PlaybackViewModel
             val current = _playbackSpeed.value
             val nextIndex = speeds.indexOfFirst { it > current }
             val newSpeed = if (nextIndex != -1) speeds[nextIndex] else speeds[0]
-            _player.value?.setPlaybackSpeed(newSpeed)
+            player.value?.setPlaybackSpeed(newSpeed)
             _playbackSpeed.value = newSpeed
         }
 
@@ -1681,14 +1687,14 @@ class PlaybackViewModel
         fun startSpeedBoost(boostSpeed: Float = 2.0f) {
             if (speedBeforeBoost != null) return // Already boosting
             speedBeforeBoost = _playbackSpeed.value
-            _player.value?.setPlaybackSpeed(boostSpeed)
+            player.value?.setPlaybackSpeed(boostSpeed)
             _playbackSpeed.value = boostSpeed
         }
 
         fun stopSpeedBoost() {
             val original = speedBeforeBoost ?: return
             speedBeforeBoost = null
-            _player.value?.setPlaybackSpeed(original)
+            player.value?.setPlaybackSpeed(original)
             _playbackSpeed.value = original
         }
 
@@ -1698,7 +1704,7 @@ class PlaybackViewModel
 
         /** Set an exact playback speed (used by the audio speed picker). */
         fun setPlaybackSpeed(speed: Float) {
-            _player.value?.setPlaybackSpeed(speed)
+            player.value?.setPlaybackSpeed(speed)
             _playbackSpeed.value = speed
         }
 
@@ -1733,7 +1739,7 @@ class PlaybackViewModel
             sleepTimerJob =
                 viewModelScope.launch {
                     delay(durationMs)
-                    withContext(Dispatchers.Main) { _player.value?.pause() }
+                    withContext(Dispatchers.Main) { player.value?.pause() }
                     _sleepTimerEndMillis.value = null
                     _userMessage.emit("Sleep timer ended — playback paused")
                 }
@@ -1750,7 +1756,7 @@ class PlaybackViewModel
 
         /** Get available audio tracks for the current video. */
         fun getAudioTracks(): List<TrackInfo> {
-            val player = _player.value ?: return emptyList()
+            val player = player.value ?: return emptyList()
             val tracks = player.currentTracks
             val result = mutableListOf<TrackInfo>()
 
@@ -1787,7 +1793,7 @@ class PlaybackViewModel
 
         /** Get available subtitle tracks for the current video. */
         fun getSubtitleTracks(): List<TrackInfo> {
-            val player = _player.value ?: return emptyList()
+            val player = player.value ?: return emptyList()
             val tracks = player.currentTracks
             val result = mutableListOf<TrackInfo>()
 
@@ -1827,7 +1833,7 @@ class PlaybackViewModel
             groupIndex: Int,
             trackIndex: Int,
         ) {
-            val player = _player.value ?: return
+            val player = player.value ?: return
             val tracks = player.currentTracks
             if (groupIndex >= tracks.groups.size) return
 
@@ -1847,7 +1853,7 @@ class PlaybackViewModel
             groupIndex: Int,
             trackIndex: Int,
         ) {
-            val player = _player.value ?: return
+            val player = player.value ?: return
             val tracks = player.currentTracks
             if (groupIndex >= tracks.groups.size) return
 
@@ -1865,7 +1871,7 @@ class PlaybackViewModel
 
         /** Disable all subtitle tracks. */
         fun disableSubtitles() {
-            val player = _player.value ?: return
+            val player = player.value ?: return
             player.trackSelectionParameters =
                 player.trackSelectionParameters
                     .buildUpon()
@@ -1875,7 +1881,7 @@ class PlaybackViewModel
 
         /** Check if subtitles are currently disabled. */
         fun areSubtitlesDisabled(): Boolean {
-            val player = _player.value ?: return true
+            val player = player.value ?: return true
             return player.trackSelectionParameters.disabledTrackTypes.contains(
                 androidx.media3.common.C.TRACK_TYPE_TEXT,
             )
@@ -1887,7 +1893,7 @@ class PlaybackViewModel
          * it, which matches user expectation. Playback position and play/pause state are preserved.
          */
         fun addExternalSubtitle(uri: Uri) {
-            val controller = _player.value ?: return
+            val controller = player.value ?: return
             val item = controller.currentMediaItem ?: return
             val index = controller.currentMediaItemIndex
             val position = controller.currentPosition
@@ -1944,7 +1950,7 @@ class PlaybackViewModel
             val currentTrack = _currentTrack.value
             if (currentTrack?.isVideo == true) return
 
-            val controller = _player.value ?: return
+            val controller = player.value ?: return
 
             // Check if we are playing a specific context (playlist, album)
             // If so, do not automatically jump to random library songs when it finishes.
@@ -2001,7 +2007,7 @@ class PlaybackViewModel
          * random library songs to a curated context.
          */
         private fun reshuffleAndRestart() {
-            val controller = _player.value ?: return
+            val controller = player.value ?: return
             if (controller.mediaItemCount == 0) return
 
             // Toggle shuffle off then on to generate a fresh shuffle order
@@ -2024,7 +2030,7 @@ class PlaybackViewModel
 
         // --- Controls ---
         fun playNext() {
-            _player.value?.let {
+            player.value?.let {
                 if (it.hasNextMediaItem()) {
                     it.seekToNext()
                 } else {
@@ -2034,7 +2040,7 @@ class PlaybackViewModel
         }
 
         fun playPrevious() {
-            _player.value?.let {
+            player.value?.let {
                 if (it.currentPosition > REWIND_THRESHOLD_MS) {
                     it.seekTo(0)
                 } else if (it.hasPreviousMediaItem()) {
@@ -2057,15 +2063,15 @@ class PlaybackViewModel
         }
 
         fun togglePlayPause() {
-            _player.value?.let { if (it.isPlaying) it.pause() else it.play() }
+            player.value?.let { if (it.isPlaying) it.pause() else it.play() }
         }
 
         fun pauseVideo() {
-            _player.value?.pause()
+            player.value?.pause()
         }
 
         fun toggleShuffle() {
-            _player.value?.let {
+            player.value?.let {
                 val newMode = !it.shuffleModeEnabled
                 it.shuffleModeEnabled = newMode
                 _isShuffleEnabled.value = newMode
@@ -2073,7 +2079,7 @@ class PlaybackViewModel
         }
 
         fun toggleRepeat() {
-            _player.value?.let {
+            player.value?.let {
                 val newMode =
                     when (it.repeatMode) {
                         Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
@@ -2085,16 +2091,16 @@ class PlaybackViewModel
         }
 
         fun seekTo(positionMs: Long) {
-            _player.value?.seekTo(positionMs)
+            player.value?.seekTo(positionMs)
             _currentPosition.value = positionMs
         }
 
         fun rewind() {
-            _player.value?.let { it.seekTo((it.currentPosition - SEEK_DELTA_MS).coerceAtLeast(0)) }
+            player.value?.let { it.seekTo((it.currentPosition - SEEK_DELTA_MS).coerceAtLeast(0)) }
         }
 
         fun forward() {
-            _player.value?.let {
+            player.value?.let {
                 if (it.duration != androidx.media3.common.C.TIME_UNSET && it.duration > 0) {
                     it.seekTo((it.currentPosition + SEEK_DELTA_MS).coerceAtMost(it.duration))
                 } else {
@@ -2103,13 +2109,13 @@ class PlaybackViewModel
             }
         }
 
-        fun hasNext(): Boolean = _player.value?.hasNextMediaItem() ?: false
+        fun hasNext(): Boolean = player.value?.hasNextMediaItem() ?: false
 
-        fun hasPrevious(): Boolean = _player.value?.hasPreviousMediaItem() ?: false
+        fun hasPrevious(): Boolean = player.value?.hasPreviousMediaItem() ?: false
 
         // --- Queue Management ---
         fun playNext(media: MediaFile) {
-            val controller = _player.value
+            val controller = player.value
             val queue = _currentQueue.value.toMutableList()
             val currentIdx = _currentIndex.value ?: -1
 
@@ -2162,7 +2168,7 @@ class PlaybackViewModel
         }
 
         fun addToQueue(media: MediaFile) {
-            val controller = _player.value
+            val controller = player.value
             val queue = _currentQueue.value.toMutableList()
             val currentIdx = _currentIndex.value ?: -1
 
@@ -2204,7 +2210,7 @@ class PlaybackViewModel
          * Moves existing instances to the new position if they are already in the queue.
          */
         fun playNext(songs: List<MediaFile>) {
-            val controller = _player.value
+            val controller = player.value
             val queue = _currentQueue.value.toMutableList()
             val currentIdx = _currentIndex.value ?: -1
 
@@ -2254,7 +2260,7 @@ class PlaybackViewModel
          * Moves existing instances to the end if they are already in the queue.
          */
         fun addToQueue(songs: List<MediaFile>) {
-            val controller = _player.value
+            val controller = player.value
             val queue = _currentQueue.value.toMutableList()
             val currentIdx = _currentIndex.value ?: -1
 
@@ -2305,7 +2311,7 @@ class PlaybackViewModel
             fromIndex: Int,
             toIndex: Int,
         ) {
-            val controller = _player.value ?: return
+            val controller = player.value ?: return
             if (fromIndex == toIndex) return
             if (controller.shuffleModeEnabled) {
                 viewModelScope.launch { _userMessage.emit("Turn off shuffle to reorder the queue") }
@@ -2339,7 +2345,7 @@ class PlaybackViewModel
          * Keeps the player timeline and the local/persisted queue in sync.
          */
         fun removeFromQueue(track: MediaFile) {
-            val controller = _player.value ?: return
+            val controller = player.value ?: return
             if (track.id == _currentTrack.value?.id) return // guard: don't drop the playing track
 
             for (i in 0 until controller.mediaItemCount) {
@@ -2358,7 +2364,7 @@ class PlaybackViewModel
 
         /** Clear all upcoming tracks, keeping only the one currently playing. */
         fun clearQueueExceptCurrent() {
-            val controller = _player.value ?: return
+            val controller = player.value ?: return
             val current = _currentTrack.value ?: return
 
             for (i in controller.mediaItemCount - 1 downTo 0) {
@@ -2394,7 +2400,12 @@ class PlaybackViewModel
             super.onCleared()
             stopPositionUpdates()
             sleepTimerJob?.cancel()
-            controllerFuture?.let { MediaController.releaseFuture(it) }
+            // Release through the binder so its exposed state resets too. Behaviour is unchanged
+            // from when this ViewModel released the future directly: the controller is torn down
+            // when the ViewModel dies, and a later connect() builds a fresh one.
+            playerListener?.let { l -> player.value?.removeListener(l) }
+            playerListener = null
+            mediaControllerBinder.release()
             // Note: MediaRepository is @Singleton and outlives this ViewModel.
             // cleanup() is not called here to avoid breaking other ViewModels that share it.
         }
