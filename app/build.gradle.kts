@@ -39,6 +39,20 @@ android {
         compose = true
     }
 
+    // Room exports its schema JSON to $projectDir/schemas (see the ksp {} block below).
+    // MigrationTestHelper reads those files from the instrumentation APK's *assets* at runtime, so
+    // the directory must be packaged into the androidTest APK explicitly -- Room does not do this
+    // for you. Without it a migration test fails at runtime with "Cannot find the schema file",
+    // which reads like a migration bug when it is really a build-config bug. Hence P3-A exists as
+    // a separate task from P3-D.
+    // NOTE: `sourceSets` belongs to the android {} (ApplicationExtension) block. The `base {}` and
+    // `ksp {}` blocks in this file are Project-level extensions and sit at the top level -- do not
+    // copy their placement here.
+    sourceSets.getByName("androidTest") {
+        // srcDirs() appends; it does not replace src/androidTest/assets.
+        assets.srcDirs("$projectDir/schemas")
+    }
+
     testOptions {
         unitTests {
             // Robolectric needs the merged manifest + resources on the test classpath.
@@ -68,6 +82,26 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Instrumentation classpath hygiene.
+//
+// mockk-android drags in JUnit 5 (Jupiter 5.8.2) transitively. Instrumentation tests execute under
+// AndroidJUnitRunner, which is a JUnit *4* runner -- Jupiter cannot run there at all. Worse, its six
+// jars each ship META-INF/LICENSE.md, and the resource merger refuses to collapse them, so
+// :app:mergeDebugAndroidTestJavaResource fails and the whole androidTest source set is unbuildable.
+//
+// This excludes the unusable artifacts at the source rather than masking the symptom with a global
+// packaging { resources { excludes } } block -- that would also alter the *shipped* APK's contents,
+// which is a change to production output for a test-only problem.
+//
+// Scoped to androidTest only. The JVM unit-test classpath keeps JUnit 5, which Kotest requires via
+// useJUnitPlatform().
+// ---------------------------------------------------------------------------------------------
+configurations.named("androidTestImplementation") {
+    exclude(group = "org.junit.jupiter")
+    exclude(group = "org.junit.platform")
 }
 
 dependencies {
@@ -143,6 +177,10 @@ dependencies {
     androidTestImplementation(libs.turbine)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.hilt.android.testing)   // HiltAndroidRule, @HiltAndroidTest
+    // MigrationTestHelper is a JUnit4 TestRule that needs an Instrumentation context, so it has to
+    // be here. The existing testImplementation(libs.room.testing) stays -- P4-A uses it for
+    // in-memory DAO tests on the JVM. Both source sets legitimately need the artifact.
+    androidTestImplementation(libs.room.testing)            // MigrationTestHelper
     kspAndroidTest(libs.hilt.compiler)
 
     // ---------- Debug-only tooling for Compose tests ----------
