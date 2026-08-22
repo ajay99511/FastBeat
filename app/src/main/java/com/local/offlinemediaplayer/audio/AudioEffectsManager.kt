@@ -248,13 +248,13 @@ class AudioEffectsManager @Inject constructor(
             _bassBoostSupported.value = it.strengthSupported
             runCatching {
                 if (it.strengthSupported) it.setStrength(_bassBoostStrength.value.toShort())
-            }
+            }.onFailure { e -> Log.w(TAG, "Failed to apply persisted bass boost strength", e) }
         }
         virtualizer = tryCreate("Virtualizer") { Virtualizer(EFFECT_PRIORITY, session) }?.also {
             _virtualizerSupported.value = it.strengthSupported
             runCatching {
                 if (it.strengthSupported) it.setStrength(_virtualizerStrength.value.toShort())
-            }
+            }.onFailure { e -> Log.w(TAG, "Failed to apply persisted virtualizer strength", e) }
         }
 
         applyEnabledState()
@@ -264,27 +264,55 @@ class AudioEffectsManager @Inject constructor(
         val preset = _currentPreset.value
         if (preset != PRESET_CUSTOM && preset < eq.numberOfPresets) {
             runCatching { eq.usePreset(preset.toShort()) }
+                .onFailure { Log.w(TAG, "Failed to restore preset $preset", it) }
             return
         }
         val range = eq.bandLevelRange
+        // Aggregated deliberately: when the effect is in a bad state every band fails, and one log
+        // line per band would bury the signal. Report once, with the first failure as the cause.
+        var failedBands = 0
+        var firstFailure: Throwable? = null
         for (b in 0 until eq.numberOfBands) {
             val stored = prefs.getInt("$KEY_BAND_PREFIX$b", 0)
                 .coerceIn(range[0].toInt(), range[1].toInt())
             runCatching { eq.setBandLevel(b.toShort(), stored.toShort()) }
+                .onFailure { e ->
+                    failedBands++
+                    if (firstFailure == null) firstFailure = e
+                }
+        }
+        firstFailure?.let {
+            Log.w(TAG, "Failed to restore $failedBands of ${eq.numberOfBands} band levels", it)
         }
     }
 
-    private fun readBandLevels(eq: Equalizer): List<Int> =
-        (0 until eq.numberOfBands).map { b ->
-            runCatching { eq.getBandLevel(b.toShort()).toInt() }.getOrDefault(0)
+    private fun readBandLevels(eq: Equalizer): List<Int> {
+        var failedBands = 0
+        var firstFailure: Throwable? = null
+        val levels = (0 until eq.numberOfBands).map { b ->
+            runCatching { eq.getBandLevel(b.toShort()).toInt() }
+                .onFailure { e ->
+                    failedBands++
+                    if (firstFailure == null) firstFailure = e
+                }
+                .getOrDefault(0)
         }
+        firstFailure?.let {
+            Log.w(TAG, "Failed to read $failedBands of ${eq.numberOfBands} band levels; " +
+                "those bands report 0 mB", it)
+        }
+        return levels
+    }
 
     /** Push the master on/off state to every effect. Bass/Virtualizer also require a non-zero strength. */
     private fun applyEnabledState() {
         val on = _enabled.value
         runCatching { equalizer?.enabled = on }
+            .onFailure { Log.w(TAG, "Failed to set equalizer enabled=$on", it) }
         runCatching { bassBoost?.enabled = on && _bassBoostStrength.value > 0 }
+            .onFailure { Log.w(TAG, "Failed to set bass boost enabled state", it) }
         runCatching { virtualizer?.enabled = on && _virtualizerStrength.value > 0 }
+            .onFailure { Log.w(TAG, "Failed to set virtualizer enabled state", it) }
     }
 
     private fun <T> tryCreate(name: String, factory: () -> T): T? =
@@ -297,8 +325,11 @@ class AudioEffectsManager @Inject constructor(
 
     private fun releaseEffects() {
         runCatching { equalizer?.release() }
+            .onFailure { Log.w(TAG, "Failed to release Equalizer", it) }
         runCatching { bassBoost?.release() }
+            .onFailure { Log.w(TAG, "Failed to release BassBoost", it) }
         runCatching { virtualizer?.release() }
+            .onFailure { Log.w(TAG, "Failed to release Virtualizer", it) }
         equalizer = null
         bassBoost = null
         virtualizer = null
