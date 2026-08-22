@@ -165,6 +165,13 @@ dependencies {
     testImplementation(libs.androidx.arch.core.testing) // InstantTaskExecutorRule
     testImplementation(libs.androidx.test.core.ktx)    // ApplicationProvider, etc.
     testImplementation(libs.room.testing)              // in-memory Room + migration tests
+    // Robolectric is a JUnit *4* runner, and `kotest-extensions-robolectric` 0.5.0 is a
+    // Kotest-4-era artifact (it targets kotest 4.6.3 / robolectric 4.6.1, its extension class
+    // is `internal`, and 0.5.0 is the newest release that exists) -- so it cannot drive
+    // Robolectric under Kotest 5.9.1. Specs needing an Android Context therefore run as JUnit 4
+    // via the vintage engine, alongside the Kotest specs on the same JUnit Platform.
+    testImplementation(libs.junit)                     // JUnit 4 API for Robolectric-driven specs
+    testRuntimeOnly(libs.junit.vintage.engine)         // runs those JUnit 4 specs on JUnit Platform
 
     // ---------- Instrumented tests (src/androidTest, on-device/emulator) ----------
     androidTestImplementation(libs.androidx.junit)
