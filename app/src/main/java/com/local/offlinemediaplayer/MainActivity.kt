@@ -3,6 +3,7 @@ package com.local.offlinemediaplayer
 import android.app.PictureInPictureParams
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,6 +31,11 @@ import kotlinx.coroutines.flow.map
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
     private val viewModel: PlaybackViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
 
@@ -111,7 +117,7 @@ class MainActivity : ComponentActivity() {
                     val builder = PictureInPictureParams.Builder().setAspectRatio(aspectRatio)
                     enterPictureInPictureMode(builder.build())
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Failed to enter picture-in-picture on user leave", e)
                 }
             }
         }

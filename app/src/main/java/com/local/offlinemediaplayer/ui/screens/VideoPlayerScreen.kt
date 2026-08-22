@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.os.Build
+import android.util.Log
 import android.util.Rational
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -78,6 +79,8 @@ import com.local.offlinemediaplayer.viewmodel.TrackInfo
 import kotlin.math.abs
 import kotlin.math.min
 import kotlinx.coroutines.delay
+
+private const val TAG = "VideoPlayerScreen"
 
 private enum class GestureMode {
     NONE,
@@ -225,7 +228,7 @@ fun VideoPlayerScreen(
                                     .build()
                     activity?.setPictureInPictureParams(params)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Failed to update picture-in-picture params for auto-enter", e)
                 }
             }
         }
@@ -473,7 +476,7 @@ fun VideoPlayerScreen(
                                                 .build()
                                 activity?.enterPictureInPictureMode(params)
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                Log.e(TAG, "Failed to enter picture-in-picture from the player controls", e)
                             }
                         }
                     },
