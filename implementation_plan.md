@@ -417,7 +417,7 @@ it is the gate for Phase 1.
 #### P1-C — Remove committed build artifacts
 | | |
 |---|---|
-| **Status** | ⬜ · **Risk** ⬜ None · **Depends on** P1-B |
+| **Status** | ✅ All 5 untracked and deleted; `git ls-files -i -c` now returns empty · **Risk** ⬜ None · **Depends on** P1-B |
 | **Files** | `build_info_output.txt` (49 KB), `build_stacktrace.txt`, `app/build.gradle.kts.tmp`, `output.md`, `app/release/output-metadata.json` ← **added by P1-B**, see F-9 |
 | **Task** | `git rm --cached` then delete from disk. Commit: `chore: remove committed build artifacts`. |
 | **Verify** | `git ls-files -i -c --exclude-standard` returns **empty** — this is the strongest form: it lists every file that is tracked *despite* matching an ignore rule, so it cannot miss one the way a hand-written `grep` can. |
@@ -684,7 +684,7 @@ Update the status cell as the **last step** of each task, in the same commit.
 | P0-B | Commit orphaned equalizer sources | 🟩 | P0-A | ✅ | Committed in `85749fb` (AudioEffectsManager 306 L, EqualizerSheet 230 L). Verified: on-disk `.kt` 82 = tracked `.kt` 82; 0 untracked under `app/`; all 4 reference sites resolve. Files committed unmodified per DR-2. ⚠️ Not yet on `master`. |
 | P0-C | Prove clean-clone build | ⬜ | P0-B | ✅ | `git clone --branch feature/rework` → `./gradlew assembleDebug --no-daemon` → **BUILD SUCCESSFUL in 4m 22s**, 40 tasks executed. Produced `FastBeat-debug.apk` (28.8 MB). JDK 17.0.12 on PATH. **Phase 0 closed.** |
 | P1-B | Harden `.gitignore` | ⬜ | P0-C | ✅ | Rewrote into commented sections with a header recording **why** `/app` must never be ignored. Added `*.tmp`, `output.md`, `Thumbs.db`, `/.idea/shelf`, `/.idea/deploymentTargetDropDown.xml`. Proved by differential audit over all 4 304 tree paths: ignored 4 065 → 4 067, delta is exactly `app/build.gradle.kts.tmp` + `output.md`, **nothing de-ignored, nothing under `src/` newly ignored**. Regression guard passes for hypothetical new `.kt` in main/test/androidTest, `app/schemas/*.json`, `app/src/test/resources/*.txt`, all 3 baseline-profile locations, `.github/workflows/*`. Resolves F-1. |
-| P1-C | Remove committed build artifacts | ⬜ | P1-B | ⬜ | |
+| P1-C | Remove committed build artifacts | ⬜ | P1-B | ✅ | `git rm --cached` then deleted: `build_info_output.txt` (49 KB), `build_stacktrace.txt` (4.4 KB), `output.md` (8.6 KB), `app/build.gradle.kts.tmp` (19 B), `app/release/output-metadata.json` (745 B) — 63 KB total. Empty `app/release/` dir removed. Verified `git ls-files -i -c --exclude-standard` → **empty**; source parity still 82 = 82. No functional references (only `docs/ENGINEERING_AUDIT.md` §7.6–7.7 describing them as defects, which stays). Content recoverable: `git show 77c400b:output.md`, `git show 5544f46:build_info_output.txt`. |
 | P1-D | Delete dead comments | 🟩 | P1-C | ⬜ | |
 | P1-E | CI build workflow | ⬜ | P0-C | ⬜ | |
 | P1-F | CI artifact upload | ⬜ | P1-E | ⬜ | |
@@ -735,6 +735,7 @@ Update the status cell as the **last step** of each task, in the same commit.
 | F-5 | P0-B (code read) | `AudioEffectsManager` uses ~10 bare `runCatching { … }` with no failure handling (`applyEnabledState`, `restoreBandConfig`, `readBandLevels`, `releaseEffects`). Same silent-failure class as audit §3.1, which currently scopes only the 2 `catch (_:` sites. **Widen P2's scope to include these.** | 🟡 Major |
 | F-6 | P0-B (code read) | `EqualizerSheet` hardcodes user-facing English: "Equalizer", "Presets", "Bass Boost", "Virtualizer", and the availability message. Adds to P4-F.2's string-externalization scope. | 🟡 Major |
 | F-7 | P0-B (code read) | `EqualizerSheet(viewModel: PlaybackViewModel, …)` takes the whole ViewModel instead of data + callbacks, contradicting audit §1.4. This will make it hard to test in isolation — relevant to P5-G. | 🟡 Major |
+| F-10 | P1-C | The deleted `app/release/output-metadata.json` listed `baselineProfiles/{0,1}/FastBeat.dm`, which looks like P5-E is already done. **It is not.** There is no baseline-profile source and no `baselineprofile` Gradle plugin anywhere — those `.dm` files are AGP merging profiles that AndroidX libraries ship themselves. P5-E remains genuinely unstarted. The same file also confirms the release APK is `FastBeat.apk` and versionName `1.0.1` / versionCode `2` — relevant to P1-F. | 🟢 Minor |
 | F-9 | P1-B | `app/release/output-metadata.json` is tracked but matches the `app/release` ignore rule — a build artifact the P1-C card did not list. Card updated. Found by `git ls-files -i -c`, which is the reliable way to enumerate this class (see F-2). | 🟢 Minor |
 | F-8 | P0-C (build) | Clean build is green but noisy: deprecation warnings (`Virtualizer`, `WindowWidthSizeClass`, `statusBarColor`/`navigationBarColor`, `Icons.Filled.TrendingUp`), KT-73255 annotation-target warnings in 3 files, and `PlaybackViewModel.kt:298` needs `@OptIn(ExperimentalCoroutinesApi::class)`. Baseline these in P4-D.1, don't fix in P1-E. | 🟢 Minor |
 
