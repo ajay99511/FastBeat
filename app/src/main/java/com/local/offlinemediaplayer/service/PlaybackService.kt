@@ -1,6 +1,7 @@
 package com.local.offlinemediaplayer.service
 
 import android.content.Intent
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -18,6 +19,10 @@ import kotlinx.coroutines.runBlocking
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
+
+    companion object {
+        private const val TAG = "PlaybackService"
+    }
 
     private var mediaSession: MediaSession? = null
 
@@ -104,7 +109,12 @@ class PlaybackService : MediaSessionService() {
                                 duration,
                                 System.currentTimeMillis()
                         )
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        // Log only. This runs inside runBlocking in a lifecycle callback with a
+                        // short deadline, so anything heavier (retry, fallback write) risks an ANR
+                        // or being killed mid-write. Losing one resume position is the lesser harm.
+                        Log.e(TAG, "Failed to persist playback position on task removal", e)
+                    }
                 }
             }
 
