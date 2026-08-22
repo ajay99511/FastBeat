@@ -20,34 +20,37 @@ fun AudioHeader() {
     val darkBg = Color(0xFF0B0B0F)
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(darkBg)
-            .statusBarsPadding()
-            .padding(top = 8.dp, bottom = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(darkBg)
+                .statusBarsPadding()
+                .padding(top = 8.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // "FASTBEAT"
         Row(
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "FAST",
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.SansSerif,
-                    letterSpacing = 2.sp,
-                    color = Color.White
-                )
+                style =
+                    MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.SansSerif,
+                        letterSpacing = 2.sp,
+                        color = Color.White,
+                    ),
             )
             Text(
                 text = "BEAT",
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.SansSerif,
-                    letterSpacing = 2.sp,
-                    color = neonCyan
-                )
+                style =
+                    MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.SansSerif,
+                        letterSpacing = 2.sp,
+                        color = neonCyan,
+                    ),
             )
         }
 
@@ -57,36 +60,39 @@ fun AudioHeader() {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             // Left Line
             Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(2.dp)
-                    .background(Color(0xFF1E293B)) // Dark slate line
+                modifier =
+                    Modifier
+                        .width(40.dp)
+                        .height(2.dp)
+                        .background(Color(0xFF1E293B)), // Dark slate line
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Text(
                 text = "MUSIC PLAYER",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    letterSpacing = 3.sp,
-                    color = neonCyan
-                )
+                style =
+                    MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif,
+                        letterSpacing = 3.sp,
+                        color = neonCyan,
+                    ),
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             // Right Line
             Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(2.dp)
-                    .background(Color(0xFF1E293B))
+                modifier =
+                    Modifier
+                        .width(40.dp)
+                        .height(2.dp)
+                        .background(Color(0xFF1E293B)),
             )
         }
     }

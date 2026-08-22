@@ -18,33 +18,36 @@ import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 
 @Composable
-fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
+fun MediaPropertiesDialog(
+    mediaFile: MediaFile,
+    onDismiss: () -> Unit,
+) {
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                 // Header
                 Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 16.dp),
                 ) {
                     Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = primaryAccent,
-                            modifier = Modifier.size(28.dp)
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = primaryAccent,
+                        modifier = Modifier.size(28.dp),
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                            text = "Properties",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                        text = "Properties",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
@@ -53,9 +56,10 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
 
                 // Properties List (scrollable so all fields stay reachable on small screens)
                 Column(
-                        modifier = Modifier
-                                .weight(1f, fill = false)
-                                .verticalScroll(rememberScrollState())
+                    modifier =
+                        Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
                 ) {
                     PropertyItem(label = "Title", value = mediaFile.title)
 
@@ -75,8 +79,8 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
 
                     if (mediaFile.duration > 0) {
                         PropertyItem(
-                                label = "Duration",
-                                value = FormatUtils.formatDuration(mediaFile.duration)
+                            label = "Duration",
+                            value = FormatUtils.formatDuration(mediaFile.duration),
                         )
                     }
 
@@ -97,8 +101,8 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
                     }
 
                     PropertyItem(
-                            label = "Path",
-                            value = mediaFile.path.ifEmpty { mediaFile.uri.path ?: "Unknown" }
+                        label = "Path",
+                        value = mediaFile.path.ifEmpty { mediaFile.uri.path ?: "Unknown" },
                     )
 
                     if (mediaFile.dateAdded > 0) {
@@ -114,9 +118,9 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
 
                 // Close Button
                 Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.End),
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryAccent)
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End),
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
                 ) { Text("Close") }
             }
         }
@@ -124,18 +128,21 @@ fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun PropertyItem(label: String, value: String) {
+private fun PropertyItem(
+    label: String,
+    value: String,
+) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium,
         )
     }
 }

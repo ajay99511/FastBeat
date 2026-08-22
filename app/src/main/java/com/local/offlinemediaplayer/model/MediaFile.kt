@@ -27,5 +27,5 @@ data class MediaFile(
     /** MIME type, e.g. "video/mp4" or "audio/mpeg". */
     val mimeType: String = "",
     /** Album name from the audio tag. Audio only. */
-    val album: String? = null
+    val album: String? = null,
 )

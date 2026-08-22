@@ -35,9 +35,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import java.io.File
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
@@ -48,1120 +48,1168 @@ import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.components.RenameMediaDialog
 import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import com.local.offlinemediaplayer.viewmodel.SortField
 import com.local.offlinemediaplayer.viewmodel.applySort
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
-import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoListScreen(
-        viewModel: PlaybackViewModel,
-        libraryViewModel: LibraryViewModel = hiltViewModel(),
-        playlistViewModel: PlaylistViewModel = hiltViewModel(),
-        onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
-        videoListOverride: List<MediaFile>? = null,
-        title: String? = null,
-        onBack: (() -> Unit)? = null
+    viewModel: PlaybackViewModel,
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
+    videoListOverride: List<MediaFile>? = null,
+    title: String? = null,
+    onBack: (() -> Unit)? = null,
 ) {
-        val videosState by libraryViewModel.videoList.collectAsStateWithLifecycle()
-        val videos = videoListOverride ?: videosState
-        val primaryAccent = LocalAppTheme.current.primaryColor
+    val videosState by libraryViewModel.videoList.collectAsStateWithLifecycle()
+    val videos = videoListOverride ?: videosState
+    val primaryAccent = LocalAppTheme.current.primaryColor
 
-        // Selection State
-        val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
-        val selectedIds by libraryViewModel.selectedMediaIds.collectAsStateWithLifecycle()
+    // Selection State
+    val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedIds by libraryViewModel.selectedMediaIds.collectAsStateWithLifecycle()
 
-        // Deletion Flow Handling
-        val intentLauncher =
-                rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.StartIntentSenderForResult()
-                ) { result ->
-                        if (result.resultCode == Activity.RESULT_OK) {
-                                libraryViewModel.onDeleteSuccess()
-                        } else {
-                                libraryViewModel.onDeleteCancelled()
-                        }
-                }
-
-        LaunchedEffect(Unit) {
-                libraryViewModel.deleteIntentEvent.collect { intentSender ->
-                        intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                }
+    // Deletion Flow Handling
+    val intentLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartIntentSenderForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                libraryViewModel.onDeleteSuccess()
+            } else {
+                libraryViewModel.onDeleteCancelled()
+            }
         }
 
-        // Rename Flow Handling
-        val renameIntentLauncher =
-                rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.StartIntentSenderForResult()
-                ) { result ->
-                        if (result.resultCode == Activity.RESULT_OK) {
-                                libraryViewModel.onRenamePermissionGranted()
-                        } else {
-                                libraryViewModel.onRenameDenied()
-                        }
-                }
+    LaunchedEffect(Unit) {
+        libraryViewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
 
-        LaunchedEffect(Unit) {
-                libraryViewModel.renameIntentEvent.collect { intentSender ->
-                        renameIntentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-                }
+    // Rename Flow Handling
+    val renameIntentLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartIntentSenderForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                libraryViewModel.onRenamePermissionGranted()
+            } else {
+                libraryViewModel.onRenameDenied()
+            }
         }
 
-        val context = androidx.compose.ui.platform.LocalContext.current
-        LaunchedEffect(Unit) {
-                libraryViewModel.userMessage.collect { msg ->
-                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
-                }
+    LaunchedEffect(Unit) {
+        libraryViewModel.renameIntentEvent.collect { intentSender ->
+            renameIntentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
         }
+    }
 
-        // Grid/List view (persisted in preferences via LibraryViewModel)
-        val isGridView by libraryViewModel.videoGridView.collectAsStateWithLifecycle()
-        // Local Search State for this folder view
-        var searchQuery by remember { mutableStateOf("") }
-        var isSearchVisible by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        libraryViewModel.userMessage.collect { msg ->
+            android.widget.Toast
+                .makeText(context, msg, android.widget.Toast.LENGTH_SHORT)
+                .show()
+        }
+    }
 
-        // Playlist states
-        var showAddToPlaylistDialog by remember { mutableStateOf(false) }
-        var showCreatePlaylistDialog by remember { mutableStateOf(false) }
-        var videosToAddToPlaylist by remember { mutableStateOf<List<MediaFile>>(emptyList()) }
+    // Grid/List view (persisted in preferences via LibraryViewModel)
+    val isGridView by libraryViewModel.videoGridView.collectAsStateWithLifecycle()
+    // Local Search State for this folder view
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchVisible by remember { mutableStateOf(false) }
 
-        // Properties Dialog State
-        var showPropertiesDialog by remember { mutableStateOf(false) }
-        var selectedVideoForProperties by remember { mutableStateOf<MediaFile?>(null) }
+    // Playlist states
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var videosToAddToPlaylist by remember { mutableStateOf<List<MediaFile>>(emptyList()) }
 
-        // Rename Dialog State
-        var selectedVideoForRename by remember { mutableStateOf<MediaFile?>(null) }
+    // Properties Dialog State
+    var showPropertiesDialog by remember { mutableStateOf(false) }
+    var selectedVideoForProperties by remember { mutableStateOf<MediaFile?>(null) }
 
-        // Delete Dialog
-        var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    // Rename Dialog State
+    var selectedVideoForRename by remember { mutableStateOf<MediaFile?>(null) }
 
-        // Sort state
-        val videoSortState by libraryViewModel.videoSortState.collectAsStateWithLifecycle()
-        val videoPlayCounts by libraryViewModel.videoPlayCountMap.collectAsStateWithLifecycle()
-        val watchProgress by libraryViewModel.watchProgressMap.collectAsStateWithLifecycle()
-        var showSortMenu by remember { mutableStateOf(false) }
+    // Delete Dialog
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-        // Back Handler to exit selection mode
-        BackHandler(enabled = isSelectionMode) { libraryViewModel.toggleSelectionMode(false) }
+    // Sort state
+    val videoSortState by libraryViewModel.videoSortState.collectAsStateWithLifecycle()
+    val videoPlayCounts by libraryViewModel.videoPlayCountMap.collectAsStateWithLifecycle()
+    val watchProgress by libraryViewModel.watchProgressMap.collectAsStateWithLifecycle()
+    var showSortMenu by remember { mutableStateOf(false) }
 
-        val filteredVideos = remember(videos, searchQuery, videoSortState, videoPlayCounts) {
-                val result = if (searchQuery.isEmpty()) {
-                        videos
+    // Back Handler to exit selection mode
+    BackHandler(enabled = isSelectionMode) { libraryViewModel.toggleSelectionMode(false) }
+
+    val filteredVideos =
+        remember(videos, searchQuery, videoSortState, videoPlayCounts) {
+            val result =
+                if (searchQuery.isEmpty()) {
+                    videos
                 } else {
-                        videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
+                    videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
                 }
-                result.applySort(videoSortState, videoPlayCounts)
+            result.applySort(videoSortState, videoPlayCounts)
         }
 
-        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                // Custom Header logic for "Folder View"
-                if (title != null && onBack != null) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                        modifier =
-                                                Modifier.fillMaxWidth()
-                                                        .statusBarsPadding()
-                                                        .padding(
-                                                                horizontal = 8.dp,
-                                                                vertical = 8.dp
-                                                        ),
-                                        verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                        if (isSelectionMode) {
-                                                // SELECTION MODE HEADER
-                                                IconButton(
-                                                        onClick = {
-                                                                libraryViewModel.toggleSelectionMode(false)
-                                                        },
-                                                        modifier =
-                                                                Modifier.background(
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surface,
-                                                                                CircleShape
-                                                                        )
-                                                                        .size(40.dp)
-                                                ) {
-                                                        Icon(
-                                                                Icons.Default.Close,
-                                                                contentDescription = "Close",
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                }
-
-                                                Spacer(modifier = Modifier.width(16.dp))
-
-                                                Text(
-                                                        text = "${selectedIds.size} Selected",
-                                                        style =
-                                                                MaterialTheme.typography.titleMedium
-                                                                        .copy(
-                                                                                fontWeight =
-                                                                                        FontWeight
-                                                                                                .Bold
-                                                                        ),
-                                                        color =
-                                                                MaterialTheme.colorScheme
-                                                                        .onBackground,
-                                                        modifier = Modifier.weight(1f)
-                                                )
-
-                                                IconButton(
-                                                        onClick = {
-                                                                val selected =
-                                                                        videos.filter {
-                                                                                selectedIds.contains(
-                                                                                        it.id
-                                                                                )
-                                                                        }
-                                                                if (selected.isNotEmpty()) {
-                                                                        videosToAddToPlaylist =
-                                                                                selected
-                                                                        showAddToPlaylistDialog =
-                                                                                true
-                                                                }
-                                                        },
-                                                        modifier =
-                                                                Modifier.background(
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surface,
-                                                                                CircleShape
-                                                                        )
-                                                                        .size(40.dp)
-                                                ) {
-                                                        Icon(
-                                                                Icons.AutoMirrored.Filled
-                                                                        .PlaylistAdd,
-                                                                contentDescription =
-                                                                        "Add to Playlist",
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .primary
-                                                        )
-                                                }
-
-                                                Spacer(modifier = Modifier.width(8.dp))
-
-                                                IconButton(
-                                                        onClick = {
-                                                                showDeleteConfirmDialog = true
-                                                        },
-                                                        modifier =
-                                                                Modifier.background(
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surface,
-                                                                                CircleShape
-                                                                        )
-                                                                        .size(40.dp)
-                                                ) {
-                                                        Icon(
-                                                                Icons.Outlined.Delete,
-                                                                contentDescription = "Delete",
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .error
-                                                        )
-                                                }
-                                        } else {
-                                                // NORMAL HEADER
-                                                IconButton(
-                                                        onClick = onBack,
-                                                        modifier =
-                                                                Modifier.background(
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surface,
-                                                                                CircleShape
-                                                                        )
-                                                                        .size(40.dp)
-                                                ) {
-                                                        Icon(
-                                                                Icons.Default.ArrowBackIosNew,
-                                                                contentDescription = "Back",
-                                                                tint = primaryAccent
-                                                        )
-                                                }
-
-                                                Spacer(modifier = Modifier.width(16.dp))
-
-                                                Row(
-                                                        verticalAlignment =
-                                                                Alignment.CenterVertically,
-                                                        modifier = Modifier.weight(1f)
-                                                ) {
-                                                        Text(
-                                                                text = "Folders",
-                                                                style =
-                                                                        MaterialTheme.typography
-                                                                                .titleMedium.copy(
-                                                                                fontWeight =
-                                                                                        FontWeight
-                                                                                                .Bold
-                                                                        ),
-                                                                color = primaryAccent
-                                                        )
-                                                        Icon(
-                                                                imageVector =
-                                                                        Icons.Default.ChevronRight,
-                                                                contentDescription = null,
-                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                modifier = Modifier.size(20.dp)
-                                                        )
-                                                        Text(
-                                                                text = title,
-                                                                style =
-                                                                        MaterialTheme.typography
-                                                                                .titleMedium.copy(
-                                                                                fontWeight =
-                                                                                        FontWeight
-                                                                                                .Bold
-                                                                        ),
-                                                                color =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onBackground,
-                                                                maxLines = 1,
-                                                                overflow = TextOverflow.Ellipsis
-                                                        )
-                                                }
-
-                                                IconButton(
-                                                        onClick = {
-                                                                isSearchVisible = !isSearchVisible
-                                                        },
-                                                        modifier =
-                                                                Modifier.background(
-                                                                                if (isSearchVisible)
-                                                                                        MaterialTheme
-                                                                                                .colorScheme
-                                                                                                .surface
-                                                                                else
-                                                                                        Color.Transparent,
-                                                                                CircleShape
-                                                                        )
-                                                                        .size(40.dp)
-                                                ) {
-                                                        Icon(
-                                                                imageVector = Icons.Outlined.Search,
-                                                                contentDescription = "Search",
-                                                                tint =
-                                                                        if (isSearchVisible)
-                                                                                primaryAccent
-                                                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                }
-
-                                                IconButton(
-                                                        onClick = {
-                                                                libraryViewModel
-                                                                        .toggleVideoGridView()
-                                                        },
-                                                        modifier = Modifier.size(40.dp)
-                                                ) {
-                                                        Icon(
-                                                                imageVector =
-                                                                        if (isGridView)
-                                                                                Icons.Default
-                                                                                        .FormatListNumbered
-                                                                        else Icons.Default.GridView,
-                                                                // Alt to viewlist icon
-                                                                contentDescription = "Change View",
-                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                modifier = Modifier.size(28.dp)
-                                                        )
-                                                }
-                                        }
-                                }
-
-                                HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.surface,
-                                        thickness = 1.dp
-                                )
-                        }
-                }
-
-                // Collapsible Search Box
-                CollapsibleSearchBox(
-                        isVisible = isSearchVisible && !isSelectionMode,
-                        query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        placeholderText = "Search in ${title ?: "Videos"}..."
-                )
-
-                if (!isSelectionMode && filteredVideos.isNotEmpty()) {
-                        Row(
-                                modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Custom Header logic for "Folder View"
+        if (title != null && onBack != null) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(
+                                horizontal = 8.dp,
+                                vertical = 8.dp,
+                            ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (isSelectionMode) {
+                        // SELECTION MODE HEADER
+                        IconButton(
+                            onClick = {
+                                libraryViewModel.toggleSelectionMode(false)
+                            },
+                            modifier =
+                                Modifier
+                                    .background(
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface,
+                                        CircleShape,
+                                    ).size(40.dp),
                         ) {
-                                Text(
-                                        text = "${filteredVideos.size} VIDEOS",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold
-                                )
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        }
 
-                                Box {
-                                        Row(
-                                                modifier = Modifier.clickable { showSortMenu = true },
-                                                verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                                Icon(
-                                                        imageVector = if (videoSortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                                                        contentDescription = if (videoSortState.ascending) "Sorted ascending" else "Sorted descending",
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(Modifier.width(4.dp))
-                                                Text(
-                                                        text = "Sort: ${videoSortState.field.label}",
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                        }
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                                        SortDropdownMenu(
-                                                expanded = showSortMenu,
-                                                onDismissRequest = { showSortMenu = false },
-                                                fields = SortField.entries,
-                                                sortState = videoSortState,
-                                                onSortChange = { libraryViewModel.updateVideoSort(it) }
+                        Text(
+                            text = "${selectedIds.size} Selected",
+                            style =
+                                MaterialTheme.typography.titleMedium
+                                    .copy(
+                                        fontWeight =
+                                            FontWeight
+                                                .Bold,
+                                    ),
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onBackground,
+                            modifier = Modifier.weight(1f),
+                        )
+
+                        IconButton(
+                            onClick = {
+                                val selected =
+                                    videos.filter {
+                                        selectedIds.contains(
+                                            it.id,
                                         )
+                                    }
+                                if (selected.isNotEmpty()) {
+                                    videosToAddToPlaylist =
+                                        selected
+                                    showAddToPlaylistDialog =
+                                        true
                                 }
+                            },
+                            modifier =
+                                Modifier
+                                    .background(
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface,
+                                        CircleShape,
+                                    ).size(40.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled
+                                    .PlaylistAdd,
+                                contentDescription =
+                                    "Add to Playlist",
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .primary,
+                            )
                         }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(
+                            onClick = {
+                                showDeleteConfirmDialog = true
+                            },
+                            modifier =
+                                Modifier
+                                    .background(
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface,
+                                        CircleShape,
+                                    ).size(40.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = "Delete",
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .error,
+                            )
+                        }
+                    } else {
+                        // NORMAL HEADER
+                        IconButton(
+                            onClick = onBack,
+                            modifier =
+                                Modifier
+                                    .background(
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface,
+                                        CircleShape,
+                                    ).size(40.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.ArrowBackIosNew,
+                                contentDescription = "Back",
+                                tint = primaryAccent,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Row(
+                            verticalAlignment =
+                                Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(
+                                text = "Folders",
+                                style =
+                                    MaterialTheme.typography
+                                        .titleMedium
+                                        .copy(
+                                            fontWeight =
+                                                FontWeight
+                                                    .Bold,
+                                        ),
+                                color = primaryAccent,
+                            )
+                            Icon(
+                                imageVector =
+                                    Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = title,
+                                style =
+                                    MaterialTheme.typography
+                                        .titleMedium
+                                        .copy(
+                                            fontWeight =
+                                                FontWeight
+                                                    .Bold,
+                                        ),
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onBackground,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                isSearchVisible = !isSearchVisible
+                            },
+                            modifier =
+                                Modifier
+                                    .background(
+                                        if (isSearchVisible) {
+                                            MaterialTheme
+                                                .colorScheme
+                                                .surface
+                                        } else {
+                                            Color.Transparent
+                                        },
+                                        CircleShape,
+                                    ).size(40.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = "Search",
+                                tint =
+                                    if (isSearchVisible) {
+                                        primaryAccent
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                libraryViewModel
+                                    .toggleVideoGridView()
+                            },
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Icon(
+                                imageVector =
+                                    if (isGridView) {
+                                        Icons.Default
+                                            .FormatListNumbered
+                                    } else {
+                                        Icons.Default.GridView
+                                    },
+                                // Alt to viewlist icon
+                                contentDescription = "Change View",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
+                    }
                 }
 
-                // Nested Scroll Container
-                Box(modifier = Modifier.weight(1f)) {
-                        if (filteredVideos.isEmpty()) {
-                                // Empty state
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxSize()
-                                                        .verticalScroll(rememberScrollState()),
-                                        contentAlignment = Alignment.Center
-                                ) {
-                                        Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                                Box(
-                                                        modifier =
-                                                                Modifier.size(100.dp)
-                                                                        .background(
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surface,
-                                                                                CircleShape
-                                                                        ),
-                                                        contentAlignment = Alignment.Center
-                                                ) {
-                                                        Icon(
-                                                                imageVector =
-                                                                        Icons.Outlined.VideoLibrary,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(48.dp),
-                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                }
-                                                Text(
-                                                        if (searchQuery.isNotEmpty())
-                                                                "No results found"
-                                                        else "No videos found here",
-                                                        style =
-                                                                MaterialTheme.typography
-                                                                        .titleMedium,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                                if (searchQuery.isEmpty()) {
-                                                        Button(
-                                                                onClick = { libraryViewModel.scanMedia() },
-                                                                colors =
-                                                                        ButtonDefaults.buttonColors(
-                                                                                containerColor =
-                                                                                        primaryAccent
-                                                                        )
-                                                        ) { Text("Rescan Library") }
-                                                }
-                                        }
-                                }
-                        } else {
-                                if (isGridView) {
-                                        val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
-                                        LazyVerticalGrid(
-                                                columns = GridCells.Fixed(com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(widthClass)),
-                                                contentPadding = PaddingValues(16.dp),
-                                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                                modifier = Modifier.fillMaxSize()
-                                        ) {
-                                                items(items = filteredVideos, key = { it.id }) {
-                                                        video ->
-                                                        val isSelected =
-                                                                selectedIds.contains(video.id)
-                                                        VideoCardItem(
-                                                                video = video,
-                                                                onVideoClick = {
-                                                                        if (isSelectionMode)
-                                                                                libraryViewModel
-                                                                                        .toggleSelection(
-                                                                                                video.id
-                                                                                        )
-                                                                        else
-                                                                                onVideoClick(
-                                                                                        video,
-                                                                                        filteredVideos
-                                                                                )
-                                                                },
-                                                                onLongClick = {
-                                                                        libraryViewModel
-                                                                                .toggleSelectionMode(
-                                                                                        true
-                                                                                )
-                                                                        libraryViewModel.toggleSelection(
-                                                                                video.id
-                                                                        )
-                                                                },
-                                                                accentColor = primaryAccent,
-                                                                onAddToPlaylist = {
-                                                                        videosToAddToPlaylist =
-                                                                                listOf(video)
-                                                                        showAddToPlaylistDialog =
-                                                                                true
-                                                                },
-                                                                isSelectionMode = isSelectionMode,
-                                                                isSelected = isSelected,
-                                                                onDelete = {
-                                                                        libraryViewModel
-                                                                                .toggleSelectionMode(
-                                                                                        true
-                                                                                )
-                                                                        libraryViewModel.selectAll(
-                                                                                listOf(video.id)
-                                                                        )
-                                                                        showDeleteConfirmDialog =
-                                                                                true
-                                                                },
-                                                                onProperties = {
-                                                                        selectedVideoForProperties =
-                                                                                video
-                                                                        showPropertiesDialog = true
-                                                                },
-                                                                onRename = {
-                                                                        selectedVideoForRename =
-                                                                                video
-                                                                },
-                                                                progress = watchProgress[video.id] ?: 0f
-                                                        )
-                                                }
-                                        }
-                                } else {
-                                        LazyColumn(
-                                                contentPadding = PaddingValues(16.dp),
-                                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                                modifier = Modifier.fillMaxSize()
-                                        ) {
-                                                items(items = filteredVideos, key = { it.id }) {
-                                                        video ->
-                                                        val isSelected =
-                                                                selectedIds.contains(video.id)
-                                                        VideoListItem(
-                                                                video = video,
-                                                                onVideoClick = {
-                                                                        if (isSelectionMode)
-                                                                                libraryViewModel
-                                                                                        .toggleSelection(
-                                                                                                video.id
-                                                                                        )
-                                                                        else
-                                                                                onVideoClick(
-                                                                                        video,
-                                                                                        filteredVideos
-                                                                                )
-                                                                },
-                                                                onLongClick = {
-                                                                        libraryViewModel
-                                                                                .toggleSelectionMode(
-                                                                                        true
-                                                                                )
-                                                                        libraryViewModel.toggleSelection(
-                                                                                video.id
-                                                                        )
-                                                                },
-                                                                onAddToPlaylist = {
-                                                                        videosToAddToPlaylist =
-                                                                                listOf(video)
-                                                                        showAddToPlaylistDialog =
-                                                                                true
-                                                                },
-                                                                isSelectionMode = isSelectionMode,
-                                                                isSelected = isSelected,
-                                                                onDelete = {
-                                                                        libraryViewModel
-                                                                                .toggleSelectionMode(
-                                                                                        true
-                                                                                )
-                                                                        libraryViewModel.selectAll(
-                                                                                listOf(video.id)
-                                                                        )
-                                                                        showDeleteConfirmDialog =
-                                                                                true
-                                                                },
-                                                                onProperties = {
-                                                                        selectedVideoForProperties =
-                                                                                video
-                                                                        showPropertiesDialog = true
-                                                                },
-                                                                onRename = {
-                                                                        selectedVideoForRename =
-                                                                                video
-                                                                },
-                                                                progress = watchProgress[video.id] ?: 0f
-                                                        )
-                                                }
-                                        }
-                                }
-                        }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.surface,
+                    thickness = 1.dp,
+                )
+            }
+        }
+
+        // Collapsible Search Box
+        CollapsibleSearchBox(
+            isVisible = isSearchVisible && !isSelectionMode,
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            placeholderText = "Search in ${title ?: "Videos"}...",
+        )
+
+        if (!isSelectionMode && filteredVideos.isNotEmpty()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${filteredVideos.size} VIDEOS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Box {
+                    Row(
+                        modifier = Modifier.clickable { showSortMenu = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = if (videoSortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                            contentDescription = if (videoSortState.ascending) "Sorted ascending" else "Sorted descending",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Sort: ${videoSortState.field.label}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    SortDropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                        fields = SortField.entries,
+                        sortState = videoSortState,
+                        onSortChange = { libraryViewModel.updateVideoSort(it) },
+                    )
                 }
+            }
         }
 
-        // Dialogs
-        if (showDeleteConfirmDialog) {
-                DeleteConfirmationDialog(
-                        count = selectedIds.size,
-                        onConfirm = { libraryViewModel.deleteSelectedMedia() },
-                        onDismiss = { showDeleteConfirmDialog = false }
-                )
+        // Nested Scroll Container
+        Box(modifier = Modifier.weight(1f)) {
+            if (filteredVideos.isEmpty()) {
+                // Empty state
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(100.dp)
+                                    .background(
+                                        MaterialTheme
+                                            .colorScheme
+                                            .surface,
+                                        CircleShape,
+                                    ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector =
+                                    Icons.Outlined.VideoLibrary,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            if (searchQuery.isNotEmpty()) {
+                                "No results found"
+                            } else {
+                                "No videos found here"
+                            },
+                            style =
+                                MaterialTheme.typography
+                                    .titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (searchQuery.isEmpty()) {
+                            Button(
+                                onClick = { libraryViewModel.scanMedia() },
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor =
+                                        primaryAccent,
+                                    ),
+                            ) { Text("Rescan Library") }
+                        }
+                    }
+                }
+            } else {
+                if (isGridView) {
+                    val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
+                    LazyVerticalGrid(
+                        columns =
+                            GridCells.Fixed(
+                                com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(
+                                    widthClass,
+                                ),
+                            ),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(items = filteredVideos, key = { it.id }) { video ->
+                            val isSelected =
+                                selectedIds.contains(video.id)
+                            VideoCardItem(
+                                video = video,
+                                onVideoClick = {
+                                    if (isSelectionMode) {
+                                        libraryViewModel
+                                            .toggleSelection(
+                                                video.id,
+                                            )
+                                    } else {
+                                        onVideoClick(
+                                            video,
+                                            filteredVideos,
+                                        )
+                                    }
+                                },
+                                onLongClick = {
+                                    libraryViewModel
+                                        .toggleSelectionMode(
+                                            true,
+                                        )
+                                    libraryViewModel.toggleSelection(
+                                        video.id,
+                                    )
+                                },
+                                accentColor = primaryAccent,
+                                onAddToPlaylist = {
+                                    videosToAddToPlaylist =
+                                        listOf(video)
+                                    showAddToPlaylistDialog =
+                                        true
+                                },
+                                isSelectionMode = isSelectionMode,
+                                isSelected = isSelected,
+                                onDelete = {
+                                    libraryViewModel
+                                        .toggleSelectionMode(
+                                            true,
+                                        )
+                                    libraryViewModel.selectAll(
+                                        listOf(video.id),
+                                    )
+                                    showDeleteConfirmDialog =
+                                        true
+                                },
+                                onProperties = {
+                                    selectedVideoForProperties =
+                                        video
+                                    showPropertiesDialog = true
+                                },
+                                onRename = {
+                                    selectedVideoForRename =
+                                        video
+                                },
+                                progress = watchProgress[video.id] ?: 0f,
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(items = filteredVideos, key = { it.id }) { video ->
+                            val isSelected =
+                                selectedIds.contains(video.id)
+                            VideoListItem(
+                                video = video,
+                                onVideoClick = {
+                                    if (isSelectionMode) {
+                                        libraryViewModel
+                                            .toggleSelection(
+                                                video.id,
+                                            )
+                                    } else {
+                                        onVideoClick(
+                                            video,
+                                            filteredVideos,
+                                        )
+                                    }
+                                },
+                                onLongClick = {
+                                    libraryViewModel
+                                        .toggleSelectionMode(
+                                            true,
+                                        )
+                                    libraryViewModel.toggleSelection(
+                                        video.id,
+                                    )
+                                },
+                                onAddToPlaylist = {
+                                    videosToAddToPlaylist =
+                                        listOf(video)
+                                    showAddToPlaylistDialog =
+                                        true
+                                },
+                                isSelectionMode = isSelectionMode,
+                                isSelected = isSelected,
+                                onDelete = {
+                                    libraryViewModel
+                                        .toggleSelectionMode(
+                                            true,
+                                        )
+                                    libraryViewModel.selectAll(
+                                        listOf(video.id),
+                                    )
+                                    showDeleteConfirmDialog =
+                                        true
+                                },
+                                onProperties = {
+                                    selectedVideoForProperties =
+                                        video
+                                    showPropertiesDialog = true
+                                },
+                                onRename = {
+                                    selectedVideoForRename =
+                                        video
+                                },
+                                progress = watchProgress[video.id] ?: 0f,
+                            )
+                        }
+                    }
+                }
+            }
         }
+    }
 
-        if (showCreatePlaylistDialog) {
-                CreatePlaylistDialog(
-                        onDismiss = { showCreatePlaylistDialog = false },
-                        onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = true) }
-                )
-        }
+    // Dialogs
+    if (showDeleteConfirmDialog) {
+        DeleteConfirmationDialog(
+            count = selectedIds.size,
+            onConfirm = { libraryViewModel.deleteSelectedMedia() },
+            onDismiss = { showDeleteConfirmDialog = false },
+        )
+    }
 
-        if (showAddToPlaylistDialog && videosToAddToPlaylist.isNotEmpty()) {
-                AddToPlaylistDialog(
-                        songs = videosToAddToPlaylist,
-                        onDismiss = { showAddToPlaylistDialog = false },
-                        onCreateNew = { showCreatePlaylistDialog = true }
-                )
-        }
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = true) },
+        )
+    }
 
-        if (showPropertiesDialog && selectedVideoForProperties != null) {
-                MediaPropertiesDialog(
-                        mediaFile = selectedVideoForProperties!!,
-                        onDismiss = { showPropertiesDialog = false }
-                )
-        }
+    if (showAddToPlaylistDialog && videosToAddToPlaylist.isNotEmpty()) {
+        AddToPlaylistDialog(
+            songs = videosToAddToPlaylist,
+            onDismiss = { showAddToPlaylistDialog = false },
+            onCreateNew = { showCreatePlaylistDialog = true },
+        )
+    }
 
-        selectedVideoForRename?.let { video ->
-                RenameMediaDialog(
-                        file = video,
-                        onDismiss = { selectedVideoForRename = null },
-                        onRename = { newName -> libraryViewModel.renameMedia(video, newName) }
-                )
-        }
+    if (showPropertiesDialog && selectedVideoForProperties != null) {
+        MediaPropertiesDialog(
+            mediaFile = selectedVideoForProperties!!,
+            onDismiss = { showPropertiesDialog = false },
+        )
+    }
+
+    selectedVideoForRename?.let { video ->
+        RenameMediaDialog(
+            file = video,
+            onDismiss = { selectedVideoForRename = null },
+            onRename = { newName -> libraryViewModel.renameMedia(video, newName) },
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoListItem(
-        video: MediaFile,
-        onVideoClick: () -> Unit,
-        onLongClick: () -> Unit,
-        onAddToPlaylist: () -> Unit,
-        isSelectionMode: Boolean,
-        isSelected: Boolean,
-        onDelete: () -> Unit,
-        onProperties: () -> Unit,
-        onRename: () -> Unit = {},
-        progress: Float = 0f
+    video: MediaFile,
+    onVideoClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onDelete: () -> Unit,
+    onProperties: () -> Unit,
+    onRename: () -> Unit = {},
+    progress: Float = 0f,
 ) {
-        var showMenu by remember { mutableStateOf(false) }
-        val accentColor = LocalAppTheme.current.primaryColor
+    var showMenu by remember { mutableStateOf(false) }
+    val accentColor = LocalAppTheme.current.primaryColor
 
-        Row(
-                modifier =
-                        Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                        if (isSelected)
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                        else Color.Transparent
-                                )
-                                .combinedClickable(
-                                        onClick = onVideoClick,
-                                        onLongClick = onLongClick
-                                )
-                                .padding(vertical = 4.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-        ) {
-                if (isSelectionMode) {
-                        Icon(
-                                imageVector =
-                                        if (isSelected) Icons.Default.CheckCircle
-                                        else Icons.Default.RadioButtonUnchecked,
-                                contentDescription = null,
-                                tint =
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else Color.Gray,
-                                modifier = Modifier.padding(end = 16.dp).size(24.dp)
-                        )
-                }
-
-                Box(
-                        modifier =
-                                Modifier.width(96.dp)
-                                        .height(56.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                        AsyncImage(
-                                model = video.thumbnailPath?.let { File(it) } ?: video.uri,
-                                contentDescription = video.title,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                        )
-
-                        // Resume progress bar (bottom edge)
-                        if (progress > 0f) {
-                                LinearProgressIndicator(
-                                        progress = { progress },
-                                        modifier = Modifier
-                                                .align(Alignment.BottomCenter)
-                                                .fillMaxWidth()
-                                                .height(3.dp),
-                                        color = accentColor,
-                                        trackColor = Color.Black.copy(alpha = 0.4f)
-                                )
-                        }
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                                text = video.title,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                        text = FormatUtils.formatDuration(video.duration),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (video.size > 0L) {
-                                        Text(
-                                                text = " • ${FormatUtils.formatSize(video.size)}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                }
-                                if (video.resolution.isNotEmpty()) {
-                                        Text(
-                                                text = " • ${video.resolution}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = accentColor
-                                        )
-                                }
-                        }
-                }
-
-                if (!isSelectionMode) {
-                        Box {
-                                IconButton(onClick = { showMenu = true }) {
-                                        Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                DropdownMenu(
-                                        expanded = showMenu,
-                                        onDismissRequest = { showMenu = false },
-                                        modifier =
-                                                Modifier.background(
-                                                        MaterialTheme.colorScheme.surface
-                                                )
-                                ) {
-                                        DropdownMenuItem(
-                                                text = {
-                                                        Text(
-                                                                "Add to Playlist",
-                                                                color =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                },
-                                                onClick = {
-                                                        showMenu = false
-                                                        onAddToPlaylist()
-                                                },
-                                                leadingIcon = {
-                                                        Icon(
-                                                                Icons.Default.PlaylistAddCircle,
-                                                                null,
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                }
-                                        )
-                                        DropdownMenuItem(
-                                                text = {
-                                                        Text(
-                                                                "Rename",
-                                                                color =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                },
-                                                onClick = {
-                                                        showMenu = false
-                                                        onRename()
-                                                },
-                                                leadingIcon = {
-                                                        Icon(
-                                                                Icons.Default.Edit,
-                                                                null,
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                }
-                                        )
-                                        DropdownMenuItem(
-                                                text = {
-                                                        Text(
-                                                                "Properties",
-                                                                color =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                },
-                                                onClick = {
-                                                        showMenu = false
-                                                        onProperties()
-                                                },
-                                                leadingIcon = {
-                                                        Icon(
-                                                                Icons.Default.Info,
-                                                                null,
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurface
-                                                        )
-                                                }
-                                        )
-                                        DropdownMenuItem(
-                                                text = {
-                                                        Text(
-                                                                "Delete",
-                                                                color =
-                                                                        MaterialTheme.colorScheme
-                                                                                .error
-                                                        )
-                                                },
-                                                onClick = {
-                                                        showMenu = false
-                                                        onDelete()
-                                                },
-                                                leadingIcon = {
-                                                        Icon(
-                                                                Icons.Default.Delete,
-                                                                null,
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .error
-                                                        )
-                                                }
-                                        )
-                                }
-                        }
-                }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    } else {
+                        Color.Transparent
+                    },
+                ).combinedClickable(
+                    onClick = onVideoClick,
+                    onLongClick = onLongClick,
+                ).padding(vertical = 4.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (isSelectionMode) {
+            Icon(
+                imageVector =
+                    if (isSelected) {
+                        Icons.Default.CheckCircle
+                    } else {
+                        Icons.Default.RadioButtonUnchecked
+                    },
+                contentDescription = null,
+                tint =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        Color.Gray
+                    },
+                modifier = Modifier.padding(end = 16.dp).size(24.dp),
+            )
         }
+
+        Box(
+            modifier =
+                Modifier
+                    .width(96.dp)
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = video.thumbnailPath?.let { File(it) } ?: video.uri,
+                contentDescription = video.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+
+            // Resume progress bar (bottom edge)
+            if (progress > 0f) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(3.dp),
+                    color = accentColor,
+                    trackColor = Color.Black.copy(alpha = 0.4f),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = video.title,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = FormatUtils.formatDuration(video.duration),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (video.size > 0L) {
+                    Text(
+                        text = " • ${FormatUtils.formatSize(video.size)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (video.resolution.isNotEmpty()) {
+                    Text(
+                        text = " • ${video.resolution}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = accentColor,
+                    )
+                }
+            }
+        }
+
+        if (!isSelectionMode) {
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        "More",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier =
+                        Modifier.background(
+                            MaterialTheme.colorScheme.surface,
+                        ),
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Add to Playlist",
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onAddToPlaylist()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.PlaylistAddCircle,
+                                null,
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Rename",
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onRename()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Edit,
+                                null,
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Properties",
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onProperties()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Info,
+                                null,
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .onSurface,
+                            )
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "Delete",
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .error,
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                null,
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .error,
+                            )
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoCardItem(
-        video: MediaFile,
-        onVideoClick: () -> Unit,
-        onLongClick: () -> Unit,
-        accentColor: Color,
-        onAddToPlaylist: () -> Unit,
-        isSelectionMode: Boolean,
-        isSelected: Boolean,
-        onDelete: () -> Unit,
-        onProperties: () -> Unit,
-        onRename: () -> Unit = {},
-        progress: Float = 0f
+    video: MediaFile,
+    onVideoClick: () -> Unit,
+    onLongClick: () -> Unit,
+    accentColor: Color,
+    onAddToPlaylist: () -> Unit,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onDelete: () -> Unit,
+    onProperties: () -> Unit,
+    onRename: () -> Unit = {},
+    progress: Float = 0f,
 ) {
-        var showMenu by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
-        Column(
-                modifier =
-                        Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                        if (isSelected) accentColor.copy(alpha = 0.1f)
-                                        else Color.Transparent
-                                )
-                                .combinedClickable(
-                                        onClick = onVideoClick,
-                                        onLongClick = onLongClick
-                                )
-                                .padding(4.dp)
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    if (isSelected) {
+                        accentColor.copy(alpha = 0.1f)
+                    } else {
+                        Color.Transparent
+                    },
+                ).combinedClickable(
+                    onClick = onVideoClick,
+                    onLongClick = onLongClick,
+                ).padding(4.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
+            AsyncImage(
+                model = video.thumbnailPath?.let { File(it) } ?: video.uri,
+                contentDescription = video.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+
+            // Selection Overlay
+            if (isSelectionMode) {
                 Box(
-                        modifier =
-                                Modifier.fillMaxWidth()
-                                        .aspectRatio(16f / 9f)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                        AsyncImage(
-                                model = video.thumbnailPath?.let { File(it) } ?: video.uri,
-                                contentDescription = video.title,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                    Icon(
+                        imageVector =
+                            if (isSelected) {
+                                Icons.Default.CheckCircle
+                            } else {
+                                Icons.Default.RadioButtonUnchecked
+                            },
+                        contentDescription = null,
+                        tint = if (isSelected) accentColor else Color.White,
+                        modifier = Modifier.size(48.dp),
+                    )
+                }
+            } else {
+                // Resolution badge (bottom-start)
+                if (video.resolution.isNotEmpty()) {
+                    Surface(
+                        color = accentColor,
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
+                    ) {
+                        Text(
+                            text = video.resolution,
+                            color = Color.White,
+                            style =
+                                MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = 6.dp,
+                                    vertical = 2.dp,
+                                ),
                         )
-
-                        // Selection Overlay
-                        if (isSelectionMode) {
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxSize()
-                                                        .background(Color.Black.copy(alpha = 0.3f)),
-                                        contentAlignment = Alignment.Center
-                                ) {
-                                        Icon(
-                                                imageVector =
-                                                        if (isSelected) Icons.Default.CheckCircle
-                                                        else Icons.Default.RadioButtonUnchecked,
-                                                contentDescription = null,
-                                                tint = if (isSelected) accentColor else Color.White,
-                                                modifier = Modifier.size(48.dp)
-                                        )
-                                }
-                        } else {
-                                // Resolution badge (bottom-start)
-                                if (video.resolution.isNotEmpty()) {
-                                        Surface(
-                                                color = accentColor,
-                                                shape = RoundedCornerShape(4.dp),
-                                                modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
-                                        ) {
-                                                Text(
-                                                        text = video.resolution,
-                                                        color = Color.White,
-                                                        style = MaterialTheme.typography.labelSmall.copy(
-                                                                fontWeight = FontWeight.Bold
-                                                        ),
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                        }
-                                }
-
-                                Surface(
-                                        color = Color.Black.copy(alpha = 0.8f),
-                                        shape = RoundedCornerShape(4.dp),
-                                        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
-                                ) {
-                                        Text(
-                                                text = FormatUtils.formatDuration(video.duration),
-                                                color = Color.White,
-                                                style =
-                                                        MaterialTheme.typography.labelSmall.copy(
-                                                                fontWeight = FontWeight.Bold
-                                                        ),
-                                                modifier =
-                                                        Modifier.padding(
-                                                                horizontal = 6.dp,
-                                                                vertical = 2.dp
-                                                        )
-                                        )
-                                }
-
-                                // Resume progress bar (bottom edge)
-                                if (progress > 0f) {
-                                        LinearProgressIndicator(
-                                                progress = { progress },
-                                                modifier = Modifier
-                                                        .align(Alignment.BottomCenter)
-                                                        .fillMaxWidth()
-                                                        .height(3.dp),
-                                                color = accentColor,
-                                                trackColor = Color.Black.copy(alpha = 0.4f)
-                                        )
-                                }
-                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    color = Color.Black.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
                 ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                        text = video.title,
-                                        style =
-                                                MaterialTheme.typography.titleMedium.copy(
-                                                        fontWeight = FontWeight.Bold
-                                                ),
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        maxLines = 2,
-                                        minLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (video.size > 0) {
-                                                Text(
-                                                        text = FormatUtils.formatSize(video.size),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                        }
-                                }
-                        }
-
-                        if (!isSelectionMode) {
-                                Box {
-                                        IconButton(onClick = { showMenu = true }) {
-                                                Icon(
-                                                        imageVector = Icons.Default.MoreVert,
-                                                        contentDescription = "Options",
-                                                        tint = Color.Gray
-                                                )
-                                        }
-
-                                        DropdownMenu(
-                                                expanded = showMenu,
-                                                onDismissRequest = { showMenu = false },
-                                                modifier =
-                                                        Modifier.background(
-                                                                MaterialTheme.colorScheme.surface
-                                                        )
-                                        ) {
-                                                DropdownMenuItem(
-                                                        text = {
-                                                                Text(
-                                                                        "Properties",
-                                                                        color =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurface
-                                                                )
-                                                        },
-                                                        onClick = {
-                                                                showMenu = false
-                                                                onProperties()
-                                                        },
-                                                        leadingIcon = {
-                                                                Icon(
-                                                                        Icons.Default.Info,
-                                                                        null,
-                                                                        tint =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurface
-                                                                )
-                                                        }
-                                                )
-                                                DropdownMenuItem(
-                                                        text = {
-                                                                Text(
-                                                                        "Rename",
-                                                                        color =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurface
-                                                                )
-                                                        },
-                                                        onClick = {
-                                                                showMenu = false
-                                                                onRename()
-                                                        },
-                                                        leadingIcon = {
-                                                                Icon(
-                                                                        Icons.Default.Edit,
-                                                                        null,
-                                                                        tint =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurface
-                                                                )
-                                                        }
-                                                )
-                                                DropdownMenuItem(
-                                                        text = {
-                                                                Text(
-                                                                        "Add to Playlist",
-                                                                        color =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurface
-                                                                )
-                                                        },
-                                                        onClick = {
-                                                                showMenu = false
-                                                                onAddToPlaylist()
-                                                        },
-                                                        leadingIcon = {
-                                                                Icon(
-                                                                        Icons.Default
-                                                                                .PlaylistAddCircle,
-                                                                        null,
-                                                                        tint =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurface
-                                                                )
-                                                        }
-                                                )
-                                                DropdownMenuItem(
-                                                        text = {
-                                                                Text(
-                                                                        "Delete",
-                                                                        color =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .error
-                                                                )
-                                                        },
-                                                        onClick = {
-                                                                showMenu = false
-                                                                onDelete()
-                                                        },
-                                                        leadingIcon = {
-                                                                Icon(
-                                                                        Icons.Default.Delete,
-                                                                        null,
-                                                                        tint =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .error
-                                                                )
-                                                        }
-                                                )
-                                        }
-                                }
-                        }
+                    Text(
+                        text = FormatUtils.formatDuration(video.duration),
+                        color = Color.White,
+                        style =
+                            MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                            ),
+                        modifier =
+                            Modifier.padding(
+                                horizontal = 6.dp,
+                                vertical = 2.dp,
+                            ),
+                    )
                 }
-}
+
+                // Resume progress bar (bottom edge)
+                if (progress > 0f) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(3.dp),
+                        color = accentColor,
+                        trackColor = Color.Black.copy(alpha = 0.4f),
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = video.title,
+                    style =
+                        MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (video.size > 0) {
+                        Text(
+                            text = FormatUtils.formatSize(video.size),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (!isSelectionMode) {
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = Color.Gray,
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier =
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surface,
+                            ),
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Properties",
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurface,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onProperties()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Info,
+                                    null,
+                                    tint =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurface,
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Rename",
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurface,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onRename()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    null,
+                                    tint =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurface,
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Add to Playlist",
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurface,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onAddToPlaylist()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default
+                                        .PlaylistAddCircle,
+                                    null,
+                                    tint =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurface,
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Delete",
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .error,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    null,
+                                    tint =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .error,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

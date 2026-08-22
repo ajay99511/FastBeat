@@ -11,7 +11,7 @@ data class AudioPlayerState(
     val position: Long,
     val isPlaying: Boolean,
     val isShuffleEnabled: Boolean,
-    val repeatMode: Int
+    val repeatMode: Int,
 )
 
 /**
@@ -20,5 +20,5 @@ data class AudioPlayerState(
  */
 data class VideoPlayerState(
     val mediaItem: MediaItem?,
-    val position: Long
+    val position: Long,
 )

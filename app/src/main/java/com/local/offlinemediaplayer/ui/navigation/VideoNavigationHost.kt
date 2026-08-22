@@ -3,9 +3,10 @@ package com.local.offlinemediaplayer.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,8 +14,6 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
 import com.local.offlinemediaplayer.ui.screens.VideoListScreen
 import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
@@ -24,7 +23,7 @@ fun VideoNavigationHost(
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     navController: NavHostController,
     onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
-    isSearchVisible: Boolean
+    isSearchVisible: Boolean,
 ) {
     NavHost(
         navController = navController,
@@ -40,7 +39,7 @@ fun VideoNavigationHost(
         },
         popExitTransition = {
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(300))
-        }
+        },
     ) {
         composable("video_folders") {
             VideoFolderScreen(
@@ -52,16 +51,17 @@ fun VideoNavigationHost(
                     navController.navigate("video_playlist_detail/$playlistId")
                 },
                 onVideoClick = { file, list -> onVideoClick(file, list) },
-                isSearchVisible = isSearchVisible
+                isSearchVisible = isSearchVisible,
             )
         }
 
         composable("video_list/{bucketId}") { backStackEntry ->
             val bucketId = backStackEntry.arguments?.getString("bucketId") ?: ""
             val allVideos by libraryViewModel.videoList.collectAsStateWithLifecycle()
-            val folderVideos = remember(allVideos, bucketId) {
-                allVideos.filter { it.bucketId == bucketId }
-            }
+            val folderVideos =
+                remember(allVideos, bucketId) {
+                    allVideos.filter { it.bucketId == bucketId }
+                }
 
             // Video List has its own header with search toggle, but we can pass initial state if needed.
             // Since VideoList hides the main FastBeat header, `isSearchVisible` from MainScreen
@@ -73,7 +73,7 @@ fun VideoNavigationHost(
                 onVideoClick = onVideoClick,
                 videoListOverride = folderVideos,
                 title = folderVideos.firstOrNull()?.bucketName ?: "Videos",
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
 
@@ -85,7 +85,7 @@ fun VideoNavigationHost(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
 //                onBack = { navController.popBackStack() },
-                onNavigateToPlayer = onVideoClick
+                onNavigateToPlayer = onVideoClick,
             )
         }
     }

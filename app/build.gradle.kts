@@ -27,7 +27,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -189,24 +189,24 @@ dependencies {
     implementation(libs.adaptive.navigation)
 
     // ---------- Unit tests (src/test, JVM + Robolectric, JUnit Platform) ----------
-    testImplementation(libs.kotest.runner.junit5)     // Kotest on the JUnit 5 platform
-    testImplementation(libs.kotest.assertions.core)    // shouldBe / shouldContain matchers
-    testImplementation(libs.kotest.property)           // property-based testing
+    testImplementation(libs.kotest.runner.junit5) // Kotest on the JUnit 5 platform
+    testImplementation(libs.kotest.assertions.core) // shouldBe / shouldContain matchers
+    testImplementation(libs.kotest.property) // property-based testing
     testImplementation(libs.kotest.extensions.robolectric) // @RobolectricTest for Kotest specs
-    testImplementation(libs.mockk)                     // idiomatic Kotlin mocking
-    testImplementation(libs.turbine)                   // Flow/StateFlow assertions
-    testImplementation(libs.kotlinx.coroutines.test)   // runTest, TestDispatcher
-    testImplementation(libs.robolectric)               // Android framework on the JVM
+    testImplementation(libs.mockk) // idiomatic Kotlin mocking
+    testImplementation(libs.turbine) // Flow/StateFlow assertions
+    testImplementation(libs.kotlinx.coroutines.test) // runTest, TestDispatcher
+    testImplementation(libs.robolectric) // Android framework on the JVM
     testImplementation(libs.androidx.arch.core.testing) // InstantTaskExecutorRule
-    testImplementation(libs.androidx.test.core.ktx)    // ApplicationProvider, etc.
-    testImplementation(libs.room.testing)              // in-memory Room + migration tests
+    testImplementation(libs.androidx.test.core.ktx) // ApplicationProvider, etc.
+    testImplementation(libs.room.testing) // in-memory Room + migration tests
     // Robolectric is a JUnit *4* runner, and `kotest-extensions-robolectric` 0.5.0 is a
     // Kotest-4-era artifact (it targets kotest 4.6.3 / robolectric 4.6.1, its extension class
     // is `internal`, and 0.5.0 is the newest release that exists) -- so it cannot drive
     // Robolectric under Kotest 5.9.1. Specs needing an Android Context therefore run as JUnit 4
     // via the vintage engine, alongside the Kotest specs on the same JUnit Platform.
-    testImplementation(libs.junit)                     // JUnit 4 API for Robolectric-driven specs
-    testRuntimeOnly(libs.junit.vintage.engine)         // runs those JUnit 4 specs on JUnit Platform
+    testImplementation(libs.junit) // JUnit 4 API for Robolectric-driven specs
+    testRuntimeOnly(libs.junit.vintage.engine) // runs those JUnit 4 specs on JUnit Platform
 
     // ---------- Instrumented tests (src/androidTest, on-device/emulator) ----------
     androidTestImplementation(libs.androidx.junit)
@@ -218,11 +218,11 @@ dependencies {
     androidTestImplementation(libs.mockk.android)
     androidTestImplementation(libs.turbine)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.hilt.android.testing)   // HiltAndroidRule, @HiltAndroidTest
+    androidTestImplementation(libs.hilt.android.testing) // HiltAndroidRule, @HiltAndroidTest
     // MigrationTestHelper is a JUnit4 TestRule that needs an Instrumentation context, so it has to
     // be here. The existing testImplementation(libs.room.testing) stays -- P4-A uses it for
     // in-memory DAO tests on the JVM. Both source sets legitimately need the artifact.
-    androidTestImplementation(libs.room.testing)            // MigrationTestHelper
+    androidTestImplementation(libs.room.testing) // MigrationTestHelper
     kspAndroidTest(libs.hilt.compiler)
 
     // ---------- Debug-only tooling for Compose tests ----------

@@ -19,19 +19,18 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class SortingTest {
-
     private fun media(
         id: Long,
         title: String = "t",
         duration: Long = 0,
-        dateAdded: Long = 0
+        dateAdded: Long = 0,
     ) = MediaFile(
         id = id,
         uri = Uri.EMPTY,
         title = title,
         duration = duration,
         isVideo = false,
-        dateAdded = dateAdded
+        dateAdded = dateAdded,
     )
 
     private fun List<MediaFile>.ids() = map { it.id }
@@ -235,7 +234,7 @@ class SortingTest {
             listOf(true, false).forEach { ascending ->
                 assertTrue(
                     "$field/$ascending",
-                    emptyList<MediaFile>().applySort(SortState(field, ascending)).isEmpty()
+                    emptyList<MediaFile>().applySort(SortState(field, ascending)).isEmpty(),
                 )
             }
         }
@@ -259,7 +258,7 @@ class SortingTest {
         assertEquals(
             "a stable sort must not shuffle equal items",
             listOf(1L, 2L, 3L),
-            list.applySort(SortState(SortField.DURATION, ascending = true)).ids()
+            list.applySort(SortState(SortField.DURATION, ascending = true)).ids(),
         )
     }
 
@@ -271,7 +270,7 @@ class SortingTest {
 
         assertEquals(
             listOf(1L, 2L, 3L),
-            list.applySort(SortState(SortField.DURATION, ascending = false)).ids()
+            list.applySort(SortState(SortField.DURATION, ascending = false)).ids(),
         )
     }
 

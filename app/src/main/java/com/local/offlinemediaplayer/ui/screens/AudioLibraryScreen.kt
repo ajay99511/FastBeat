@@ -23,12 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
@@ -46,10 +46,12 @@ fun AudioLibraryScreen(
     onNavigateToArtist: (String) -> Unit,
     onNavigateToSmartPlaylist: (String) -> Unit,
     onNavigateToDecade: (Int) -> Unit,
-    isSearchVisible: Boolean
+    isSearchVisible: Boolean,
 ) {
     // 0 = Tracks, 1 = Albums, 2 = Playlists, 3 = Artists, 4 = Decades
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 5 })
+    val pagerState =
+        androidx.compose.foundation.pager
+            .rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
     // Lifted state observation
@@ -91,17 +93,17 @@ fun AudioLibraryScreen(
                             .tabIndicatorOffset(tabPositions[pagerState.currentPage])
                             .height(3.dp)
                             .padding(horizontal = 24.dp)
-                            .background(primaryAccent, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                            .background(primaryAccent, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
                     )
                 },
                 divider = {
                     HorizontalDivider(
                         Modifier,
                         DividerDefaults.Thickness,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                     )
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 val tabs = listOf("TRACKS", "ALBUMS", "PLAYLISTS", "ARTISTS", "DECADES")
                 tabs.forEachIndexed { index, title ->
@@ -115,11 +117,18 @@ fun AudioLibraryScreen(
                         text = {
                             Text(
                                 text = title,
-                                fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
+                                fontWeight =
+                                    if (pagerState.currentPage ==
+                                        index
+                                    ) {
+                                        FontWeight.Bold
+                                    } else {
+                                        FontWeight.Normal
+                                    },
                                 letterSpacing = 1.sp,
-                                color = if (pagerState.currentPage == index) primaryAccent else inactiveColor
+                                color = if (pagerState.currentPage == index) primaryAccent else inactiveColor,
                             )
-                        }
+                        },
                     )
                 }
             }
@@ -127,7 +136,7 @@ fun AudioLibraryScreen(
             // Content Area
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) { page ->
                 when (page) {
                     0 -> {
@@ -146,7 +155,7 @@ fun AudioLibraryScreen(
                                 songsToAdd = files
                                 showAddToPlaylistDialog = true
                             },
-                            isSearchVisible = isSearchVisible
+                            isSearchVisible = isSearchVisible,
                         )
                     }
                     1 -> {
@@ -159,7 +168,7 @@ fun AudioLibraryScreen(
                                 songsToAdd = files
                                 showAddToPlaylistDialog = true
                             },
-                            isSearchVisible = isSearchVisible
+                            isSearchVisible = isSearchVisible,
                         )
                     }
                     2 -> {
@@ -172,7 +181,7 @@ fun AudioLibraryScreen(
                             isVideo = false, // Explicitly Audio
                             onRename = { id, newName -> playlistViewModel.renamePlaylist(id, newName) },
                             onDelete = { id -> playlistViewModel.deletePlaylist(id) },
-                            onSmartPlaylistClick = onNavigateToSmartPlaylist
+                            onSmartPlaylistClick = onNavigateToSmartPlaylist,
                         )
                     }
                     3 -> {
@@ -181,7 +190,7 @@ fun AudioLibraryScreen(
                             viewModel = viewModel,
                             libraryViewModel = libraryViewModel,
                             onArtistClick = onNavigateToArtist,
-                            isSearchVisible = isSearchVisible
+                            isSearchVisible = isSearchVisible,
                         )
                     }
                     4 -> {
@@ -189,7 +198,7 @@ fun AudioLibraryScreen(
                         DecadeListScreen(
                             viewModel = viewModel,
                             libraryViewModel = libraryViewModel,
-                            onDecadeClick = onNavigateToDecade
+                            onDecadeClick = onNavigateToDecade,
                         )
                     }
                 }
@@ -200,7 +209,7 @@ fun AudioLibraryScreen(
         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
             MiniPlayer(
                 viewModel = viewModel,
-                onTap = onNavigateToPlayer
+                onTap = onNavigateToPlayer,
             )
         }
     }
@@ -208,7 +217,7 @@ fun AudioLibraryScreen(
     if (showCreateDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreateDialog = false },
-            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) }
+            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) },
         )
     }
 
@@ -216,7 +225,7 @@ fun AudioLibraryScreen(
         AddToPlaylistDialog(
             songs = songsToAdd,
             onDismiss = { showAddToPlaylistDialog = false },
-            onCreateNew = { showCreateDialog = true } // Stack dialogs
+            onCreateNew = { showCreateDialog = true }, // Stack dialogs
         )
     }
 }

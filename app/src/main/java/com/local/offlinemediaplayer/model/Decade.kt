@@ -9,7 +9,7 @@ import android.net.Uri
 data class Decade(
     val startYear: Int,
     val songCount: Int,
-    val albumArtUri: Uri?
+    val albumArtUri: Uri?,
 ) {
     /** User-facing label, e.g. "2010s" or "Unknown". */
     val label: String

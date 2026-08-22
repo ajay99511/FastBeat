@@ -8,5 +8,5 @@ data class Playlist(
     val name: String,
     val mediaIds: List<Long> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val isVideo: Boolean = false
+    val isVideo: Boolean = false,
 )

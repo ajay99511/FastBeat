@@ -27,13 +27,14 @@ object FormatUtils {
         val units = arrayOf("B", "KB", "MB", "GB", "TB")
         val digitGroups = (log10(bytes.toDouble()) / log10(1024.0)).toInt()
         return DecimalFormat("#,##0.#").format(bytes / 1024.0.pow(digitGroups.toDouble())) +
-                " " +
-                units[digitGroups]
+            " " +
+            units[digitGroups]
     }
 
-    fun formatSeekTime(currentMs: Long, totalMs: Long): String {
-        return "${formatDuration(currentMs)} / ${formatDuration(totalMs)}"
-    }
+    fun formatSeekTime(
+        currentMs: Long,
+        totalMs: Long,
+    ): String = "${formatDuration(currentMs)} / ${formatDuration(totalMs)}"
 
     /** Formats a MediaStore date column (epoch seconds) to a readable date. */
     fun formatDate(epochSeconds: Long): String {

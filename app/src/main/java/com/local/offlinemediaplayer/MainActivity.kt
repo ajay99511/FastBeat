@@ -14,11 +14,9 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.window.core.layout.WindowWidthSizeClass
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.local.offlinemediaplayer.ui.MainScreen
-import com.local.offlinemediaplayer.ui.adaptive.AppWidthClass
 import com.local.offlinemediaplayer.ui.adaptive.DevicePosture
 import com.local.offlinemediaplayer.ui.adaptive.toAppWidthClass
 import com.local.offlinemediaplayer.ui.adaptive.toDevicePosture
@@ -31,7 +29,6 @@ import kotlinx.coroutines.flow.map
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     companion object {
         private const val TAG = "MainActivity"
     }
@@ -52,29 +49,33 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val windowInfoTracker = remember(context) { WindowInfoTracker.getOrCreate(context) }
             val devicePosture by produceState<DevicePosture>(initialValue = DevicePosture.Normal) {
-                windowInfoTracker.windowLayoutInfo(context)
+                windowInfoTracker
+                    .windowLayoutInfo(context)
                     .map { layoutInfo ->
-                        val foldingFeature = layoutInfo.displayFeatures
-                            .filterIsInstance<FoldingFeature>()
-                            .firstOrNull()
+                        val foldingFeature =
+                            layoutInfo.displayFeatures
+                                .filterIsInstance<FoldingFeature>()
+                                .firstOrNull()
                         foldingFeature?.toDevicePosture() ?: DevicePosture.Normal
-                    }
-                    .catch { emit(DevicePosture.Normal) }
+                    }.catch { emit(DevicePosture.Normal) }
                     .collect { value = it }
             }
 
             // Using Material3 Adaptive for WindowSizeClass
-            val appWidthClass = androidx.compose.material3.adaptive.currentWindowAdaptiveInfo()
-                .windowSizeClass.windowWidthSizeClass.toAppWidthClass()
+            val appWidthClass =
+                androidx.compose.material3.adaptive
+                    .currentWindowAdaptiveInfo()
+                    .windowSizeClass.windowWidthSizeClass
+                    .toAppWidthClass()
 
             OfflineMediaPlayerTheme(
-                    currentThemeConfig = currentThemeConfig,
-                    darkTheme = isDarkTheme
-            ) { 
+                currentThemeConfig = currentThemeConfig,
+                darkTheme = isDarkTheme,
+            ) {
                 MainScreen(
                     viewModel = viewModel,
                     widthClass = appWidthClass,
-                    devicePosture = devicePosture
+                    devicePosture = devicePosture,
                 )
             }
         }
@@ -98,20 +99,20 @@ class MainActivity : ComponentActivity() {
                 val player = viewModel.player.value
                 val videoSize = player?.videoSize
                 val aspectRatio =
-                        if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
-                            val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
-                            val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
-                            if (ratio == clampedRatio) {
-                                Rational(videoSize.width, videoSize.height)
-                            } else {
-                                Rational(
-                                        (videoSize.height * clampedRatio).toInt(),
-                                        videoSize.height
-                                )
-                            }
+                    if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+                        val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
+                        val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
+                        if (ratio == clampedRatio) {
+                            Rational(videoSize.width, videoSize.height)
                         } else {
-                            Rational(16, 9)
+                            Rational(
+                                (videoSize.height * clampedRatio).toInt(),
+                                videoSize.height,
+                            )
                         }
+                    } else {
+                        Rational(16, 9)
+                    }
 
                 try {
                     val builder = PictureInPictureParams.Builder().setAspectRatio(aspectRatio)
@@ -124,8 +125,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPictureInPictureModeChanged(
-            isInPictureInPictureMode: Boolean,
-            newConfig: android.content.res.Configuration
+        isInPictureInPictureMode: Boolean,
+        newConfig: android.content.res.Configuration,
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
 
@@ -150,7 +151,7 @@ class MainActivity : ComponentActivity() {
             // When maximizing, the activity is usually STARTED and about to be RESUMED.
             // When dismissing, it goes to STOPPED/DESTROYED.
             if (lifecycle.currentState == androidx.lifecycle.Lifecycle.State.CREATED ||
-                            lifecycle.currentState == androidx.lifecycle.Lifecycle.State.DESTROYED
+                lifecycle.currentState == androidx.lifecycle.Lifecycle.State.DESTROYED
             ) {
                 // The user closed the PiP window. We should STOP video.
                 viewModel.closeVideo()
@@ -159,6 +160,7 @@ class MainActivity : ComponentActivity() {
             wasInPipMode = false
         }
     }
+
     override fun onStop() {
         super.onStop()
         // If we are NOT in PIP mode, pausing/stopping the activity should pause the video.

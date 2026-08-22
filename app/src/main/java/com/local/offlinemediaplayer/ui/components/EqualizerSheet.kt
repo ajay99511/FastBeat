@@ -40,7 +40,7 @@ import kotlin.math.roundToInt
 @Composable
 fun EqualizerSheet(
     viewModel: PlaybackViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val fx = viewModel.audioEffects
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -61,26 +61,27 @@ fun EqualizerSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
         ) {
             // Header + master switch
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Equalizer",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 Switch(
                     checked = enabled,
                     onCheckedChange = { fx.setEnabled(it) },
-                    enabled = isAvailable
+                    enabled = isAvailable,
                 )
             }
 
@@ -88,10 +89,11 @@ fun EqualizerSheet(
 
             if (!isAvailable) {
                 Text(
-                    text = "Audio effects aren't available on this device, or nothing has played " +
-                        "yet this session. Start playback and reopen to adjust the equalizer.",
+                    text =
+                        "Audio effects aren't available on this device, or nothing has played " +
+                            "yet this session. Start playback and reopen to adjust the equalizer.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 return@Column
             }
@@ -103,21 +105,22 @@ fun EqualizerSheet(
                 Text(
                     text = "Presets",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .alpha(controlsAlpha),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .alpha(controlsAlpha),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     presetNames.forEachIndexed { index, name ->
                         FilterChip(
                             selected = currentPreset == index,
                             onClick = { if (enabled) fx.applyPreset(index) },
-                            label = { Text(name) }
+                            label = { Text(name) },
                         )
                     }
                 }
@@ -130,31 +133,33 @@ fun EqualizerSheet(
             bands.forEachIndexed { index, band ->
                 val levelMb = bandLevels.getOrNull(index) ?: 0
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .alpha(controlsAlpha),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .alpha(controlsAlpha),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = formatFrequency(band.centerFreqHz),
                         style = MaterialTheme.typography.labelMedium,
                         textAlign = TextAlign.End,
-                        modifier = Modifier.width(56.dp)
+                        modifier = Modifier.width(56.dp),
                     )
                     Slider(
                         value = levelMb.toFloat(),
                         onValueChange = { fx.setBandLevel(index, it.roundToInt()) },
                         valueRange = band.minLevelMb.toFloat()..band.maxLevelMb.toFloat(),
                         enabled = enabled,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 12.dp)
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .padding(horizontal = 12.dp),
                     )
                     Text(
                         text = formatGain(levelMb),
                         style = MaterialTheme.typography.labelMedium,
                         textAlign = TextAlign.End,
-                        modifier = Modifier.width(48.dp)
+                        modifier = Modifier.width(48.dp),
                     )
                 }
             }
@@ -170,7 +175,7 @@ fun EqualizerSheet(
                     label = "Bass Boost",
                     strength = bassStrength,
                     enabled = enabled,
-                    onChange = { fx.setBassBoost(it) }
+                    onChange = { fx.setBassBoost(it) },
                 )
             }
             if (virtSupported) {
@@ -179,7 +184,7 @@ fun EqualizerSheet(
                     label = "Virtualizer",
                     strength = virtStrength,
                     enabled = enabled,
-                    onChange = { fx.setVirtualizer(it) }
+                    onChange = { fx.setVirtualizer(it) },
                 )
             }
         }
@@ -191,7 +196,7 @@ private fun EffectStrengthSlider(
     label: String,
     strength: Int,
     enabled: Boolean,
-    onChange: (Int) -> Unit
+    onChange: (Int) -> Unit,
 ) {
     val alpha = if (enabled) 1f else 0.4f
     Column(modifier = Modifier.fillMaxWidth().alpha(alpha)) {
@@ -199,19 +204,19 @@ private fun EffectStrengthSlider(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             Text(
                 text = "${(strength / 10)}%",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Slider(
             value = strength.toFloat(),
             onValueChange = { onChange(it.roundToInt()) },
             valueRange = 0f..1000f,
-            enabled = enabled
+            enabled = enabled,
         )
     }
 }

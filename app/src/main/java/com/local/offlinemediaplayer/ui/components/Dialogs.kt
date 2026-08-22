@@ -16,14 +16,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
 @Composable
-fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+fun CreatePlaylistDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String) -> Unit,
+) {
     val primaryAccent = LocalAppTheme.current.primaryColor
     var name by remember { mutableStateOf("") }
     AlertDialog(
@@ -34,7 +37,7 @@ fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
             Text(
                 "New Playlist",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
@@ -44,12 +47,13 @@ fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
                 label = { Text("Playlist Name") },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryAccent,
-                    focusedLabelColor = primaryAccent,
-                    cursorColor = primaryAccent
-                ),
-                modifier = Modifier.fillMaxWidth()
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryAccent,
+                        focusedLabelColor = primaryAccent,
+                        cursorColor = primaryAccent,
+                    ),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
@@ -61,19 +65,23 @@ fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) { Text("Create") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        },
     )
 }
 
 @Composable
-fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+fun RenamePlaylistDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+) {
     val primaryAccent = LocalAppTheme.current.primaryColor
     var name by remember { mutableStateOf(currentName) }
     AlertDialog(
@@ -84,7 +92,7 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
             Text(
                 "Rename Playlist",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
@@ -94,12 +102,13 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
                 label = { Text("New Name") },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryAccent,
-                    focusedLabelColor = primaryAccent,
-                    cursorColor = primaryAccent
-                ),
-                modifier = Modifier.fillMaxWidth()
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryAccent,
+                        focusedLabelColor = primaryAccent,
+                        cursorColor = primaryAccent,
+                    ),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
@@ -111,14 +120,14 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) { Text("Rename") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        },
     )
 }
 
@@ -127,7 +136,11 @@ fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (
  * shown as a fixed suffix and preserved by the caller.
  */
 @Composable
-fun RenameMediaDialog(file: MediaFile, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+fun RenameMediaDialog(
+    file: MediaFile,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+) {
     val primaryAccent = LocalAppTheme.current.primaryColor
     val currentBaseName = file.displayName.substringBeforeLast('.')
     val extension = file.displayName.substringAfterLast('.', "")
@@ -145,7 +158,7 @@ fun RenameMediaDialog(file: MediaFile, onDismiss: () -> Unit, onRename: (String)
             Text(
                 "Rename File",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
@@ -154,27 +167,34 @@ fun RenameMediaDialog(file: MediaFile, onDismiss: () -> Unit, onRename: (String)
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("File Name") },
-                    suffix = if (extension.isNotEmpty()) {
-                        { Text(".$extension", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    } else null,
+                    suffix =
+                        if (extension.isNotEmpty()) {
+                            { Text(".$extension", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        } else {
+                            null
+                        },
                     singleLine = true,
                     isError = hasInvalidChars,
-                    supportingText = if (hasInvalidChars) {
-                        { Text("Cannot contain / \\ : * ? \" < > |") }
-                    } else null,
+                    supportingText =
+                        if (hasInvalidChars) {
+                            { Text("Cannot contain / \\ : * ? \" < > |") }
+                        } else {
+                            null
+                        },
                     shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryAccent,
-                        focusedLabelColor = primaryAccent,
-                        cursorColor = primaryAccent
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryAccent,
+                            focusedLabelColor = primaryAccent,
+                            cursorColor = primaryAccent,
+                        ),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "Renames the file on your device. Android may ask you to confirm.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
@@ -188,14 +208,14 @@ fun RenameMediaDialog(file: MediaFile, onDismiss: () -> Unit, onRename: (String)
                 },
                 enabled = canRename,
                 colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) { Text("Rename") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        },
     )
 }
 
@@ -204,13 +224,13 @@ fun AddToPlaylistDialog(
     song: MediaFile,
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onDismiss: () -> Unit,
-    onCreateNew: () -> Unit
+    onCreateNew: () -> Unit,
 ) {
     AddToPlaylistDialog(
         songs = listOf(song),
         playlistViewModel = playlistViewModel,
         onDismiss = onDismiss,
-        onCreateNew = onCreateNew
+        onCreateNew = onCreateNew,
     )
 }
 
@@ -219,7 +239,7 @@ fun AddToPlaylistDialog(
     songs: List<MediaFile>,
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onDismiss: () -> Unit,
-    onCreateNew: () -> Unit
+    onCreateNew: () -> Unit,
 ) {
     if (songs.isEmpty()) return
     val primaryAccent = LocalAppTheme.current.primaryColor
@@ -229,9 +249,10 @@ fun AddToPlaylistDialog(
     val allPlaylists by playlistViewModel.playlists.collectAsStateWithLifecycle()
 
     // Filter based on the media type being added
-    val filteredPlaylists = remember(allPlaylists, isVideo) {
-        allPlaylists.filter { it.isVideo == isVideo }
-    }
+    val filteredPlaylists =
+        remember(allPlaylists, isVideo) {
+            allPlaylists.filter { it.isVideo == isVideo }
+        }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -239,9 +260,9 @@ fun AddToPlaylistDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
-                "Add to ${if(isVideo) "Video" else "Audio"} Playlist",
+                "Add to ${if (isVideo) "Video" else "Audio"} Playlist",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
@@ -249,14 +270,14 @@ fun AddToPlaylistDialog(
                 item {
                     TextButton(
                         onClick = onCreateNew,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Default.Add, null, tint = primaryAccent)
                         Spacer(Modifier.width(8.dp))
                         Text("New Playlist", color = primaryAccent)
                     }
                     HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant
+                        color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
                 if (filteredPlaylists.isEmpty()) {
@@ -265,7 +286,7 @@ fun AddToPlaylistDialog(
                             Text(
                                 "No matching playlists found",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -276,20 +297,23 @@ fun AddToPlaylistDialog(
                             headlineContent = {
                                 Text(
                                     playlist.name,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             },
                             trailingContent = {
-                                if (isAdded) Icon(
-                                    Icons.Default.Check,
-                                    null,
-                                    tint = primaryAccent
-                                )
+                                if (isAdded) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        null,
+                                        tint = primaryAccent,
+                                    )
+                                }
                             },
-                            modifier = Modifier.clickable(enabled = !isAdded) {
-                                playlistViewModel.addSongsToPlaylist(playlist.id, songs.map { it.id })
-                                onDismiss()
-                            }
+                            modifier =
+                                Modifier.clickable(enabled = !isAdded) {
+                                    playlistViewModel.addSongsToPlaylist(playlist.id, songs.map { it.id })
+                                    onDismiss()
+                                },
                         )
                     }
                 }
@@ -299,7 +323,7 @@ fun AddToPlaylistDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        },
     )
 }
 
@@ -312,19 +336,23 @@ fun AddSongsToPlaylistDialog(
     allSongs: List<MediaFile>,
     existingIds: Set<Long>,
     onConfirm: (List<Long>) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val primaryAccent = LocalAppTheme.current.primaryColor
     var query by remember { mutableStateOf("") }
     val selected = remember { mutableStateListOf<Long>() }
 
     val available = remember(allSongs, existingIds) { allSongs.filter { it.id !in existingIds } }
-    val filtered = remember(available, query) {
-        if (query.isBlank()) available
-        else available.filter {
-            it.title.contains(query, true) || (it.artist?.contains(query, true) == true)
+    val filtered =
+        remember(available, query) {
+            if (query.isBlank()) {
+                available
+            } else {
+                available.filter {
+                    it.title.contains(query, true) || (it.artist?.contains(query, true) == true)
+                }
+            }
         }
-    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -334,7 +362,7 @@ fun AddSongsToPlaylistDialog(
             Text(
                 "Add songs",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
@@ -345,19 +373,23 @@ fun AddSongsToPlaylistDialog(
                     placeholder = { Text("Search library...") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryAccent,
-                        cursorColor = primaryAccent
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryAccent,
+                            cursorColor = primaryAccent,
+                        ),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
                 if (filtered.isEmpty()) {
                     Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(
-                            if (available.isEmpty()) "All songs are already in this playlist"
-                            else "No matching songs",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            if (available.isEmpty()) {
+                                "All songs are already in this playlist"
+                            } else {
+                                "No matching songs"
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 } else {
@@ -365,20 +397,20 @@ fun AddSongsToPlaylistDialog(
                         items(filtered, key = { it.id }) { song ->
                             val checked = selected.contains(song.id)
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        if (checked) selected.remove(song.id) else selected.add(song.id)
-                                    }
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            if (checked) selected.remove(song.id) else selected.add(song.id)
+                                        }.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Checkbox(
                                     checked = checked,
                                     onCheckedChange = {
                                         if (checked) selected.remove(song.id) else selected.add(song.id)
                                     },
-                                    colors = CheckboxDefaults.colors(checkedColor = primaryAccent)
+                                    colors = CheckboxDefaults.colors(checkedColor = primaryAccent),
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
@@ -387,14 +419,14 @@ fun AddSongsToPlaylistDialog(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         style = MaterialTheme.typography.bodyMedium,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
                                         song.artist ?: "Unknown",
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                             }
@@ -413,7 +445,7 @@ fun AddSongsToPlaylistDialog(
                 },
                 enabled = selected.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) {
                 Text(if (selected.isEmpty()) "Add" else "Add (${selected.size})")
             }
@@ -422,7 +454,7 @@ fun AddSongsToPlaylistDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        },
     )
 }
 
@@ -430,7 +462,7 @@ fun AddSongsToPlaylistDialog(
 fun DeleteConfirmationDialog(
     count: Int,
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -441,21 +473,23 @@ fun DeleteConfirmationDialog(
                 Icons.Default.Warning,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = androidx.compose.ui.Modifier.size(32.dp)
+                modifier =
+                    androidx.compose.ui.Modifier
+                        .size(32.dp),
             )
         },
         title = {
             Text(
                 text = "Delete File${if (count > 1) "s" else ""}?",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
             Text(
                 "Are you sure you want to permanently delete ${if (count > 1) "$count files" else "this file"} from your device? This action cannot be undone.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         confirmButton = {
@@ -465,7 +499,7 @@ fun DeleteConfirmationDialog(
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) {
                 Text("Delete")
             }
@@ -474,6 +508,6 @@ fun DeleteConfirmationDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        },
     )
 }

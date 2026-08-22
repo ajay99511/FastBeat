@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,11 +46,20 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMainLayout
+import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMeScreen
+import com.local.offlinemediaplayer.ui.adaptive.AppWidthClass
+import com.local.offlinemediaplayer.ui.adaptive.DevicePosture
+import com.local.offlinemediaplayer.ui.adaptive.LocalDevicePosture
+import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
+import com.local.offlinemediaplayer.ui.adaptive.NavigationComponentType
+import com.local.offlinemediaplayer.ui.adaptive.TwoPaneVideoNavigationHost
+import com.local.offlinemediaplayer.ui.adaptive.navigationComponentFor
+import com.local.offlinemediaplayer.ui.adaptive.showFastBeatHeader
 import com.local.offlinemediaplayer.ui.navigation.AudioNavigationHost
 import com.local.offlinemediaplayer.ui.navigation.VideoNavigationHost
 import com.local.offlinemediaplayer.ui.screens.AccessibilityGuideScreen
 import com.local.offlinemediaplayer.ui.screens.ImageListScreen
-import com.local.offlinemediaplayer.ui.screens.MeScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRationaleScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionRequestScreen
 import com.local.offlinemediaplayer.ui.screens.PermissionSettingsScreen
@@ -58,92 +68,85 @@ import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
-import androidx.compose.runtime.CompositionLocalProvider
-import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMainLayout
-import com.local.offlinemediaplayer.ui.adaptive.AppWidthClass
-import com.local.offlinemediaplayer.ui.adaptive.DevicePosture
-import com.local.offlinemediaplayer.ui.adaptive.LocalDevicePosture
-import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
-import com.local.offlinemediaplayer.ui.adaptive.navigationComponentFor
-import com.local.offlinemediaplayer.ui.adaptive.NavigationComponentType
-import com.local.offlinemediaplayer.ui.adaptive.TwoPaneVideoNavigationHost
-import com.local.offlinemediaplayer.ui.adaptive.showFastBeatHeader
-import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMeScreen
-
 @Composable
 fun MainScreen(
     viewModel: PlaybackViewModel = hiltViewModel(),
     widthClass: AppWidthClass = AppWidthClass.Compact,
-    devicePosture: DevicePosture = DevicePosture.Normal
+    devicePosture: DevicePosture = DevicePosture.Normal,
 ) {
     val context = LocalContext.current
 
     // Media permissions gate the content. On Android 14+ a partial grant
     // (READ_MEDIA_VISUAL_USER_SELECTED) counts as access, and an audio-only or
     // visual-only grant still lets the app show what it can read.
-    val mediaPermissions = remember {
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+    val mediaPermissions =
+        remember {
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
                     listOf(
-                            Manifest.permission.READ_MEDIA_VIDEO,
-                            Manifest.permission.READ_MEDIA_AUDIO,
-                            Manifest.permission.READ_MEDIA_IMAGES,
-                            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                        Manifest.permission.READ_MEDIA_VIDEO,
+                        Manifest.permission.READ_MEDIA_AUDIO,
+                        Manifest.permission.READ_MEDIA_IMAGES,
+                        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
                     )
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
                     listOf(
-                            Manifest.permission.READ_MEDIA_VIDEO,
-                            Manifest.permission.READ_MEDIA_AUDIO,
-                            Manifest.permission.READ_MEDIA_IMAGES
+                        Manifest.permission.READ_MEDIA_VIDEO,
+                        Manifest.permission.READ_MEDIA_AUDIO,
+                        Manifest.permission.READ_MEDIA_IMAGES,
                     )
-            else -> listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                else -> listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
         }
-    }
 
     // POST_NOTIFICATIONS is asked for in the same prompt on 13+ but declining
     // it must never lock the user out of their media.
-    val requestedPermissions = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            mediaPermissions + Manifest.permission.POST_NOTIFICATIONS
-        } else {
-            mediaPermissions
+    val requestedPermissions =
+        remember {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                mediaPermissions + Manifest.permission.POST_NOTIFICATIONS
+            } else {
+                mediaPermissions
+            }
         }
-    }
 
     fun hasMediaAccess(): Boolean =
-            mediaPermissions.any { permission ->
-                ContextCompat.checkSelfPermission(context, permission) ==
-                        PermissionChecker.PERMISSION_GRANTED
-            }
+        mediaPermissions.any { permission ->
+            ContextCompat.checkSelfPermission(context, permission) ==
+                PermissionChecker.PERMISSION_GRANTED
+        }
 
     var mediaAccessGranted by remember { mutableStateOf(hasMediaAccess()) }
     var denialState by remember { mutableStateOf(MediaPermissionDenial.NONE) }
 
     val permissionLauncher =
-            rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { _ ->
-                // Re-check from the framework instead of the result map: a
-                // partial visual grant reports READ_MEDIA_VIDEO/IMAGES as
-                // denied even though the app has usable access.
-                val granted = hasMediaAccess()
-                mediaAccessGranted = granted
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+        ) { _ ->
+            // Re-check from the framework instead of the result map: a
+            // partial visual grant reports READ_MEDIA_VIDEO/IMAGES as
+            // denied even though the app has usable access.
+            val granted = hasMediaAccess()
+            mediaAccessGranted = granted
 
-                if (granted) {
-                    viewModel.scanMedia()
-                } else {
-                    // After a denial, no rationale available means the system
-                    // dialog will not be shown again — only Settings can help.
-                    val canAskAgain =
-                            mediaPermissions.any { permission ->
-                                (context as? ComponentActivity)
-                                        ?.shouldShowRequestPermissionRationale(permission) == true
-                            }
-                    denialState =
-                            if (canAskAgain) MediaPermissionDenial.CAN_ASK_AGAIN
-                            else MediaPermissionDenial.PERMANENT
-                }
+            if (granted) {
+                viewModel.scanMedia()
+            } else {
+                // After a denial, no rationale available means the system
+                // dialog will not be shown again — only Settings can help.
+                val canAskAgain =
+                    mediaPermissions.any { permission ->
+                        (context as? ComponentActivity)
+                            ?.shouldShowRequestPermissionRationale(permission) == true
+                    }
+                denialState =
+                    if (canAskAgain) {
+                        MediaPermissionDenial.CAN_ASK_AGAIN
+                    } else {
+                        MediaPermissionDenial.PERMANENT
+                    }
             }
+        }
 
     // Request permissions on first launch
     LaunchedEffect(Unit) {
@@ -158,24 +161,25 @@ fun MainScreen(
     // photo selection on Android 14+) is picked up without an app restart.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                val granted = hasMediaAccess()
-                if (granted && !mediaAccessGranted) {
-                    viewModel.scanMedia()
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    val granted = hasMediaAccess()
+                    if (granted && !mediaAccessGranted) {
+                        viewModel.scanMedia()
+                    }
+                    mediaAccessGranted = granted
                 }
-                mediaAccessGranted = granted
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val openAppSettings = {
         context.startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", context.packageName, null)
-                }
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+            },
         )
     }
 
@@ -184,7 +188,7 @@ fun MainScreen(
         mediaAccessGranted -> {
             CompositionLocalProvider(
                 LocalWindowSizeClass provides widthClass,
-                LocalDevicePosture provides devicePosture
+                LocalDevicePosture provides devicePosture,
             ) {
                 MediaPlayerAppContent(viewModel)
             }
@@ -194,17 +198,17 @@ fun MainScreen(
         }
         denialState == MediaPermissionDenial.CAN_ASK_AGAIN -> {
             PermissionRationaleScreen(
-                    onRequestPermission = {
-                        permissionLauncher.launch(requestedPermissions.toTypedArray())
-                    },
-                    onOpenSettings = openAppSettings
+                onRequestPermission = {
+                    permissionLauncher.launch(requestedPermissions.toTypedArray())
+                },
+                onOpenSettings = openAppSettings,
             )
         }
         else -> {
             PermissionRequestScreen(
-                    onRequestPermission = {
-                        permissionLauncher.launch(requestedPermissions.toTypedArray())
-                    }
+                onRequestPermission = {
+                    permissionLauncher.launch(requestedPermissions.toTypedArray())
+                },
             )
         }
     }
@@ -262,28 +266,34 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
     val widthClass = LocalWindowSizeClass.current
     val navComponent = navigationComponentFor(widthClass, isVideoPlayingFullscreen)
     val hasAdaptiveNav = navComponent == NavigationComponentType.Rail || navComponent == NavigationComponentType.Drawer
-    val isHeaderVisibleCond = !isVideoPlayingFullscreen &&
-            ((selectedTab == 0 && isVideoRoot) || (selectedTab == 1 && !isAudioDetailScreen) || selectedTab == 2 || selectedTab == 3)
+    val isHeaderVisibleCond =
+        !isVideoPlayingFullscreen &&
+            (
+                (selectedTab == 0 && isVideoRoot) ||
+                    (selectedTab == 1 && !isAudioDetailScreen) ||
+                    selectedTab == 2 ||
+                    selectedTab == 3
+            )
     val showHeader = showFastBeatHeader(widthClass, hasAdaptiveNav, isHeaderVisibleCond)
 
     val mainContent = @Composable { padding: androidx.compose.foundation.layout.PaddingValues ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             // Animate transition between Main Content and Fullscreen Video Player
             AnimatedContent(
-                    targetState = isVideoPlayingFullscreen,
-                    transitionSpec = {
-                        if (targetState) {
-                            // Opening Video: Scale up and Fade In
-                            scaleIn(initialScale = 0.9f, animationSpec = tween(300)) +
-                                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                        } else {
-                            // Closing Video: Fade Out (revealing content behind)
-                            fadeIn(tween(300)) togetherWith
-                                    scaleOut(targetScale = 0.9f, animationSpec = tween(300)) +
-                                            fadeOut(tween(300))
-                        }
-                    },
-                    label = "VideoPlayerTransition"
+                targetState = isVideoPlayingFullscreen,
+                transitionSpec = {
+                    if (targetState) {
+                        // Opening Video: Scale up and Fade In
+                        scaleIn(initialScale = 0.9f, animationSpec = tween(300)) +
+                            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                    } else {
+                        // Closing Video: Fade Out (revealing content behind)
+                        fadeIn(tween(300)) togetherWith
+                            scaleOut(targetScale = 0.9f, animationSpec = tween(300)) +
+                            fadeOut(tween(300))
+                    }
+                },
+                label = "VideoPlayerTransition",
             ) { isVideoMode ->
                 if (isVideoMode) {
                     VideoPlayerScreen(viewModel = viewModel, onBack = { viewModel.closeVideo() })
@@ -293,13 +303,13 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                 } else {
                     // Animate transition between Tabs
                     AnimatedContent(
-                            targetState = selectedTab,
-                            transitionSpec = {
-                                // Standard Fade Through for Bottom Tabs
-                                fadeIn(animationSpec = tween(300)) togetherWith
-                                        fadeOut(animationSpec = tween(300))
-                            },
-                            label = "TabTransition"
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            // Standard Fade Through for Bottom Tabs
+                            fadeIn(animationSpec = tween(300)) togetherWith
+                                fadeOut(animationSpec = tween(300))
+                        },
+                        label = "TabTransition",
                     ) { targetTab ->
                         when (targetTab) {
                             0 -> {
@@ -310,44 +320,44 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
                                         onVideoClick = { file, list ->
                                             viewModel.playVideoFromList(file, list)
                                         },
-                                        isSearchVisible = isSearchVisible
+                                        isSearchVisible = isSearchVisible,
                                     )
                                 } else {
                                     VideoNavigationHost(
-                                            viewModel = viewModel,
-                                            navController = videoNavController,
-                                            onVideoClick = { file, list ->
-                                                viewModel.playVideoFromList(file, list)
-                                            },
-                                            isSearchVisible = isSearchVisible // Pass visibility
+                                        viewModel = viewModel,
+                                        navController = videoNavController,
+                                        onVideoClick = { file, list ->
+                                            viewModel.playVideoFromList(file, list)
+                                        },
+                                        isSearchVisible = isSearchVisible, // Pass visibility
                                     )
                                 }
                             }
                             1 ->
-                                    AudioNavigationHost(
-                                            viewModel = viewModel,
-                                            navController = audioNavController,
-                                            isSearchVisible = isSearchVisible // Pass visibility
-                                    )
+                                AudioNavigationHost(
+                                    viewModel = viewModel,
+                                    navController = audioNavController,
+                                    isSearchVisible = isSearchVisible, // Pass visibility
+                                )
                             2 ->
-                                    ImageListScreen(
-                                            viewModel = viewModel,
-                                            isSearchVisible = isSearchVisible // Pass visibility
-                                    )
+                                ImageListScreen(
+                                    viewModel = viewModel,
+                                    isSearchVisible = isSearchVisible, // Pass visibility
+                                )
                             3 ->
-                                    AdaptiveMeScreen(
-                                            viewModel = viewModel,
-                                            onPlayMedia = { file ->
-                                                viewModel.playMedia(file)
-                                                if (!file.isVideo) {
-                                                    selectedTab = 1 // Switch to Music tab
-                                                }
-                                            },
-                                            onNavigateToAccessibilityGuide = {
-                                                showAccessibilityGuide = true
-                                            },
-                                            isSearchVisible = isSearchVisible // Pass visibility
-                                    )
+                                AdaptiveMeScreen(
+                                    viewModel = viewModel,
+                                    onPlayMedia = { file ->
+                                        viewModel.playMedia(file)
+                                        if (!file.isVideo) {
+                                            selectedTab = 1 // Switch to Music tab
+                                        }
+                                    },
+                                    onNavigateToAccessibilityGuide = {
+                                        showAccessibilityGuide = true
+                                    },
+                                    isSearchVisible = isSearchVisible, // Pass visibility
+                                )
                         }
                     }
                 }
@@ -357,184 +367,208 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
 
     if (widthClass == AppWidthClass.Compact) {
         Scaffold(
-                // Custom Top Bar
-                topBar = {
-                    if (showHeader) {
-                        // Crossfade animation for headers to match tab switch
-                        AnimatedContent(
-                                targetState = selectedTab,
-                                transitionSpec = {
-                                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                                },
-                                label = "HeaderTransition"
-                        ) { targetTab ->
-                            val sectionTitle =
-                                    when (targetTab) {
-                                        0 -> "Videos"
-                                        1 -> "Music"
-                                        2 -> "Gallery"
-                                        3 -> "Stats"
-                                        else -> "App"
-                                    }
-                            FastBeatHeader(
-                                    sectionTitle = sectionTitle,
-                                    themeColor = themeColor,
-                                    onSearchClick = { isSearchVisible = !isSearchVisible }
-                            )
-                        }
+            // Custom Top Bar
+            topBar = {
+                if (showHeader) {
+                    // Crossfade animation for headers to match tab switch
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                        },
+                        label = "HeaderTransition",
+                    ) { targetTab ->
+                        val sectionTitle =
+                            when (targetTab) {
+                                0 -> "Videos"
+                                1 -> "Music"
+                                2 -> "Gallery"
+                                3 -> "Stats"
+                                else -> "App"
+                            }
+                        FastBeatHeader(
+                            sectionTitle = sectionTitle,
+                            themeColor = themeColor,
+                            onSearchClick = { isSearchVisible = !isSearchVisible },
+                        )
                     }
-                },
-                bottomBar = {
-                    if (!isVideoPlayingFullscreen) {
-                        // FastBeat Custom Navigation Bar
-                        val navContainerColor = MaterialTheme.colorScheme.background
-                        val primaryColor = LocalAppTheme.current.primaryColor
-                        val activeIndicatorColor = primaryColor.copy(alpha = 0.15f)
-                        val activeIconColor = primaryColor
-                        val inactiveIconColor =
-                                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                }
+            },
+            bottomBar = {
+                if (!isVideoPlayingFullscreen) {
+                    // FastBeat Custom Navigation Bar
+                    val navContainerColor = MaterialTheme.colorScheme.background
+                    val primaryColor = LocalAppTheme.current.primaryColor
+                    val activeIndicatorColor = primaryColor.copy(alpha = 0.15f)
+                    val activeIconColor = primaryColor
+                    val inactiveIconColor =
+                        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
 
-                        Column {
-                            HorizontalDivider(
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                            NavigationBar(
-                                    containerColor = navContainerColor,
-                                    contentColor = MaterialTheme.colorScheme.onBackground,
-                                    tonalElevation = 0.dp
-                            ) {
+                    Column {
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+                        NavigationBar(
+                            containerColor = navContainerColor,
+                            contentColor = MaterialTheme.colorScheme.onBackground,
+                            tonalElevation = 0.dp,
+                        ) {
                             // 0. Videos
                             NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                                if (selectedTab == 0) Icons.Filled.PlayArrow
-                                                else Icons.Outlined.PlayArrow,
-                                                "Videos"
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                                "Videos",
-                                                fontWeight =
-                                                        if (selectedTab == 0) FontWeight.Bold
-                                                        else FontWeight.Normal
-                                        )
-                                    },
-                                    selected = selectedTab == 0,
-                                    onClick = {
-                                        selectedTab = 0
-                                        showAccessibilityGuide = false
-                                    },
-                                    colors =
-                                            NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = activeIconColor,
-                                                    selectedTextColor = activeIconColor,
-                                                    indicatorColor = activeIndicatorColor,
-                                                    unselectedIconColor = inactiveIconColor,
-                                                    unselectedTextColor = inactiveIconColor
-                                            )
+                                icon = {
+                                    Icon(
+                                        if (selectedTab == 0) {
+                                            Icons.Filled.PlayArrow
+                                        } else {
+                                            Icons.Outlined.PlayArrow
+                                        },
+                                        "Videos",
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        "Videos",
+                                        fontWeight =
+                                            if (selectedTab == 0) {
+                                                FontWeight.Bold
+                                            } else {
+                                                FontWeight.Normal
+                                            },
+                                    )
+                                },
+                                selected = selectedTab == 0,
+                                onClick = {
+                                    selectedTab = 0
+                                    showAccessibilityGuide = false
+                                },
+                                colors =
+                                    NavigationBarItemDefaults.colors(
+                                        selectedIconColor = activeIconColor,
+                                        selectedTextColor = activeIconColor,
+                                        indicatorColor = activeIndicatorColor,
+                                        unselectedIconColor = inactiveIconColor,
+                                        unselectedTextColor = inactiveIconColor,
+                                    ),
                             )
 
                             // 1. Music
                             NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                                if (selectedTab == 1) Icons.Filled.MusicNote
-                                                else Icons.Outlined.MusicNote,
-                                                "Music"
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                                "Music",
-                                                fontWeight =
-                                                        if (selectedTab == 1) FontWeight.Bold
-                                                        else FontWeight.Normal
-                                        )
-                                    },
-                                    selected = selectedTab == 1,
-                                    onClick = {
-                                        selectedTab = 1
-                                        showAccessibilityGuide = false
-                                    },
-                                    colors =
-                                            NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = activeIconColor,
-                                                    selectedTextColor = activeIconColor,
-                                                    indicatorColor = activeIndicatorColor,
-                                                    unselectedIconColor = inactiveIconColor,
-                                                    unselectedTextColor = inactiveIconColor
-                                            )
+                                icon = {
+                                    Icon(
+                                        if (selectedTab == 1) {
+                                            Icons.Filled.MusicNote
+                                        } else {
+                                            Icons.Outlined.MusicNote
+                                        },
+                                        "Music",
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        "Music",
+                                        fontWeight =
+                                            if (selectedTab == 1) {
+                                                FontWeight.Bold
+                                            } else {
+                                                FontWeight.Normal
+                                            },
+                                    )
+                                },
+                                selected = selectedTab == 1,
+                                onClick = {
+                                    selectedTab = 1
+                                    showAccessibilityGuide = false
+                                },
+                                colors =
+                                    NavigationBarItemDefaults.colors(
+                                        selectedIconColor = activeIconColor,
+                                        selectedTextColor = activeIconColor,
+                                        indicatorColor = activeIndicatorColor,
+                                        unselectedIconColor = inactiveIconColor,
+                                        unselectedTextColor = inactiveIconColor,
+                                    ),
                             )
 
                             // 2. Images
                             NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                                if (selectedTab == 2) Icons.Filled.Image
-                                                else Icons.Outlined.Image,
-                                                "Images"
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                                "Images",
-                                                fontWeight =
-                                                        if (selectedTab == 2) FontWeight.Bold
-                                                        else FontWeight.Normal
-                                        )
-                                    },
-                                    selected = selectedTab == 2,
-                                    onClick = {
-                                        selectedTab = 2
-                                        showAccessibilityGuide = false
-                                    },
-                                    colors =
-                                            NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = activeIconColor,
-                                                    selectedTextColor = activeIconColor,
-                                                    indicatorColor = activeIndicatorColor,
-                                                    unselectedIconColor = inactiveIconColor,
-                                                    unselectedTextColor = inactiveIconColor
-                                            )
+                                icon = {
+                                    Icon(
+                                        if (selectedTab == 2) {
+                                            Icons.Filled.Image
+                                        } else {
+                                            Icons.Outlined.Image
+                                        },
+                                        "Images",
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        "Images",
+                                        fontWeight =
+                                            if (selectedTab == 2) {
+                                                FontWeight.Bold
+                                            } else {
+                                                FontWeight.Normal
+                                            },
+                                    )
+                                },
+                                selected = selectedTab == 2,
+                                onClick = {
+                                    selectedTab = 2
+                                    showAccessibilityGuide = false
+                                },
+                                colors =
+                                    NavigationBarItemDefaults.colors(
+                                        selectedIconColor = activeIconColor,
+                                        selectedTextColor = activeIconColor,
+                                        indicatorColor = activeIndicatorColor,
+                                        unselectedIconColor = inactiveIconColor,
+                                        unselectedTextColor = inactiveIconColor,
+                                    ),
                             )
 
                             // 3. Stats
                             NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                                if (selectedTab == 3) Icons.Filled.Analytics
-                                                else Icons.Outlined.Analytics,
-                                                "Stats"
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                                "Stats",
-                                                fontWeight =
-                                                        if (selectedTab == 3) FontWeight.Bold
-                                                        else FontWeight.Normal
-                                        )
-                                    },
-                                    selected = selectedTab == 3,
-                                    onClick = {
-                                        selectedTab = 3
-                                        showAccessibilityGuide = false
-                                    },
-                                    colors =
-                                            NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = activeIconColor,
-                                                    selectedTextColor = activeIconColor,
-                                                    indicatorColor = activeIndicatorColor,
-                                                    unselectedIconColor = inactiveIconColor,
-                                                    unselectedTextColor = inactiveIconColor
-                                            )
+                                icon = {
+                                    Icon(
+                                        if (selectedTab == 3) {
+                                            Icons.Filled.Analytics
+                                        } else {
+                                            Icons.Outlined.Analytics
+                                        },
+                                        "Stats",
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        "Stats",
+                                        fontWeight =
+                                            if (selectedTab == 3) {
+                                                FontWeight.Bold
+                                            } else {
+                                                FontWeight.Normal
+                                            },
+                                    )
+                                },
+                                selected = selectedTab == 3,
+                                onClick = {
+                                    selectedTab = 3
+                                    showAccessibilityGuide = false
+                                },
+                                colors =
+                                    NavigationBarItemDefaults.colors(
+                                        selectedIconColor = activeIconColor,
+                                        selectedTextColor = activeIconColor,
+                                        indicatorColor = activeIndicatorColor,
+                                        unselectedIconColor = inactiveIconColor,
+                                        unselectedTextColor = inactiveIconColor,
+                                    ),
                             )
-                        }
                         }
                     }
                 }
+            },
         ) { padding ->
             mainContent(padding)
         }
@@ -542,37 +576,40 @@ fun MediaPlayerAppContent(viewModel: PlaybackViewModel) {
         AdaptiveMainLayout(
             widthClass = widthClass,
             selectedTab = selectedTab,
-            onTabSelected = { 
+            onTabSelected = {
                 selectedTab = it
                 showAccessibilityGuide = false
             },
-            isVideoPlayingFullscreen = isVideoPlayingFullscreen
+            isVideoPlayingFullscreen = isVideoPlayingFullscreen,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (showHeader) {
                     AnimatedContent(
-                            targetState = selectedTab,
-                            transitionSpec = {
-                                fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                            },
-                            label = "HeaderTransition"
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                        },
+                        label = "HeaderTransition",
                     ) { targetTab ->
                         val sectionTitle =
-                                when (targetTab) {
-                                    0 -> "Videos"
-                                    1 -> "Music"
-                                    2 -> "Gallery"
-                                    3 -> "Stats"
-                                    else -> "App"
-                                }
+                            when (targetTab) {
+                                0 -> "Videos"
+                                1 -> "Music"
+                                2 -> "Gallery"
+                                3 -> "Stats"
+                                else -> "App"
+                            }
                         FastBeatHeader(
-                                sectionTitle = sectionTitle,
-                                themeColor = themeColor,
-                                onSearchClick = { isSearchVisible = !isSearchVisible }
+                            sectionTitle = sectionTitle,
+                            themeColor = themeColor,
+                            onSearchClick = { isSearchVisible = !isSearchVisible },
                         )
                     }
                 }
-                mainContent(androidx.compose.foundation.layout.PaddingValues(0.dp))
+                mainContent(
+                    androidx.compose.foundation.layout
+                        .PaddingValues(0.dp),
+                )
             }
         }
     }

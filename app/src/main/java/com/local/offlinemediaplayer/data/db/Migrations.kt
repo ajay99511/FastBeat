@@ -31,13 +31,13 @@ val MIGRATION_1_5 =
             // SQLite requires a DEFAULT when adding a NOT NULL column; v5 declares none, so these
             // seeds come from the Kotlin property defaults in Entities.kt. See DR-3.
             connection.execSQL(
-                "ALTER TABLE `playback_history` ADD COLUMN `duration` INTEGER NOT NULL DEFAULT 0"
+                "ALTER TABLE `playback_history` ADD COLUMN `duration` INTEGER NOT NULL DEFAULT 0",
             )
             connection.execSQL(
-                "ALTER TABLE `playback_history` ADD COLUMN `audioTrackIndex` INTEGER NOT NULL DEFAULT -1"
+                "ALTER TABLE `playback_history` ADD COLUMN `audioTrackIndex` INTEGER NOT NULL DEFAULT -1",
             )
             connection.execSQL(
-                "ALTER TABLE `playback_history` ADD COLUMN `subtitleTrackIndex` INTEGER NOT NULL DEFAULT -1"
+                "ALTER TABLE `playback_history` ADD COLUMN `subtitleTrackIndex` INTEGER NOT NULL DEFAULT -1",
             )
 
             // 2. 6 new tables. Created before their indices, and `playlists`
@@ -45,36 +45,36 @@ val MIGRATION_1_5 =
             // AUTOINCREMENT is load-bearing on `bookmarks.id` and `play_events.id` — without it
             // Room's TableInfo comparison fails.
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `playlists` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `isVideo` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+                "CREATE TABLE IF NOT EXISTS `playlists` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `isVideo` INTEGER NOT NULL, PRIMARY KEY(`id`))",
             )
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `playlist_media_cross_ref` (`playlistId` TEXT NOT NULL, `mediaId` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `mediaId`), FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                "CREATE TABLE IF NOT EXISTS `playlist_media_cross_ref` (`playlistId` TEXT NOT NULL, `mediaId` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `mediaId`), FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
             )
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `bookmarks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `label` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS `bookmarks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `label` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
             )
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `current_queue` (`mediaId` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`mediaId`))"
+                "CREATE TABLE IF NOT EXISTS `current_queue` (`mediaId` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`mediaId`))",
             )
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `daily_playtime` (`date` INTEGER NOT NULL, `totalPlaytimeMs` INTEGER NOT NULL, PRIMARY KEY(`date`))"
+                "CREATE TABLE IF NOT EXISTS `daily_playtime` (`date` INTEGER NOT NULL, `totalPlaytimeMs` INTEGER NOT NULL, PRIMARY KEY(`date`))",
             )
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `play_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS `play_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)",
             )
 
             // 3. 4 new indices.
             connection.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_playlist_media_cross_ref_playlistId` ON `playlist_media_cross_ref` (`playlistId`)"
+                "CREATE INDEX IF NOT EXISTS `index_playlist_media_cross_ref_playlistId` ON `playlist_media_cross_ref` (`playlistId`)",
             )
             connection.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_playlist_media_cross_ref_mediaId` ON `playlist_media_cross_ref` (`mediaId`)"
+                "CREATE INDEX IF NOT EXISTS `index_playlist_media_cross_ref_mediaId` ON `playlist_media_cross_ref` (`mediaId`)",
             )
             connection.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_play_events_mediaId` ON `play_events` (`mediaId`)"
+                "CREATE INDEX IF NOT EXISTS `index_play_events_mediaId` ON `play_events` (`mediaId`)",
             )
             connection.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_play_events_timestamp` ON `play_events` (`timestamp`)"
+                "CREATE INDEX IF NOT EXISTS `index_play_events_timestamp` ON `play_events` (`timestamp`)",
             )
 
             // No PRAGMA foreign_keys here: Room manages that around the migration transaction.

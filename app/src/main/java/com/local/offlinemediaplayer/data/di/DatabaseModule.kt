@@ -16,15 +16,17 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            "mediaplayer_db"
-        )
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+    ): AppDatabase =
+        Room
+            .databaseBuilder(
+                context,
+                AppDatabase::class.java,
+                "mediaplayer_db",
+            )
             // v1 users now keep their data instead of being wiped on upgrade.
             .addMigrations(MIGRATION_1_5)
             // `1` is deliberately still listed here, contrary to the P3-C card, which claimed
@@ -42,16 +44,13 @@ object DatabaseModule {
             // made deliberately: a silent wipe beats a crash loop.
             .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4)
             .build()
-    }
 
     @Provides
-    fun provideMediaDao(database: AppDatabase): MediaDao {
-        return database.mediaDao()
-    }
+    fun provideMediaDao(database: AppDatabase): MediaDao = database.mediaDao()
 
     @Provides
     @Singleton
-    fun provideThumbnailManager(@ApplicationContext context: Context): ThumbnailManager {
-        return ThumbnailManager(context)
-    }
+    fun provideThumbnailManager(
+        @ApplicationContext context: Context,
+    ): ThumbnailManager = ThumbnailManager(context)
 }

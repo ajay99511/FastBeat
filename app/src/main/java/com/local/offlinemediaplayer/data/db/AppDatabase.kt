@@ -12,10 +12,10 @@ import androidx.room.RoomDatabase
         BookmarkEntity::class,
         QueueItemEntity::class,
         DailyPlaytime::class,
-        PlayEvent::class
+        PlayEvent::class,
     ],
     version = 5, // Bumped version to 5 for Track Persistence
-    exportSchema = true
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun mediaDao(): MediaDao

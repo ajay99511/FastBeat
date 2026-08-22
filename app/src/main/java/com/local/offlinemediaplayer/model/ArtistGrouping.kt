@@ -30,7 +30,6 @@ package com.local.offlinemediaplayer.model
  *    comma ("Earth, Wind & Fire"); the SEPARATORS regex is the place to tune it.
  */
 object ArtistGrouping {
-
     const val UNKNOWN_ARTIST = "Unknown Artist"
 
     private val WHITESPACE = Regex("\\s+")
@@ -62,12 +61,18 @@ object ArtistGrouping {
 
         // Keep only the artist portion before the first spaced dash; if the tag
         // starts with the boundary, fall back to the whole string.
-        val artistPortion = cleaned.split(TITLE_BOUNDARY, limit = 2).first().trim()
-            .ifEmpty { cleaned }
+        val artistPortion =
+            cleaned
+                .split(TITLE_BOUNDARY, limit = 2)
+                .first()
+                .trim()
+                .ifEmpty { cleaned }
 
-        val names = artistPortion.split(SEPARATORS)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && HAS_LETTER.containsMatchIn(it) }
+        val names =
+            artistPortion
+                .split(SEPARATORS)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && HAS_LETTER.containsMatchIn(it) }
 
         return names.ifEmpty { listOf(UNKNOWN_ARTIST) }
     }
@@ -86,11 +91,13 @@ object ArtistGrouping {
         // ("A.R. Rahman" == "AR Rahman" == "a r rahman"), then re-normalize the
         // whitespace the removal may have exposed. Fall back to the plain
         // lowercase form if stripping dots would leave nothing.
-        val lower = cleaned.lowercase()
-            .replace(".", "")
-            .replace(WHITESPACE, " ")
-            .trim()
-            .ifEmpty { cleaned.lowercase() }
+        val lower =
+            cleaned
+                .lowercase()
+                .replace(".", "")
+                .replace(WHITESPACE, " ")
+                .trim()
+                .ifEmpty { cleaned.lowercase() }
         // Strip a single leading "the " but never reduce the name to nothing.
         val withoutThe = if (lower.startsWith("the ")) lower.removePrefix("the ").trim() else lower
         return withoutThe.ifEmpty { lower }
@@ -103,9 +110,10 @@ object ArtistGrouping {
      * for determinism.
      */
     fun displayName(names: Collection<String?>): String {
-        val cleaned = names
-            .map { it?.replace(WHITESPACE, " ")?.trim().orEmpty() }
-            .filter { it.isNotEmpty() }
+        val cleaned =
+            names
+                .map { it?.replace(WHITESPACE, " ")?.trim().orEmpty() }
+                .filter { it.isNotEmpty() }
 
         if (cleaned.isEmpty()) return UNKNOWN_ARTIST
 
@@ -116,9 +124,8 @@ object ArtistGrouping {
             .sortedWith(
                 compareByDescending<Map.Entry<String, Int>> { it.value }
                     .thenByDescending { it.key.length }
-                    .thenBy { it.key }
-            )
-            .first()
+                    .thenBy { it.key },
+            ).first()
             .key
     }
 }

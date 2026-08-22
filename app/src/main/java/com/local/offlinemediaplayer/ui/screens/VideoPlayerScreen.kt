@@ -3,8 +3,8 @@ package com.local.offlinemediaplayer.ui.screens
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
-import android.content.res.Configuration
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.media.AudioManager
 import android.os.Build
 import android.util.Log
@@ -22,9 +22,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,8 +44,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -76,9 +76,9 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import com.local.offlinemediaplayer.viewmodel.ResizeMode
 import com.local.offlinemediaplayer.viewmodel.TrackInfo
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.min
-import kotlinx.coroutines.delay
 
 private const val TAG = "VideoPlayerScreen"
 
@@ -86,15 +86,15 @@ private enum class GestureMode {
     NONE,
     VOLUME,
     BRIGHTNESS,
-    SEEK
+    SEEK,
 }
 
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerScreen(
-        viewModel: PlaybackViewModel,
-        playlistViewModel: PlaylistViewModel = hiltViewModel(),
-        onBack: () -> Unit
+    viewModel: PlaybackViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -135,12 +135,12 @@ fun VideoPlayerScreen(
 
     // External subtitle file picker
     val subtitlePickerLauncher =
-            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                if (uri != null) {
-                    viewModel.addExternalSubtitle(uri)
-                    showSubtitleTrackDialog = false
-                }
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                viewModel.addExternalSubtitle(uri)
+                showSubtitleTrackDialog = false
             }
+        }
 
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -164,7 +164,7 @@ fun VideoPlayerScreen(
 
     DisposableEffect(isVideoMetadataLoaded, videoSize) {
         val originalOrientation =
-                activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
         // Only enforce orientation if we have valid metadata
         if (isVideoMetadataLoaded && videoSize.width > 0 && videoSize.height > 0) {
@@ -222,10 +222,11 @@ fun VideoPlayerScreen(
             if (aspectRatio.numerator > 0 && aspectRatio.denominator > 0) {
                 try {
                     val params =
-                            PictureInPictureParams.Builder()
-                                    .setAspectRatio(aspectRatio)
-                                    .setAutoEnterEnabled(isPlaying)
-                                    .build()
+                        PictureInPictureParams
+                            .Builder()
+                            .setAspectRatio(aspectRatio)
+                            .setAutoEnterEnabled(isPlaying)
+                            .build()
                     activity?.setPictureInPictureParams(params)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to update picture-in-picture params for auto-enter", e)
@@ -235,24 +236,25 @@ fun VideoPlayerScreen(
     }
 
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                if (activity?.isInPictureInPictureMode == true) {
-                    viewModel.setPipMode(true)
-                }
-            } else if (event == Lifecycle.Event.ON_STOP) {
-                if (activity?.isInPictureInPictureMode == true) {
-                    // In PiP mode, let it keep playing
-                } else {
-                    // Not in PiP mode, explicitly pause video so audio doesn't leak into background
-                    viewModel.pauseVideo()
-                }
-            } else if (event == Lifecycle.Event.ON_RESUME) {
-                if (activity?.isInPictureInPictureMode == false) {
-                    viewModel.setPipMode(false)
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_PAUSE) {
+                    if (activity?.isInPictureInPictureMode == true) {
+                        viewModel.setPipMode(true)
+                    }
+                } else if (event == Lifecycle.Event.ON_STOP) {
+                    if (activity?.isInPictureInPictureMode == true) {
+                        // In PiP mode, let it keep playing
+                    } else {
+                        // Not in PiP mode, explicitly pause video so audio doesn't leak into background
+                        viewModel.pauseVideo()
+                    }
+                } else if (event == Lifecycle.Event.ON_RESUME) {
+                    if (activity?.isInPictureInPictureMode == false) {
+                        viewModel.setPipMode(false)
+                    }
                 }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -265,182 +267,196 @@ fun VideoPlayerScreen(
     }
 
     Box(
-            modifier =
-                    Modifier.fillMaxSize()
-                            .background(Color.Black)
-                            .pointerInput(isLocked, showBookmarksDialog) {
-                                if (isLocked || showBookmarksDialog) return@pointerInput
-                                detectTapGestures(
-                                        onTap = { isControlsVisible = !isControlsVisible },
-                                        onDoubleTap = { offset ->
-                                            if (offset.x > screenWidth / 2) viewModel.forward()
-                                            else viewModel.rewind()
-                                        },
-                                        onLongPress = {
-                                            if (isPlaying) {
-                                                isSpeedBoosting = true
-                                                viewModel.startSpeedBoost()
-                                            }
-                                        }
-                                )
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(isLocked, showBookmarksDialog) {
+                    if (isLocked || showBookmarksDialog) return@pointerInput
+                    detectTapGestures(
+                        onTap = { isControlsVisible = !isControlsVisible },
+                        onDoubleTap = { offset ->
+                            if (offset.x > screenWidth / 2) {
+                                viewModel.forward()
+                            } else {
+                                viewModel.rewind()
                             }
-                            .pointerInput(isLocked, showBookmarksDialog) {
-                                if (isLocked || showBookmarksDialog) return@pointerInput
-                                detectDragGestures(
-                                        onDragStart = { offset ->
-                                            accumulatedDragX = 0f
-                                            accumulatedDragY = 0f
-                                            gestureMode = GestureMode.NONE
-                                            initialVolume =
-                                                    audioManager.getStreamVolume(
-                                                            AudioManager.STREAM_MUSIC
-                                                    )
-                                            val layoutParams = activity?.window?.attributes
-                                            var bright = layoutParams?.screenBrightness ?: -1f
-                                            if (bright < 0)
-                                                    bright =
-                                                            viewModel.videoBrightness.value.takeIf {
-                                                                it >= 0f
-                                                            }
-                                                                    ?: 0.5f
-                                            initialBrightness = bright
-                                            initialSeekPosition = currentPosition
-                                        },
-                                        onDragEnd = {
-                                            if (gestureMode == GestureMode.SEEK)
-                                                    viewModel.seekTo(initialSeekPosition)
-                                            // Persist brightness once the gesture finishes so it
-                                            // survives relaunches, without writing on every frame.
-                                            if (gestureMode == GestureMode.BRIGHTNESS) {
-                                                val bright =
-                                                        activity?.window?.attributes?.screenBrightness
-                                                                ?: -1f
-                                                if (bright >= 0f) viewModel.setVideoBrightness(bright)
-                                            }
-                                            gestureMode = GestureMode.NONE
-                                            isControlsVisible = true
-                                        },
-                                        onDragCancel = { gestureMode = GestureMode.NONE },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            accumulatedDragX += dragAmount.x
-                                            accumulatedDragY += dragAmount.y
-
-                                            if (gestureMode == GestureMode.NONE) {
-                                                if (abs(accumulatedDragX) > abs(accumulatedDragY)) {
-                                                    if (abs(accumulatedDragX) > gestureThresholdPx)
-                                                            gestureMode = GestureMode.SEEK
-                                                } else {
-                                                    if (abs(accumulatedDragY) > gestureThresholdPx) {
-                                                        // Left = Brightness, Right = Volume (matches VLC/MX Player convention)
-                                                        gestureMode =
-                                                                if (change.position.x <
-                                                                                screenWidth / 2
-                                                                )
-                                                                        GestureMode.BRIGHTNESS
-                                                                else GestureMode.VOLUME
-                                                    }
-                                                }
-                                            }
-
-                                            when (gestureMode) {
-                                                GestureMode.VOLUME -> {
-                                                    val deltaPercent =
-                                                            -accumulatedDragY / screenHeight
-                                                    val newVol =
-                                                            (initialVolume +
-                                                                            (deltaPercent *
-                                                                                    maxVolume *
-                                                                                    3))
-                                                                    .toInt()
-                                                                    .coerceIn(0, maxVolume)
-                                                    audioManager.setStreamVolume(
-                                                            AudioManager.STREAM_MUSIC,
-                                                            newVol,
-                                                            0
-                                                    )
-                                                    gestureValue =
-                                                            newVol.toFloat() / maxVolume.toFloat()
-                                                    gestureText = "${(gestureValue * 100).toInt()}%"
-                                                }
-                                                GestureMode.BRIGHTNESS -> {
-                                                    val deltaPercent =
-                                                            -accumulatedDragY / screenHeight
-                                                    val newBright =
-                                                            (initialBrightness + (deltaPercent * 2))
-                                                                    .coerceIn(0.01f, 1f)
-                                                    val layoutParams = activity?.window?.attributes
-                                                    layoutParams?.screenBrightness = newBright
-                                                    activity?.window?.attributes = layoutParams
-                                                    gestureValue = newBright
-                                                    gestureText = "${(newBright * 100).toInt()}%"
-                                                }
-                                                GestureMode.SEEK -> {
-                                                    val deltaPercent =
-                                                            accumulatedDragX / screenWidth
-                                                    // Scale seek range based on video duration: 15% of total, capped at 120s, min 30s
-                                                    val maxSeekRange = min((duration * 0.15).toLong(), 120_000L).coerceAtLeast(30_000L)
-                                                    val seekChange = (deltaPercent * maxSeekRange).toLong()
-                                                    val newPos =
-                                                            (initialSeekPosition + seekChange)
-                                                                    .coerceIn(0, duration)
-                                                    initialSeekPosition = newPos
-                                                    gestureValue = newPos.toFloat()
-                                                    gestureText = FormatUtils.formatSeekTime(newPos, duration)
-                                                }
-                                                else -> {}
-                                            }
-                                        }
-                                )
+                        },
+                        onLongPress = {
+                            if (isPlaying) {
+                                isSpeedBoosting = true
+                                viewModel.startSpeedBoost()
                             }
-                            .pointerInput(isLocked, showBookmarksDialog, isSpeedBoosting) {
-                                if (isLocked || showBookmarksDialog) return@pointerInput
-                                awaitEachGesture {
-                                    // Wait for any finger down
-                                    awaitPointerEvent()
-                                    // Then keep consuming events until all fingers are lifted
-                                    do {
-                                        val event = awaitPointerEvent()
-                                        if (isSpeedBoosting && event.changes.all { it.changedToUp() }) {
-                                            isSpeedBoosting = false
-                                            viewModel.stopSpeedBoost()
-                                        }
-                                    } while (event.changes.any { it.pressed })
+                        },
+                    )
+                }.pointerInput(isLocked, showBookmarksDialog) {
+                    if (isLocked || showBookmarksDialog) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            accumulatedDragX = 0f
+                            accumulatedDragY = 0f
+                            gestureMode = GestureMode.NONE
+                            initialVolume =
+                                audioManager.getStreamVolume(
+                                    AudioManager.STREAM_MUSIC,
+                                )
+                            val layoutParams = activity?.window?.attributes
+                            var bright = layoutParams?.screenBrightness ?: -1f
+                            if (bright < 0) {
+                                bright =
+                                    viewModel.videoBrightness.value.takeIf {
+                                        it >= 0f
+                                    }
+                                        ?: 0.5f
+                            }
+                            initialBrightness = bright
+                            initialSeekPosition = currentPosition
+                        },
+                        onDragEnd = {
+                            if (gestureMode == GestureMode.SEEK) {
+                                viewModel.seekTo(initialSeekPosition)
+                            }
+                            // Persist brightness once the gesture finishes so it
+                            // survives relaunches, without writing on every frame.
+                            if (gestureMode == GestureMode.BRIGHTNESS) {
+                                val bright =
+                                    activity?.window?.attributes?.screenBrightness
+                                        ?: -1f
+                                if (bright >= 0f) viewModel.setVideoBrightness(bright)
+                            }
+                            gestureMode = GestureMode.NONE
+                            isControlsVisible = true
+                        },
+                        onDragCancel = { gestureMode = GestureMode.NONE },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            accumulatedDragX += dragAmount.x
+                            accumulatedDragY += dragAmount.y
+
+                            if (gestureMode == GestureMode.NONE) {
+                                if (abs(accumulatedDragX) > abs(accumulatedDragY)) {
+                                    if (abs(accumulatedDragX) > gestureThresholdPx) {
+                                        gestureMode = GestureMode.SEEK
+                                    }
+                                } else {
+                                    if (abs(accumulatedDragY) > gestureThresholdPx) {
+                                        // Left = Brightness, Right = Volume (matches VLC/MX Player convention)
+                                        gestureMode =
+                                            if (change.position.x <
+                                                screenWidth / 2
+                                            ) {
+                                                GestureMode.BRIGHTNESS
+                                            } else {
+                                                GestureMode.VOLUME
+                                            }
+                                    }
                                 }
                             }
+
+                            when (gestureMode) {
+                                GestureMode.VOLUME -> {
+                                    val deltaPercent =
+                                        -accumulatedDragY / screenHeight
+                                    val newVol =
+                                        (
+                                            initialVolume +
+                                                (
+                                                    deltaPercent *
+                                                        maxVolume *
+                                                        3
+                                                )
+                                        ).toInt()
+                                            .coerceIn(0, maxVolume)
+                                    audioManager.setStreamVolume(
+                                        AudioManager.STREAM_MUSIC,
+                                        newVol,
+                                        0,
+                                    )
+                                    gestureValue =
+                                        newVol.toFloat() / maxVolume.toFloat()
+                                    gestureText = "${(gestureValue * 100).toInt()}%"
+                                }
+                                GestureMode.BRIGHTNESS -> {
+                                    val deltaPercent =
+                                        -accumulatedDragY / screenHeight
+                                    val newBright =
+                                        (initialBrightness + (deltaPercent * 2))
+                                            .coerceIn(0.01f, 1f)
+                                    val layoutParams = activity?.window?.attributes
+                                    layoutParams?.screenBrightness = newBright
+                                    activity?.window?.attributes = layoutParams
+                                    gestureValue = newBright
+                                    gestureText = "${(newBright * 100).toInt()}%"
+                                }
+                                GestureMode.SEEK -> {
+                                    val deltaPercent =
+                                        accumulatedDragX / screenWidth
+                                    // Scale seek range based on video duration: 15% of total, capped at 120s, min 30s
+                                    val maxSeekRange =
+                                        min(
+                                            (duration * 0.15).toLong(),
+                                            120_000L,
+                                        ).coerceAtLeast(30_000L)
+                                    val seekChange = (deltaPercent * maxSeekRange).toLong()
+                                    val newPos =
+                                        (initialSeekPosition + seekChange)
+                                            .coerceIn(0, duration)
+                                    initialSeekPosition = newPos
+                                    gestureValue = newPos.toFloat()
+                                    gestureText = FormatUtils.formatSeekTime(newPos, duration)
+                                }
+                                else -> {}
+                            }
+                        },
+                    )
+                }.pointerInput(isLocked, showBookmarksDialog, isSpeedBoosting) {
+                    if (isLocked || showBookmarksDialog) return@pointerInput
+                    awaitEachGesture {
+                        // Wait for any finger down
+                        awaitPointerEvent()
+                        // Then keep consuming events until all fingers are lifted
+                        do {
+                            val event = awaitPointerEvent()
+                            if (isSpeedBoosting && event.changes.all { it.changedToUp() }) {
+                                isSpeedBoosting = false
+                                viewModel.stopSpeedBoost()
+                            }
+                        } while (event.changes.any { it.pressed })
+                    }
+                },
     ) {
         if (player != null) {
             AndroidView(
-                    factory = { ctx ->
-                        PlayerView(ctx).apply {
-                            this.player = player
-                            this.useController = false
-                            this.layoutParams =
-                                    FrameLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                            this.keepScreenOn = true
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        this.player = player
+                        this.useController = false
+                        this.layoutParams =
+                            FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                        this.keepScreenOn = true
+                    }
+                },
+                update = { playerView ->
+                    playerView.player = player
+                    playerView.resizeMode =
+                        when (resizeMode) {
+                            ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            ResizeMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                            ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         }
-                    },
-                    update = { playerView ->
-                        playerView.player = player
-                        playerView.resizeMode =
-                                when (resizeMode) {
-                                    ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                    ResizeMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-                                    ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                }
-                    },
-                    modifier = Modifier.fillMaxSize()
+                },
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
         CenterGestureOverlay(
-                mode = gestureMode,
-                value = gestureValue,
-                text = gestureText,
-                primaryAccent
+            mode = gestureMode,
+            value = gestureValue,
+            text = gestureText,
+            primaryAccent,
         )
 
         // Buffering Indicator
@@ -448,14 +464,14 @@ fun VideoPlayerScreen(
 
         // Error Overlay
         ErrorOverlay(
-                error = playerError,
-                onDismiss = { viewModel.dismissPlayerError() },
-                onRetry = {
-                    viewModel.dismissPlayerError()
-                    player?.prepare()
-                    player?.play()
-                },
-                accentColor = primaryAccent
+            error = playerError,
+            onDismiss = { viewModel.dismissPlayerError() },
+            onRetry = {
+                viewModel.dismissPlayerError()
+                player?.prepare()
+                player?.play()
+            },
+            accentColor = primaryAccent,
         )
 
         // Speed Boost Indicator
@@ -463,114 +479,115 @@ fun VideoPlayerScreen(
 
         if (!isInPip) {
             VideoPlayerControls(
-                    viewModel = viewModel,
-                    isVisible = isControlsVisible,
-                    onBack = onBack,
-                    onPip = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            val aspectRatio = calculatePipAspectRatio(videoSize)
-                            try {
-                                val params =
-                                        PictureInPictureParams.Builder()
-                                                .setAspectRatio(aspectRatio)
-                                                .build()
-                                activity?.enterPictureInPictureMode(params)
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to enter picture-in-picture from the player controls", e)
-                            }
+                viewModel = viewModel,
+                isVisible = isControlsVisible,
+                onBack = onBack,
+                onPip = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val aspectRatio = calculatePipAspectRatio(videoSize)
+                        try {
+                            val params =
+                                PictureInPictureParams
+                                    .Builder()
+                                    .setAspectRatio(aspectRatio)
+                                    .build()
+                            activity?.enterPictureInPictureMode(params)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to enter picture-in-picture from the player controls", e)
                         }
-                    },
-                    onRotate = {
-                        if (activity?.requestedOrientation ==
-                                        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                        ) {
-                            activity.requestedOrientation =
-                                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                        } else {
-                            activity?.requestedOrientation =
-                                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                        }
-                    },
-                    onShowBookmarks = {
-                        viewModel.pauseVideo()
-                        showBookmarksDialog = true
-                    },
-                    onShowAudioTracks = { showAudioTrackDialog = true },
-                    onShowSubtitleTracks = { showSubtitleTrackDialog = true },
-                    onShowAddToPlaylist = { showAddToPlaylistDialog = true }
+                    }
+                },
+                onRotate = {
+                    if (activity?.requestedOrientation ==
+                        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    ) {
+                        activity.requestedOrientation =
+                            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                    } else {
+                        activity?.requestedOrientation =
+                            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    }
+                },
+                onShowBookmarks = {
+                    viewModel.pauseVideo()
+                    showBookmarksDialog = true
+                },
+                onShowAudioTracks = { showAudioTrackDialog = true },
+                onShowSubtitleTracks = { showSubtitleTrackDialog = true },
+                onShowAddToPlaylist = { showAddToPlaylistDialog = true },
             )
         }
 
         // Bookmarks Overlay
         if (showBookmarksDialog) {
             BookmarksDialog(
-                    viewModel = viewModel,
-                    currentPosition = currentPosition,
-                    onDismiss = { showBookmarksDialog = false },
-                    onSeek = { pos ->
-                        viewModel.seekTo(pos)
-                        showBookmarksDialog = false
-                        player?.play()
-                    }
+                viewModel = viewModel,
+                currentPosition = currentPosition,
+                onDismiss = { showBookmarksDialog = false },
+                onSeek = { pos ->
+                    viewModel.seekTo(pos)
+                    showBookmarksDialog = false
+                    player?.play()
+                },
             )
         }
 
         // Audio Track Selection Dialog
         if (showAudioTrackDialog) {
             TrackSelectionDialog(
-                    title = "Audio Tracks",
-                    tracks = viewModel.getAudioTracks(),
-                    showOffOption = false,
-                    isOffSelected = false,
-                    onTrackSelected = { groupIndex, trackIndex ->
-                        viewModel.selectAudioTrack(groupIndex, trackIndex)
-                        showAudioTrackDialog = false
-                    },
-                    onOffSelected = {},
-                    onDismiss = { showAudioTrackDialog = false }
+                title = "Audio Tracks",
+                tracks = viewModel.getAudioTracks(),
+                showOffOption = false,
+                isOffSelected = false,
+                onTrackSelected = { groupIndex, trackIndex ->
+                    viewModel.selectAudioTrack(groupIndex, trackIndex)
+                    showAudioTrackDialog = false
+                },
+                onOffSelected = {},
+                onDismiss = { showAudioTrackDialog = false },
             )
         }
 
         // Subtitle Track Selection Dialog
         if (showSubtitleTrackDialog) {
             TrackSelectionDialog(
-                    title = "Subtitles",
-                    tracks = viewModel.getSubtitleTracks(),
-                    showOffOption = true,
-                    isOffSelected = viewModel.areSubtitlesDisabled(),
-                    onTrackSelected = { groupIndex, trackIndex ->
-                        viewModel.selectSubtitleTrack(groupIndex, trackIndex)
-                        showSubtitleTrackDialog = false
-                    },
-                    onOffSelected = {
-                        viewModel.disableSubtitles()
-                        showSubtitleTrackDialog = false
-                    },
-                    onDismiss = { showSubtitleTrackDialog = false },
-                    onAddExternal = {
-                        // Allow any file type — .srt MIME reporting is inconsistent across providers
-                        subtitlePickerLauncher.launch(arrayOf("*/*"))
-                    }
+                title = "Subtitles",
+                tracks = viewModel.getSubtitleTracks(),
+                showOffOption = true,
+                isOffSelected = viewModel.areSubtitlesDisabled(),
+                onTrackSelected = { groupIndex, trackIndex ->
+                    viewModel.selectSubtitleTrack(groupIndex, trackIndex)
+                    showSubtitleTrackDialog = false
+                },
+                onOffSelected = {
+                    viewModel.disableSubtitles()
+                    showSubtitleTrackDialog = false
+                },
+                onDismiss = { showSubtitleTrackDialog = false },
+                onAddExternal = {
+                    // Allow any file type — .srt MIME reporting is inconsistent across providers
+                    subtitlePickerLauncher.launch(arrayOf("*/*"))
+                },
             )
         }
 
         // Add to Playlist Dialog
         if (showAddToPlaylistDialog && currentTrack != null) {
             AddToPlaylistDialog(
-                    song = currentTrack!!,
-                    playlistViewModel = playlistViewModel,
-                    onDismiss = { showAddToPlaylistDialog = false },
-                    onCreateNew = { showCreatePlaylistDialog = true }
+                song = currentTrack!!,
+                playlistViewModel = playlistViewModel,
+                onDismiss = { showAddToPlaylistDialog = false },
+                onCreateNew = { showCreatePlaylistDialog = true },
             )
         }
 
         // Create Playlist Dialog
         if (showCreatePlaylistDialog) {
             CreatePlaylistDialog(
-                    onDismiss = { showCreatePlaylistDialog = false },
-                    onCreate = { name ->
-                        playlistViewModel.createPlaylist(name, currentTrack?.isVideo ?: true)
-                    }
+                onDismiss = { showCreatePlaylistDialog = false },
+                onCreate = { name ->
+                    playlistViewModel.createPlaylist(name, currentTrack?.isVideo ?: true)
+                },
             )
         }
     }
@@ -578,63 +595,67 @@ fun VideoPlayerScreen(
 
 @Composable
 fun BookmarksDialog(
-        viewModel: PlaybackViewModel,
-        currentPosition: Long,
-        onDismiss: () -> Unit,
-        onSeek: (Long) -> Unit
+    viewModel: PlaybackViewModel,
+    currentPosition: Long,
+    onDismiss: () -> Unit,
+    onSeek: (Long) -> Unit,
 ) {
     val bookmarks by viewModel.currentBookmarks.collectAsStateWithLifecycle()
     var newLabel by remember { mutableStateOf("") }
 
     Box(
-            modifier =
-                    Modifier.fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.8f))
-                            .clickable(onClick = onDismiss),
-            contentAlignment = Alignment.CenterEnd
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.8f))
+                .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.CenterEnd,
     ) {
         Column(
-                modifier =
-                        Modifier.fillMaxHeight()
-                                .widthIn(min = 280.dp, max = 400.dp)
-                                .fillMaxWidth(0.45f)
-                                .background(Color(0xFF1E1E24))
-                                .clickable(enabled = false) {} // Prevent click through
-                                .padding(16.dp)
+            modifier =
+                Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = 280.dp, max = 400.dp)
+                    .fillMaxWidth(0.45f)
+                    .background(Color(0xFF1E1E24))
+                    .clickable(enabled = false) {} // Prevent click through
+                    .padding(16.dp),
         ) {
             Text(
-                    "Bookmarks / Chapters",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White
+                "Bookmarks / Chapters",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White,
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             // Add Bookmark Input
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
-                        value = newLabel,
-                        onValueChange = { newLabel = it },
-                        placeholder = { Text("Chapter Name", color = Color.Gray) },
-                        modifier = Modifier.weight(1f),
-                        colors =
-                                OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = Color.Gray
-                                ),
-                        singleLine = true
+                    value = newLabel,
+                    onValueChange = { newLabel = it },
+                    placeholder = { Text("Chapter Name", color = Color.Gray) },
+                    modifier = Modifier.weight(1f),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = Color.Gray,
+                        ),
+                    singleLine = true,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
-                        onClick = {
-                            val label =
-                                    if (newLabel.isBlank())
-                                            "Chapter at ${FormatUtils.formatDuration(currentPosition)}"
-                                    else newLabel
-                            viewModel.addBookmark(currentPosition, label)
-                            newLabel = ""
-                        }
+                    onClick = {
+                        val label =
+                            if (newLabel.isBlank()) {
+                                "Chapter at ${FormatUtils.formatDuration(currentPosition)}"
+                            } else {
+                                newLabel
+                            }
+                        viewModel.addBookmark(currentPosition, label)
+                        newLabel = ""
+                    },
                 ) { Icon(Icons.Default.Add, null) }
             }
 
@@ -642,40 +663,40 @@ fun BookmarksDialog(
             HorizontalDivider(
                 Modifier,
                 DividerDefaults.Thickness,
-                color = Color.Gray.copy(alpha = 0.3f)
+                color = Color.Gray.copy(alpha = 0.3f),
             )
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f),
             ) {
                 items(bookmarks) { bookmark ->
                     Row(
-                            modifier =
-                                    Modifier.fillMaxWidth()
-                                            .background(
-                                                    Color.Black.copy(alpha = 0.3f),
-                                                    RoundedCornerShape(8.dp)
-                                            )
-                                            .clickable { onSeek(bookmark.timestamp) }
-                                            .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Color.Black.copy(alpha = 0.3f),
+                                    RoundedCornerShape(8.dp),
+                                ).clickable { onSeek(bookmark.timestamp) }
+                                .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(bookmark.label, color = Color.White, fontWeight = FontWeight.Bold)
                             Text(
-                                    FormatUtils.formatDuration(bookmark.timestamp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodySmall
+                                FormatUtils.formatDuration(bookmark.timestamp),
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall,
                             )
                         }
                         IconButton(onClick = { viewModel.deleteBookmark(bookmark.id) }) {
                             Icon(
-                                    Icons.Default.Delete,
-                                    "Delete bookmark",
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(20.dp)
+                                Icons.Default.Delete,
+                                "Delete bookmark",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
@@ -687,60 +708,63 @@ fun BookmarksDialog(
 
 @Composable
 private fun CenterGestureOverlay(
-        mode: GestureMode,
-        value: Float,
-        text: String,
-        accentColor: Color
+    mode: GestureMode,
+    value: Float,
+    text: String,
+    accentColor: Color,
 ) {
     if (mode == GestureMode.NONE) return
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Box(
-                modifier =
-                        Modifier.size(120.dp)
-                                .background(
-                                        Color.Black.copy(alpha = 0.7f),
-                                        RoundedCornerShape(16.dp)
-                                )
-                                .padding(16.dp),
-                contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .size(120.dp)
+                    .background(
+                        Color.Black.copy(alpha = 0.7f),
+                        RoundedCornerShape(16.dp),
+                    ).padding(16.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val icon =
-                        when (mode) {
-                            GestureMode.VOLUME -> Icons.AutoMirrored.Outlined.VolumeUp
-                            GestureMode.BRIGHTNESS -> Icons.Outlined.BrightnessHigh
-                            GestureMode.SEEK ->
-                                    if (text.contains("-")) Icons.Default.FastRewind
-                                    else Icons.Default.FastForward
-                            else -> Icons.Default.Info
-                        }
+                    when (mode) {
+                        GestureMode.VOLUME -> Icons.AutoMirrored.Outlined.VolumeUp
+                        GestureMode.BRIGHTNESS -> Icons.Outlined.BrightnessHigh
+                        GestureMode.SEEK ->
+                            if (text.contains("-")) {
+                                Icons.Default.FastRewind
+                            } else {
+                                Icons.Default.FastForward
+                            }
+                        else -> Icons.Default.Info
+                    }
                 val iconDescription =
-                        when (mode) {
-                            GestureMode.VOLUME -> "Volume"
-                            GestureMode.BRIGHTNESS -> "Brightness"
-                            GestureMode.SEEK -> "Seek"
-                            else -> null
-                        }
+                    when (mode) {
+                        GestureMode.VOLUME -> "Volume"
+                        GestureMode.BRIGHTNESS -> "Brightness"
+                        GestureMode.SEEK -> "Seek"
+                        else -> null
+                    }
                 Icon(
-                        imageVector = icon,
-                        contentDescription = iconDescription,
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                    imageVector = icon,
+                    contentDescription = iconDescription,
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                        text = text,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    text = text,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (mode == GestureMode.VOLUME || mode == GestureMode.BRIGHTNESS) {
                     LinearProgressIndicator(
-                            progress = { value.coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth().height(4.dp),
-                            color = accentColor,
-                            trackColor = Color.White.copy(alpha = 0.3f)
+                        progress = { value.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = accentColor,
+                        trackColor = Color.White.copy(alpha = 0.3f),
                     )
                 }
             }
@@ -751,20 +775,20 @@ private fun CenterGestureOverlay(
 @Composable
 private fun BufferingOverlay(isBuffering: Boolean) {
     AnimatedVisibility(
-            visible = isBuffering,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
+        visible = isBuffering,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = Modifier.fillMaxSize(),
     ) {
         Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
         ) {
             CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = Color.White,
-                    strokeWidth = 3.dp,
-                    trackColor = Color.White.copy(alpha = 0.2f)
+                modifier = Modifier.size(48.dp),
+                color = Color.White,
+                strokeWidth = 3.dp,
+                trackColor = Color.White.copy(alpha = 0.2f),
             )
         }
     }
@@ -772,73 +796,75 @@ private fun BufferingOverlay(isBuffering: Boolean) {
 
 @Composable
 private fun ErrorOverlay(
-        error: String?,
-        onDismiss: () -> Unit,
-        onRetry: () -> Unit,
-        accentColor: Color
+    error: String?,
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit,
+    accentColor: Color,
 ) {
     if (error == null) return
 
     Box(
-            modifier =
-                    Modifier.fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.85f)),
-            contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f)),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(32.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp),
         ) {
             Box(
-                    modifier =
-                            Modifier.size(64.dp)
-                                    .background(
-                                            Color.White.copy(alpha = 0.1f),
-                                            CircleShape
-                                    ),
-                    contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(64.dp)
+                        .background(
+                            Color.White.copy(alpha = 0.1f),
+                            CircleShape,
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                        imageVector = Icons.Outlined.ErrorOutline,
-                        contentDescription = "Playback error",
-                        tint = Color(0xFFFF6B6B),
-                        modifier = Modifier.size(36.dp)
+                    imageVector = Icons.Outlined.ErrorOutline,
+                    contentDescription = "Playback error",
+                    tint = Color(0xFFFF6B6B),
+                    modifier = Modifier.size(36.dp),
                 )
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                    text = "Playback Error",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                text = "Playback Error",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                    text = error,
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                text = error,
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(modifier = Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
-                        onClick = onDismiss,
-                        colors =
-                                ButtonDefaults.outlinedButtonColors(
-                                        contentColor = Color.White
-                                )
+                    onClick = onDismiss,
+                    colors =
+                        ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White,
+                        ),
                 ) { Text("Dismiss") }
                 Button(
-                        onClick = onRetry,
-                        colors =
-                                ButtonDefaults.buttonColors(
-                                        containerColor = accentColor
-                                )
+                    onClick = onRetry,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = accentColor,
+                        ),
                 ) {
                     Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                        Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Retry")
@@ -851,36 +877,36 @@ private fun ErrorOverlay(
 @Composable
 private fun SpeedBoostOverlay(isActive: Boolean) {
     AnimatedVisibility(
-            visible = isActive,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
+        visible = isActive,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = Modifier.fillMaxSize(),
     ) {
         Box(
-                modifier = Modifier.fillMaxSize().padding(top = 80.dp),
-                contentAlignment = Alignment.TopCenter
+            modifier = Modifier.fillMaxSize().padding(top = 80.dp),
+            contentAlignment = Alignment.TopCenter,
         ) {
             Row(
-                    modifier =
-                            Modifier.background(
-                                            Color.Black.copy(alpha = 0.6f),
-                                            RoundedCornerShape(20.dp)
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                modifier =
+                    Modifier
+                        .background(
+                            Color.Black.copy(alpha = 0.6f),
+                            RoundedCornerShape(20.dp),
+                        ).padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(
-                        imageVector = Icons.Default.FastForward,
-                        contentDescription = "Speed boost active",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                    imageVector = Icons.Default.FastForward,
+                    contentDescription = "Speed boost active",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp),
                 )
                 Text(
-                        text = "2x",
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
+                    text = "2x",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
@@ -889,15 +915,15 @@ private fun SpeedBoostOverlay(isActive: Boolean) {
 
 @Composable
 fun VideoPlayerControls(
-        viewModel: PlaybackViewModel,
-        isVisible: Boolean,
-        onBack: () -> Unit,
-        onPip: () -> Unit,
-        onRotate: () -> Unit,
-        onShowBookmarks: () -> Unit,
-        onShowAudioTracks: () -> Unit,
-        onShowSubtitleTracks: () -> Unit,
-        onShowAddToPlaylist: () -> Unit
+    viewModel: PlaybackViewModel,
+    isVisible: Boolean,
+    onBack: () -> Unit,
+    onPip: () -> Unit,
+    onRotate: () -> Unit,
+    onShowBookmarks: () -> Unit,
+    onShowAudioTracks: () -> Unit,
+    onShowSubtitleTracks: () -> Unit,
+    onShowAddToPlaylist: () -> Unit,
 ) {
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -917,39 +943,41 @@ fun VideoPlayerControls(
         // Gradient scrims — kept in both orientations so controls stay legible over any
         // video aspect ratio (letterbox height varies with content).
         AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.fillMaxSize()
+            visible = isVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize(),
         ) {
             Box(Modifier.fillMaxSize()) {
                 Box(
-                        modifier =
-                                Modifier.fillMaxWidth()
-                                        .height(120.dp)
-                                        .align(Alignment.TopCenter)
-                                        .background(
-                                                Brush.verticalGradient(
-                                                        listOf(
-                                                                Color.Black.copy(alpha = 0.75f),
-                                                                Color.Transparent
-                                                        )
-                                                )
-                                        )
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color.Black.copy(alpha = 0.75f),
+                                        Color.Transparent,
+                                    ),
+                                ),
+                            ),
                 )
                 Box(
-                        modifier =
-                                Modifier.fillMaxWidth()
-                                        .height(200.dp)
-                                        .align(Alignment.BottomCenter)
-                                        .background(
-                                                Brush.verticalGradient(
-                                                        listOf(
-                                                                Color.Transparent,
-                                                                Color.Black.copy(alpha = 0.9f)
-                                                        )
-                                                )
-                                        )
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.9f),
+                                    ),
+                                ),
+                            ),
                 )
             }
         }
@@ -957,60 +985,61 @@ fun VideoPlayerControls(
         // Lock button floats at the left-center of the video surface in both modes.
         if (isVisible || isLocked) {
             IconButton(
-                    onClick = { viewModel.toggleLock() },
-                    modifier =
-                            Modifier.align(Alignment.CenterStart)
-                                    .windowInsetsPadding(WindowInsets.displayCutout)
-                                    .padding(start = 24.dp)
-                                    .background(Color.White.copy(alpha = 0.2f), CircleShape)
-                                    .size(48.dp)
+                onClick = { viewModel.toggleLock() },
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .windowInsetsPadding(WindowInsets.displayCutout)
+                        .padding(start = 24.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                        .size(48.dp),
             ) {
                 Icon(
-                        imageVector =
-                                if (isLocked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
-                        contentDescription = if (isLocked) "Unlock controls" else "Lock controls",
-                        tint = Color.White
+                    imageVector =
+                        if (isLocked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+                    contentDescription = if (isLocked) "Unlock controls" else "Lock controls",
+                    tint = Color.White,
                 )
             }
         }
 
         AnimatedVisibility(
-                visible = isVisible && !isLocked,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.fillMaxSize()
+            visible = isVisible && !isLocked,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize(),
         ) {
             Box(Modifier.fillMaxSize()) {
                 PlayerTopBar(
-                        title = currentTrack?.title ?: "Video",
-                        isLandscape = isLandscape,
-                        onBack = onBack,
-                        onResize = { viewModel.toggleResizeMode() },
-                        onShowBookmarks = onShowBookmarks,
-                        onShowSubtitleTracks = onShowSubtitleTracks,
-                        onShowAudioTracks = onShowAudioTracks,
-                        onPip = onPip,
-                        onShowAddToPlaylist = onShowAddToPlaylist,
-                        modifier = Modifier.align(Alignment.TopCenter)
+                    title = currentTrack?.title ?: "Video",
+                    isLandscape = isLandscape,
+                    onBack = onBack,
+                    onResize = { viewModel.toggleResizeMode() },
+                    onShowBookmarks = onShowBookmarks,
+                    onShowSubtitleTracks = onShowSubtitleTracks,
+                    onShowAudioTracks = onShowAudioTracks,
+                    onPip = onPip,
+                    onShowAddToPlaylist = onShowAddToPlaylist,
+                    modifier = Modifier.align(Alignment.TopCenter),
                 )
 
                 PlayerBottomControls(
-                        isPlaying = isPlaying,
-                        position = position,
-                        duration = duration,
-                        playbackSpeed = playbackSpeed,
-                        showRemainingTime = showRemainingTime,
-                        onToggleRemaining = { showRemainingTime = !showRemainingTime },
-                        primaryAccent = primaryAccent,
-                        onSeek = { viewModel.seekTo(it) },
-                        onPrevious = { viewModel.playPrevious() },
-                        onRewind = { viewModel.rewind() },
-                        onTogglePlay = { viewModel.togglePlayPause() },
-                        onForward = { viewModel.forward() },
-                        onNext = { viewModel.playNext() },
-                        onCycleSpeed = { viewModel.cyclePlaybackSpeed() },
-                        onRotate = onRotate,
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                    isPlaying = isPlaying,
+                    position = position,
+                    duration = duration,
+                    playbackSpeed = playbackSpeed,
+                    showRemainingTime = showRemainingTime,
+                    onToggleRemaining = { showRemainingTime = !showRemainingTime },
+                    primaryAccent = primaryAccent,
+                    onSeek = { viewModel.seekTo(it) },
+                    onPrevious = { viewModel.playPrevious() },
+                    onRewind = { viewModel.rewind() },
+                    onTogglePlay = { viewModel.togglePlayPause() },
+                    onForward = { viewModel.forward() },
+                    onNext = { viewModel.playNext() },
+                    onCycleSpeed = { viewModel.cyclePlaybackSpeed() },
+                    onRotate = onRotate,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
         }
@@ -1019,23 +1048,24 @@ fun VideoPlayerControls(
 
 @Composable
 private fun PlayerTopBar(
-        title: String,
-        isLandscape: Boolean,
-        onBack: () -> Unit,
-        onResize: () -> Unit,
-        onShowBookmarks: () -> Unit,
-        onShowSubtitleTracks: () -> Unit,
-        onShowAudioTracks: () -> Unit,
-        onPip: () -> Unit,
-        onShowAddToPlaylist: () -> Unit,
-        modifier: Modifier = Modifier
+    title: String,
+    isLandscape: Boolean,
+    onBack: () -> Unit,
+    onResize: () -> Unit,
+    onShowBookmarks: () -> Unit,
+    onShowSubtitleTracks: () -> Unit,
+    onShowAudioTracks: () -> Unit,
+    onPip: () -> Unit,
+    onShowAddToPlaylist: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-            modifier =
-                    modifier.fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.displayCutout)
-                            .padding(top = 12.dp, start = 8.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .padding(top = 12.dp, start = 8.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White)
@@ -1043,39 +1073,39 @@ private fun PlayerTopBar(
         if (isLandscape) {
             // Plain title text on the left.
             Text(
-                    text = title,
-                    color = Color.White,
-                    style =
-                            MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold
-                            ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                text = title,
+                color = Color.White,
+                style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                    ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
         } else {
             // Title in a rounded pill/chip.
             Box(
-                    modifier =
-                            Modifier.weight(1f, fill = false)
-                                    .clip(RoundedCornerShape(50))
-                                    .border(
-                                            1.dp,
-                                            Color.White.copy(alpha = 0.3f),
-                                            RoundedCornerShape(50)
-                                    )
-                                    .background(Color.White.copy(alpha = 0.08f))
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                modifier =
+                    Modifier
+                        .weight(1f, fill = false)
+                        .clip(RoundedCornerShape(50))
+                        .border(
+                            1.dp,
+                            Color.White.copy(alpha = 0.3f),
+                            RoundedCornerShape(50),
+                        ).background(Color.White.copy(alpha = 0.08f))
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
             ) {
                 Text(
-                        text = title,
-                        color = Color.White,
-                        style =
-                                MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.SemiBold
-                                ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                    text = title,
+                    color = Color.White,
+                    style =
+                        MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.weight(1f))
@@ -1105,48 +1135,49 @@ private fun PlayerTopBar(
 
 @Composable
 private fun PlayerBottomControls(
-        isPlaying: Boolean,
-        position: Long,
-        duration: Long,
-        playbackSpeed: Float,
-        showRemainingTime: Boolean,
-        onToggleRemaining: () -> Unit,
-        primaryAccent: Color,
-        onSeek: (Long) -> Unit,
-        onPrevious: () -> Unit,
-        onRewind: () -> Unit,
-        onTogglePlay: () -> Unit,
-        onForward: () -> Unit,
-        onNext: () -> Unit,
-        onCycleSpeed: () -> Unit,
-        onRotate: () -> Unit,
-        modifier: Modifier = Modifier
+    isPlaying: Boolean,
+    position: Long,
+    duration: Long,
+    playbackSpeed: Float,
+    showRemainingTime: Boolean,
+    onToggleRemaining: () -> Unit,
+    primaryAccent: Color,
+    onSeek: (Long) -> Unit,
+    onPrevious: () -> Unit,
+    onRewind: () -> Unit,
+    onTogglePlay: () -> Unit,
+    onForward: () -> Unit,
+    onNext: () -> Unit,
+    onCycleSpeed: () -> Unit,
+    onRotate: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-            modifier =
-                    modifier.fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.displayCutout)
-                            .padding(bottom = 20.dp, start = 16.dp, end = 16.dp)
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
     ) {
         // Time labels
         Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                    FormatUtils.formatDuration(position),
-                    color = primaryAccent,
-                    style = MaterialTheme.typography.labelMedium
+                FormatUtils.formatDuration(position),
+                color = primaryAccent,
+                style = MaterialTheme.typography.labelMedium,
             )
             Text(
-                    if (showRemainingTime) {
-                        "-${FormatUtils.formatDuration(duration - position)}"
-                    } else {
-                        FormatUtils.formatDuration(duration)
-                    },
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.clickable { onToggleRemaining() }
+                if (showRemainingTime) {
+                    "-${FormatUtils.formatDuration(duration - position)}"
+                } else {
+                    FormatUtils.formatDuration(duration)
+                },
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.clickable { onToggleRemaining() },
             )
         }
 
@@ -1154,118 +1185,126 @@ private fun PlayerBottomControls(
         var isSeeking by remember { mutableStateOf(false) }
         var seekPosition by remember { mutableFloatStateOf(0f) }
         Slider(
-                value =
-                        if (isSeeking) seekPosition
-                        else if (duration > 0) position.toFloat() else 0f,
-                onValueChange = {
-                    isSeeking = true
-                    seekPosition = it
+            value =
+                if (isSeeking) {
+                    seekPosition
+                } else if (duration > 0) {
+                    position.toFloat()
+                } else {
+                    0f
                 },
-                onValueChangeFinished = {
-                    onSeek(seekPosition.toLong())
-                    isSeeking = false
-                },
-                valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
-                colors =
-                        SliderDefaults.colors(
-                                thumbColor = Color.White,
-                                activeTrackColor = primaryAccent,
-                                inactiveTrackColor = Color.Gray.copy(alpha = 0.5f)
-                        ),
-                modifier = Modifier.height(20.dp)
+            onValueChange = {
+                isSeeking = true
+                seekPosition = it
+            },
+            onValueChangeFinished = {
+                onSeek(seekPosition.toLong())
+                isSeeking = false
+            },
+            valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+            colors =
+                SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = primaryAccent,
+                    inactiveTrackColor = Color.Gray.copy(alpha = 0.5f),
+                ),
+            modifier = Modifier.height(20.dp),
         )
         Spacer(modifier = Modifier.height(8.dp))
 
         // Transport row: playback controls on the left, aux controls on the right.
         Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 IconButton(onClick = onPrevious, modifier = Modifier.size(40.dp)) {
                     Icon(
-                            Icons.Default.SkipPrevious,
-                            "Previous",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                        Icons.Default.SkipPrevious,
+                        "Previous",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp),
                     )
                 }
                 IconButton(onClick = onRewind, modifier = Modifier.size(40.dp)) {
                     Icon(
-                            Icons.Default.Replay10,
-                            "Rewind 10 seconds",
-                            tint = Color.White,
-                            modifier = Modifier.size(26.dp)
+                        Icons.Default.Replay10,
+                        "Rewind 10 seconds",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp),
                     )
                 }
                 Box(
-                        modifier =
-                                Modifier.size(52.dp)
-                                        .clip(CircleShape)
-                                        .border(2.dp, primaryAccent, CircleShape)
-                                        .semantics {
-                                            role = Role.Button
-                                            contentDescription =
-                                                    if (isPlaying) "Pause" else "Play"
-                                        }
-                                        .clickable { onTogglePlay() },
-                        contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, primaryAccent, CircleShape)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription =
+                                    if (isPlaying) "Pause" else "Play"
+                            }.clickable { onTogglePlay() },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                            imageVector =
-                                    if (isPlaying) Icons.Default.Pause
-                                    else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = primaryAccent,
-                            modifier = Modifier.size(30.dp)
+                        imageVector =
+                            if (isPlaying) {
+                                Icons.Default.Pause
+                            } else {
+                                Icons.Default.PlayArrow
+                            },
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = primaryAccent,
+                        modifier = Modifier.size(30.dp),
                     )
                 }
                 IconButton(onClick = onForward, modifier = Modifier.size(40.dp)) {
                     Icon(
-                            Icons.Default.Forward10,
-                            "Forward 10 seconds",
-                            tint = Color.White,
-                            modifier = Modifier.size(26.dp)
+                        Icons.Default.Forward10,
+                        "Forward 10 seconds",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp),
                     )
                 }
                 IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
                     Icon(
-                            Icons.Default.SkipNext,
-                            "Next",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                        Icons.Default.SkipNext,
+                        "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp),
                     )
                 }
             }
 
             Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 // Speed (with current-speed text overlay)
                 Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(44.dp).clickable { onCycleSpeed() }
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(44.dp).clickable { onCycleSpeed() },
                 ) {
                     Icon(
-                            Icons.Outlined.Speed,
-                            "Speed",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                        Icons.Outlined.Speed,
+                        "Speed",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
                     )
                     if (playbackSpeed != 1.0f) {
                         Text(
-                                text = "${playbackSpeed}x",
-                                style =
-                                        MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = 10.sp
-                                        ),
-                                color = primaryAccent,
-                                modifier = Modifier.offset(y = 14.dp)
+                            text = "${playbackSpeed}x",
+                            style =
+                                MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                ),
+                            color = primaryAccent,
+                            modifier = Modifier.offset(y = 14.dp),
                         )
                     }
                 }
@@ -1281,9 +1320,12 @@ private fun hideSystemBars(activity: Activity?) {
     activity?.window?.let { window ->
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.hide(
+                androidx.core.view.WindowInsetsCompat.Type
+                    .systemBars(),
+            )
             controller.systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
     }
 }
@@ -1292,12 +1334,15 @@ private fun showSystemBars(activity: Activity?) {
     activity?.window?.let { window ->
         WindowCompat.setDecorFitsSystemWindows(window, true)
         WindowInsetsControllerCompat(window, window.decorView)
-                .show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            .show(
+                androidx.core.view.WindowInsetsCompat.Type
+                    .systemBars(),
+            )
     }
 }
 
-private fun calculatePipAspectRatio(videoSize: VideoSize): Rational {
-    return if (videoSize.width > 0 && videoSize.height > 0) {
+private fun calculatePipAspectRatio(videoSize: VideoSize): Rational =
+    if (videoSize.width > 0 && videoSize.height > 0) {
         val ratio = videoSize.width.toFloat() / videoSize.height.toFloat()
         val clampedRatio = ratio.coerceIn(0.41841f, 2.39f)
         if (ratio == clampedRatio) {
@@ -1308,7 +1353,6 @@ private fun calculatePipAspectRatio(videoSize: VideoSize): Rational {
     } else {
         Rational(16, 9)
     }
-}
 
 /**
  * Track Selection Dialog - slides in from the right side like Bookmarks panel. Used for audio and
@@ -1316,62 +1360,66 @@ private fun calculatePipAspectRatio(videoSize: VideoSize): Rational {
  */
 @Composable
 fun TrackSelectionDialog(
-        title: String,
-        tracks: List<TrackInfo>,
-        showOffOption: Boolean,
-        isOffSelected: Boolean,
-        onTrackSelected: (groupIndex: Int, trackIndex: Int) -> Unit,
-        onOffSelected: () -> Unit,
-        onDismiss: () -> Unit,
-        onAddExternal: (() -> Unit)? = null
+    title: String,
+    tracks: List<TrackInfo>,
+    showOffOption: Boolean,
+    isOffSelected: Boolean,
+    onTrackSelected: (groupIndex: Int, trackIndex: Int) -> Unit,
+    onOffSelected: () -> Unit,
+    onDismiss: () -> Unit,
+    onAddExternal: (() -> Unit)? = null,
 ) {
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     Box(
-            modifier =
-                    Modifier.fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.6f))
-                            .clickable(onClick = onDismiss)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.6f))
+                .clickable(onClick = onDismiss),
     ) {
         // Right side panel
         Box(
-                modifier =
-                        Modifier.align(Alignment.CenterEnd)
-                                .widthIn(min = 240.dp, max = 360.dp)
-                                .fillMaxWidth(0.4f)
-                                .fillMaxHeight()
-                                .background(
-                                        Color(0xFF1C1C1E),
-                                        shape =
-                                                RoundedCornerShape(
-                                                        topStart = 16.dp,
-                                                        bottomStart = 16.dp
-                                                )
-                                )
-                                .clickable(enabled = false) {} // Prevent clicks from closing dialog
+            modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .widthIn(min = 240.dp, max = 360.dp)
+                    .fillMaxWidth(0.4f)
+                    .fillMaxHeight()
+                    .background(
+                        Color(0xFF1C1C1E),
+                        shape =
+                            RoundedCornerShape(
+                                topStart = 16.dp,
+                                bottomStart = 16.dp,
+                            ),
+                    ).clickable(enabled = false) {}, // Prevent clicks from closing dialog
         ) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 // Header
                 Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                            imageVector =
-                                    if (title == "Subtitles") Icons.Default.Subtitles
-                                    else Icons.Default.Audiotrack,
-                            contentDescription = title,
-                            tint = primaryAccent,
-                            modifier = Modifier.size(28.dp)
+                        imageVector =
+                            if (title == "Subtitles") {
+                                Icons.Default.Subtitles
+                            } else {
+                                Icons.Default.Audiotrack
+                            },
+                        contentDescription = title,
+                        tint = primaryAccent,
+                        modifier = Modifier.size(28.dp),
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                            text = title,
-                            color = Color.White,
-                            style =
-                                    MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = FontWeight.Bold
-                                    )
+                        text = title,
+                        color = Color.White,
+                        style =
+                            MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                            ),
                     )
                 }
 
@@ -1381,17 +1429,17 @@ fun TrackSelectionDialog(
 
                 // Track list
                 LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     // "Off" option for subtitles
                     if (showOffOption) {
                         item {
                             TrackItem(
-                                    name = "Off",
-                                    isSelected = isOffSelected,
-                                    primaryAccent = primaryAccent,
-                                    onClick = onOffSelected
+                                name = "Off",
+                                isSelected = isOffSelected,
+                                primaryAccent = primaryAccent,
+                                onClick = onOffSelected,
                             )
                         }
                     }
@@ -1400,23 +1448,26 @@ fun TrackSelectionDialog(
                     if (tracks.isEmpty()) {
                         item {
                             Text(
-                                    text =
-                                            if (title == "Subtitles") "No subtitles available"
-                                            else "No audio tracks available",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(vertical = 16.dp)
+                                text =
+                                    if (title == "Subtitles") {
+                                        "No subtitles available"
+                                    } else {
+                                        "No audio tracks available"
+                                    },
+                                color = Color.White.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 16.dp),
                             )
                         }
                     } else {
                         items(tracks) { track ->
                             TrackItem(
-                                    name = track.name,
-                                    isSelected = track.isSelected && !isOffSelected,
-                                    primaryAccent = primaryAccent,
-                                    onClick = {
-                                        onTrackSelected(track.groupIndex, track.trackIndex)
-                                    }
+                                name = track.name,
+                                isSelected = track.isSelected && !isOffSelected,
+                                primaryAccent = primaryAccent,
+                                onClick = {
+                                    onTrackSelected(track.groupIndex, track.trackIndex)
+                                },
                             )
                         }
                     }
@@ -1429,14 +1480,14 @@ fun TrackSelectionDialog(
                 // Load external subtitle file (subtitles dialog only)
                 if (onAddExternal != null) {
                     OutlinedButton(
-                            onClick = onAddExternal,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryAccent)
+                        onClick = onAddExternal,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryAccent),
                     ) {
                         Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Add subtitle file")
@@ -1446,8 +1497,8 @@ fun TrackSelectionDialog(
 
                 // Close button
                 TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
                 ) { Text("Close", color = primaryAccent) }
             }
         }
@@ -1456,37 +1507,43 @@ fun TrackSelectionDialog(
 
 @Composable
 private fun TrackItem(
-        name: String,
-        isSelected: Boolean,
-        primaryAccent: Color,
-        onClick: () -> Unit
+    name: String,
+    isSelected: Boolean,
+    primaryAccent: Color,
+    onClick: () -> Unit,
 ) {
     Row(
-            modifier =
-                    Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                    if (isSelected) primaryAccent.copy(alpha = 0.2f)
-                                    else Color.Transparent
-                            )
-                            .clickable(onClick = onClick)
-                            .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isSelected) {
+                        primaryAccent.copy(alpha = 0.2f)
+                    } else {
+                        Color.Transparent
+                    },
+                ).clickable(onClick = onClick)
+                .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-                imageVector =
-                        if (isSelected) Icons.Default.RadioButtonChecked
-                        else Icons.Default.RadioButtonUnchecked,
-                contentDescription = if (isSelected) "Selected" else "Not selected",
-                tint = if (isSelected) primaryAccent else Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp)
+            imageVector =
+                if (isSelected) {
+                    Icons.Default.RadioButtonChecked
+                } else {
+                    Icons.Default.RadioButtonUnchecked
+                },
+            contentDescription = if (isSelected) "Selected" else "Not selected",
+            tint = if (isSelected) primaryAccent else Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.size(20.dp),
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
-                text = name,
-                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            text = name,
+            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }

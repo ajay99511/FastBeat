@@ -22,7 +22,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
-
     private companion object {
         const val DB_NAME = "migration-test-db"
 
@@ -38,45 +37,49 @@ class MigrationTest {
         const val SKIP_COUNT = 3
         const val LAST_PLAYED = 1_699_999_000_000L
 
-        val NEW_TABLES = listOf(
-            "playlists",
-            "playlist_media_cross_ref",
-            "bookmarks",
-            "current_queue",
-            "daily_playtime",
-            "play_events"
-        )
+        val NEW_TABLES =
+            listOf(
+                "playlists",
+                "playlist_media_cross_ref",
+                "bookmarks",
+                "current_queue",
+                "daily_playtime",
+                "play_events",
+            )
     }
 
     @get:Rule
-    val helper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        AppDatabase::class.java
-    )
+    val helper =
+        MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            AppDatabase::class.java,
+        )
 
     /** Creates a v1 database containing known rows in both v1 tables. */
     private fun seedV1(): SupportSQLiteDatabase =
         helper.createDatabase(DB_NAME, 1).apply {
             execSQL(
                 "INSERT INTO playback_history (mediaId, position, timestamp, mediaType) " +
-                    "VALUES ($MEDIA_ID_VIDEO, $POSITION_VIDEO, $TIMESTAMP_VIDEO, 'video')"
+                    "VALUES ($MEDIA_ID_VIDEO, $POSITION_VIDEO, $TIMESTAMP_VIDEO, 'video')",
             )
             execSQL(
                 "INSERT INTO playback_history (mediaId, position, timestamp, mediaType) " +
-                    "VALUES ($MEDIA_ID_AUDIO, $POSITION_AUDIO, $TIMESTAMP_AUDIO, 'audio')"
+                    "VALUES ($MEDIA_ID_AUDIO, $POSITION_AUDIO, $TIMESTAMP_AUDIO, 'audio')",
             )
             execSQL(
                 "INSERT INTO media_analytics (mediaId, playCount, skipCount, lastPlayed) " +
-                    "VALUES ($MEDIA_ID_VIDEO, $PLAY_COUNT, $SKIP_COUNT, $LAST_PLAYED)"
+                    "VALUES ($MEDIA_ID_VIDEO, $PLAY_COUNT, $SKIP_COUNT, $LAST_PLAYED)",
             )
             close()
         }
 
-    private fun migrate(): SupportSQLiteDatabase =
-        helper.runMigrationsAndValidate(DB_NAME, 5, true, MIGRATION_1_5)
+    private fun migrate(): SupportSQLiteDatabase = helper.runMigrationsAndValidate(DB_NAME, 5, true, MIGRATION_1_5)
 
     private fun SupportSQLiteDatabase.count(table: String): Int =
-        query("SELECT COUNT(*) FROM `$table`").use { it.moveToFirst(); it.getInt(0) }
+        query("SELECT COUNT(*) FROM `$table`").use {
+            it.moveToFirst()
+            it.getInt(0)
+        }
 
     /**
      * The headline guarantee: a v1 user upgrading to v5 keeps every row, with every original
@@ -89,22 +92,23 @@ class MigrationTest {
 
         assertEquals("playback_history row count", 2, db.count("playback_history"))
 
-        db.query(
-            "SELECT mediaId, position, duration, timestamp, mediaType, " +
-                "audioTrackIndex, subtitleTrackIndex FROM playback_history ORDER BY mediaId"
-        ).use { c ->
-            assertTrue("expected a first row", c.moveToFirst())
-            assertEquals("mediaId", MEDIA_ID_VIDEO, c.getLong(0))
-            assertEquals("position must survive the migration", POSITION_VIDEO, c.getLong(1))
-            assertEquals("timestamp must survive the migration", TIMESTAMP_VIDEO, c.getLong(3))
-            assertEquals("mediaType must survive the migration", "video", c.getString(4))
+        db
+            .query(
+                "SELECT mediaId, position, duration, timestamp, mediaType, " +
+                    "audioTrackIndex, subtitleTrackIndex FROM playback_history ORDER BY mediaId",
+            ).use { c ->
+                assertTrue("expected a first row", c.moveToFirst())
+                assertEquals("mediaId", MEDIA_ID_VIDEO, c.getLong(0))
+                assertEquals("position must survive the migration", POSITION_VIDEO, c.getLong(1))
+                assertEquals("timestamp must survive the migration", TIMESTAMP_VIDEO, c.getLong(3))
+                assertEquals("mediaType must survive the migration", "video", c.getString(4))
 
-            assertTrue("expected a second row", c.moveToNext())
-            assertEquals("mediaId", MEDIA_ID_AUDIO, c.getLong(0))
-            assertEquals("position must survive the migration", POSITION_AUDIO, c.getLong(1))
-            assertEquals("timestamp must survive the migration", TIMESTAMP_AUDIO, c.getLong(3))
-            assertEquals("mediaType must survive the migration", "audio", c.getString(4))
-        }
+                assertTrue("expected a second row", c.moveToNext())
+                assertEquals("mediaId", MEDIA_ID_AUDIO, c.getLong(0))
+                assertEquals("position must survive the migration", POSITION_AUDIO, c.getLong(1))
+                assertEquals("timestamp must survive the migration", TIMESTAMP_AUDIO, c.getLong(3))
+                assertEquals("mediaType must survive the migration", "audio", c.getString(4))
+            }
     }
 
     /**
@@ -117,19 +121,20 @@ class MigrationTest {
         seedV1()
         val db = migrate()
 
-        db.query(
-            "SELECT duration, audioTrackIndex, subtitleTrackIndex " +
-                "FROM playback_history ORDER BY mediaId"
-        ).use { c ->
-            var rows = 0
-            while (c.moveToNext()) {
-                rows++
-                assertEquals("duration seed", 0L, c.getLong(0))
-                assertEquals("audioTrackIndex seed", -1, c.getInt(1))
-                assertEquals("subtitleTrackIndex seed", -1, c.getInt(2))
+        db
+            .query(
+                "SELECT duration, audioTrackIndex, subtitleTrackIndex " +
+                    "FROM playback_history ORDER BY mediaId",
+            ).use { c ->
+                var rows = 0
+                while (c.moveToNext()) {
+                    rows++
+                    assertEquals("duration seed", 0L, c.getLong(0))
+                    assertEquals("audioTrackIndex seed", -1, c.getInt(1))
+                    assertEquals("subtitleTrackIndex seed", -1, c.getInt(2))
+                }
+                assertEquals("expected both rows to be checked", 2, rows)
             }
-            assertEquals("expected both rows to be checked", 2, rows)
-        }
     }
 
     /** media_analytics is unchanged between v1 and v5; its data must be untouched. */
@@ -138,16 +143,17 @@ class MigrationTest {
         seedV1()
         val db = migrate()
 
-        db.query(
-            "SELECT mediaId, playCount, skipCount, lastPlayed FROM media_analytics"
-        ).use { c ->
-            assertTrue("media_analytics row must survive", c.moveToFirst())
-            assertEquals("mediaId", MEDIA_ID_VIDEO, c.getLong(0))
-            assertEquals("playCount", PLAY_COUNT, c.getInt(1))
-            assertEquals("skipCount", SKIP_COUNT, c.getInt(2))
-            assertEquals("lastPlayed", LAST_PLAYED, c.getLong(3))
-            assertEquals("no extra rows", 1, c.count)
-        }
+        db
+            .query(
+                "SELECT mediaId, playCount, skipCount, lastPlayed FROM media_analytics",
+            ).use { c ->
+                assertTrue("media_analytics row must survive", c.moveToFirst())
+                assertEquals("mediaId", MEDIA_ID_VIDEO, c.getLong(0))
+                assertEquals("playCount", PLAY_COUNT, c.getInt(1))
+                assertEquals("skipCount", SKIP_COUNT, c.getInt(2))
+                assertEquals("lastPlayed", LAST_PLAYED, c.getLong(3))
+                assertEquals("no extra rows", 1, c.count)
+            }
     }
 
     /** All six v5 tables must exist after the migration, and start empty. */
@@ -157,12 +163,13 @@ class MigrationTest {
         val db = migrate()
 
         NEW_TABLES.forEach { table ->
-            db.query(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                arrayOf<Any>(table)
-            ).use { c ->
-                assertTrue("table `$table` must exist after migration", c.moveToFirst())
-            }
+            db
+                .query(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    arrayOf<Any>(table),
+                ).use { c ->
+                    assertTrue("table `$table` must exist after migration", c.moveToFirst())
+                }
             assertEquals("new table `$table` must start empty", 0, db.count(table))
         }
     }
@@ -180,11 +187,11 @@ class MigrationTest {
         db.execSQL("PRAGMA foreign_keys=ON")
 
         db.execSQL(
-            "INSERT INTO playlists (id, name, createdAt, isVideo) VALUES ('p1', 'Road trip', 1, 0)"
+            "INSERT INTO playlists (id, name, createdAt, isVideo) VALUES ('p1', 'Road trip', 1, 0)",
         )
         db.execSQL(
             "INSERT INTO playlist_media_cross_ref (playlistId, mediaId, addedAt) " +
-                "VALUES ('p1', $MEDIA_ID_AUDIO, 2)"
+                "VALUES ('p1', $MEDIA_ID_AUDIO, 2)",
         )
         assertEquals("cross-ref row should exist", 1, db.count("playlist_media_cross_ref"))
 
@@ -193,7 +200,7 @@ class MigrationTest {
         assertEquals(
             "deleting the playlist must cascade to playlist_media_cross_ref",
             0,
-            db.count("playlist_media_cross_ref")
+            db.count("playlist_media_cross_ref"),
         )
     }
 
@@ -203,19 +210,21 @@ class MigrationTest {
         seedV1()
         val db = migrate()
 
-        val expected = listOf(
-            "index_playlist_media_cross_ref_playlistId",
-            "index_playlist_media_cross_ref_mediaId",
-            "index_play_events_mediaId",
-            "index_play_events_timestamp"
-        )
+        val expected =
+            listOf(
+                "index_playlist_media_cross_ref_playlistId",
+                "index_playlist_media_cross_ref_mediaId",
+                "index_play_events_mediaId",
+                "index_play_events_timestamp",
+            )
         expected.forEach { index ->
-            db.query(
-                "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-                arrayOf<Any>(index)
-            ).use { c ->
-                assertTrue("index `$index` must exist after migration", c.moveToFirst())
-            }
+            db
+                .query(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+                    arrayOf<Any>(index),
+                ).use { c ->
+                    assertTrue("index `$index` must exist after migration", c.moveToFirst())
+                }
         }
     }
 }
