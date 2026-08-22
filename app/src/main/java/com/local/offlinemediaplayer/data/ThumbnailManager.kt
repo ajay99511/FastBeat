@@ -125,7 +125,13 @@ class ThumbnailManager @Inject constructor(
             Log.w(TAG, "Retriever error for ${video.title}: ${e.message}")
             null
         } finally {
-            try { retriever.release() } catch (_: Exception) {}
+            // Warning, not error: the retriever is already being torn down and the native handle
+            // it holds is bounded and reclaimed with the process. Worth seeing, not worth alarming.
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to release MediaMetadataRetriever for ${video.title}", e)
+            }
         }
     }
 
