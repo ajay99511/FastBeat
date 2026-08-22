@@ -104,7 +104,8 @@ def main():
 
     # --- Migrations.kt must contain exactly these statements, verbatim ---
     kt = io.open(KOTLIN, encoding="utf-8").read()
-    kt_stmts = re.findall(r'execSQL\(\s*"([^"]*)"\s*\)', kt)
+    # The trailing `,?` tolerates ktlint's trailing-comma-on-call-site rule (P4-D.2).
+    kt_stmts = re.findall(r'execSQL\(\s*"([^"]*)"\s*,?\s*\)', kt)
     checks += 1
     if len(kt_stmts) != len(stmts):
         failures.append(f"{KOTLIN} has {len(kt_stmts)} execSQL calls, the .sql document has {len(stmts)}")

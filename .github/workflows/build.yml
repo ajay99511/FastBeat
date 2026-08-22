@@ -68,6 +68,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./gradlew detekt --stacktrace
 
+      # Formatting gate. Baselined at app/config/ktlint/baseline.xml, so this only fails on
+      # NEW violations. `ktlintCheck`, never `ktlintFormat` -- CI must report, not rewrite.
+      - name: Formatting (ktlint)
+        if: ${{ !cancelled() }}
+        run: ./gradlew ktlintCheck --stacktrace
+
       # `if-no-files-found: error` is deliberate. `base { archivesName = "FastBeat" }`
       # in app/build.gradle.kts renames the output, so the stock `app-debug.apk`
       # path every template uses matches nothing here. Without this setting the
