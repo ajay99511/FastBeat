@@ -76,7 +76,8 @@ Every fact below was confirmed by command on 2026-08-21. Do not re-derive; do re
 
 | Property | Value |
 |---|---|
-| Branch | `feature--equilizer-integration` (ahead of `master` by 1 commit, `91681be`) |
+| Branch | `feature/rework` (local-only, no upstream) branched from `master` = `origin/master` = `a7f3b42` |
+| ⚠️ master state | **`origin/master` does not compile.** PR #10 merged the equalizer *references* without the *implementation*; `app/…/audio/` does not exist on master. `.gitignore` blob `112c157` still contains `/app`. |
 | Toolchain | AGP 9.0.0, Kotlin 2.2.10, KSP 2.2.10-2.0.2, Gradle 9.1.0, Room 2.7.2, Hilt 2.60.1 |
 | SDK | `compileSdk` 36, `targetSdk` 35, `minSdk` 26 |
 | JVM | source/target 11; **Gradle itself needs JDK 17+** (AGP 9) |
@@ -286,14 +287,22 @@ path is blocked on a question.
 ## 7. Phase 0 — Version Control Integrity 🔴 BLOCKING
 
 > **Goal:** Make the repository an honest record of the project. Until this is done, work performed can be lost.
-> **Branch:** `fix/phase-0-vcs-integrity`
+> **Branch:** `feature/rework` (already created, local-only) — supersedes the planned `fix/phase-0-vcs-integrity`.
 > **Estimated:** 45–60 minutes total.
+
+> [!CAUTION]
+> **Escalated 2026-08-21.** This phase was written when the breakage was confined to a feature branch.
+> PR #10 has since merged that branch into `master`, carrying the equalizer *references* without the
+> *implementation*. **`origin/master` no longer compiles**, and the two source files still exist only
+> on one developer's disk — they were never in the PR, because `.gitignore` excluded them from
+> `git add`. Phase 0 is now a **production-branch repair**, not a pre-emptive cleanup, and its output
+> must reach `master`. Nothing in Phases 1–5 should start until it does.
 
 ### P0-A — Repair the two harmful `.gitignore` rules
 
 | | |
 |---|---|
-| **Status** | ⬜ |
+| **Status** | ✅ Applied in the working tree — **not yet committed** |
 | **Risk** | 🟨 Medium — no runtime code changes, but it changes what git sees, which is how the damage happened |
 | **Blast radius** | Repository-wide visibility. No effect on the built app. |
 | **Depends on** | Nothing |
@@ -372,7 +381,7 @@ Every referenced symbol must now resolve to a tracked file.
 **Steps**
 1. Create a scratch clone of the *committed* state — not the working tree, which has the files on disk regardless:
    ```bash
-   git clone --branch feature--equilizer-integration --single-branch . /tmp/fastbeat-cleancheck
+   git clone --branch feature/rework --single-branch . /tmp/fastbeat-cleancheck
    ```
 2. Copy `local.properties` (it is correctly gitignored and holds the SDK path) into the clone.
 3. Run `./gradlew assembleDebug` inside the clone.
@@ -671,7 +680,7 @@ Update the status cell as the **last step** of each task, in the same commit.
 
 | ID | Task | Risk | Depends on | Status | Evidence / note |
 |---|---|---|---|---|---|
-| P0-A | Repair `.gitignore` (`/app`, `*.txt`) | 🟨 | — | ⬜ | |
+| P0-A | Repair `.gitignore` (`/app`, `*.txt`) | 🟨 | — | ✅ | L7 `/app`→`/app/build`; L18 `*.txt`→explicit `build_info_output.txt` + `build_stacktrace.txt`. `git status` shows exactly the 2 equalizer sources untracked, nothing else. ⚠️ **Working tree only — uncommitted, and `master` still has the harmful rules.** Must land on `master`. |
 | P0-B | Commit orphaned equalizer sources | 🟩 | P0-A | ⬜ | |
 | P0-C | Prove clean-clone build | ⬜ | P0-B | ⬜ | |
 | P1-B | Harden `.gitignore` | ⬜ | P0-C | ⬜ | |
@@ -719,7 +728,10 @@ Update the status cell as the **last step** of each task, in the same commit.
 
 | # | Found in | Item | Severity |
 |---|---|---|---|
-| — | — | — | — |
+| F-1 | P0-A | `app/.gitignore` (nested) already contains `/build`, so root L7 `/app/build` is redundant belt-and-braces. Harmless — decide in P1-B whether to keep both or rely on the nested file. | 🟢 Minor |
+| F-2 | P0-A | `git check-ignore` silently skips **tracked** paths, so it reports nothing for `build_info_output.txt` / `build_stacktrace.txt` until P1-C untracks them. Use `--no-index` to test a rule in isolation. Worth remembering for P1-C's verify step. | 🟢 Minor |
+| F-3 | Re-validation | PR #10 merged a **non-compiling** `master`: the equalizer references landed without the implementation, and nothing caught it. Root cause is F-0 (`/app` ignore), but the *process* gap is that no CI build gate existed to fail the PR. This is the concrete business case for P1-E. | 🔴 Critical |
+| F-4 | Re-validation | `git show <ref>:<path>` is mangled by MSYS path conversion in this Git Bash environment (`origin/master:.gitignore` → `origin\master;.gitignore`). Use `git ls-tree` / `git cat-file -e` / `MSYS_NO_PATHCONV=1` instead when verifying file presence in a ref. | 🟢 Minor |
 
 ---
 

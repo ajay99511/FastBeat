@@ -4,7 +4,7 @@
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
-/app
+/app/build
 app/release
 /.idea/workspace.xml
 /.idea/navEditor.xml
@@ -15,5 +15,6 @@ app/release
 .externalNativeBuild
 .cxx
 local.properties
-*.txt
+build_info_output.txt
+build_stacktrace.txt
 app/release/baselineProfiles
