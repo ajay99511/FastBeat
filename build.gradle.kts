@@ -7,4 +7,5 @@ plugins {
     // a root declaration, which resolved but was inconsistent -- see AUDIT_ADDENDUM.md A.4.
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.ktlint) apply false
 }

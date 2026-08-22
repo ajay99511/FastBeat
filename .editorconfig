@@ -1,0 +1,35 @@
+# Formatting rules for FastBeat. Read by ktlint (and by IntelliJ/Android Studio directly), so the
+# IDE and the build agree on style without a second config file.
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+# Matches detekt's MaxLineLength so the two tools cannot disagree.
+max_line_length = 120
+
+# Wildcard imports are left alone deliberately. ktlint CANNOT auto-fix this rule -- it has no way to
+# know which symbols a `*` covers -- so enabling it would mean ktlintCheck failing permanently on
+# ~70 pre-existing imports that ktlintFormat is unable to repair. Compose code also idiomatically
+# imports androidx.compose.material3.* and friends. detekt baselines the same rule, so both tools
+# agree. Revisit as a deliberate cleanup task, not as a side effect of adding a formatter.
+ktlint_standard_no-wildcard-imports = disabled
+
+# @Composable functions are PascalCase by convention, which the standard function-naming rule
+# otherwise flags on every screen. Mirrors detekt's FunctionNaming.ignoreAnnotated.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# `end_of_line` is intentionally NOT set: this repo is developed on Windows with core.autocrlf
+# enabled, so the working tree is CRLF while git stores LF. Pinning it here would make ktlint
+# rewrite every file on every checkout, fighting git for no benefit.
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.xml]
+indent_size = 4

@@ -38,6 +38,8 @@ junitVintage = "5.8.2"
 # 1.23.8 is the latest stable Detekt. Its analysis engine embeds a Kotlin 1.9 compiler,
 # so it parses this Kotlin 2.2 source without type resolution (see the detekt {} block).
 detekt = "1.23.8"
+# ktlint-gradle 14.2.0 (latest); it pulls ktlint 1.8.0 as its engine.
+ktlint = "14.2.0"
 kotestRobolectric = "0.5.0"
 hilt = "2.60.1"
 androidxTestCore = "1.6.1"
@@ -115,3 +117,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
