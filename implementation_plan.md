@@ -572,7 +572,27 @@ hash, after a migration — but if you find yourself wanting to hand-edit that h
 #### P3-C — Write `MIGRATION_1_5` and register it
 | | |
 |---|---|
-| **Status** | ⬜ · **Risk** 🟥 High · **Depends on** P3-B |
+| **Status** | ✅ Written (generated, not typed) and registered. ⚠️ **Step 2 deliberately NOT followed — the card was wrong, see below.** Correctness still pending P3-D · **Risk** 🟥 High · **Depends on** P3-B |
+
+> ### ❗ Correction to this card's Step 2
+> The card said: *"remove `1` from that list, **or the new migration is dead code that never runs**."*
+> **That is factually incorrect.** Verified by reading Room 2.7.2's own sources (`room-runtime-android-2.7.2-sources.jar`).
+> Both `RoomOpenHelper.onUpgrade` and `RoomConnectionManager.onMigrate` are:
+> ```kotlin
+> val migrations = findMigrationPath(oldVersion, newVersion)
+> if (migrations != null) { migrations.forEach { it.migrate(...) }; validate(); migrated = true }
+> if (!migrated) { /* isMigrationRequired -> throw, else destructive fallback */ }
+> ```
+> A registered migration path **always wins**; `fallbackToDestructiveMigrationFrom` is consulted *only* when no
+> path is found. So `1` was **kept** in the list: it costs nothing while `MIGRATION_1_5` exists, and if the
+> migration were ever deleted or failed to resolve, v1 users would get today's wipe instead of a hard crash on
+> open — the same trade [DR-4](#dr-4--do-not-write-unverifiable-migrations-for-v2v4) already made deliberately.
+>
+> **Step 3 (add a bare `.fallbackToDestructiveMigration()`) was also not done.** The existing
+> `fallbackToDestructiveMigrationFrom(1, 2, 3, 4)` already covers every version that has ever shipped (current
+> is 5). A blanket fallback would additionally cause any *future* version bump with a forgotten migration to
+> **silently wipe user data** instead of failing loudly — converting a catchable mistake into invisible data
+> loss, in a plan whose entire purpose is eliminating silent failure. Raised as **OQ-7**.
 | **Files** | `data/db/Migrations.kt` [NEW], `data/di/DatabaseModule.kt` |
 
 **Steps**
@@ -714,7 +734,7 @@ Update the status cell as the **last step** of each task, in the same commit.
 | P2-D | Handle the bare `runCatching {}` sites (F-5) | 🟩 | P2-A | ✅ | **11 sites, not the 10 F-5 estimated** — all now report failure. 7 edits in `AudioEffectsManager.kt`: `buildEffects` ×2 (persisted bass/virtualizer strength), `restoreBandConfig` ×2, `readBandLevels` ×1, `applyEnabledState` ×3, `releaseEffects` ×3. **Design call:** the two per-band loops aggregate rather than logging per band — when the effect is in a bad state *every* band fails, and 10 identical lines would bury the signal; each reports once with a count and the first throwable as cause. `readBandLevels` became a block body to carry the counters; **returned values are byte-identical** (`.onFailure` returns the same `Result`, so `.getOrDefault(0)` still applies). DR-2 honoured: logging only, no control-flow or audible change. **36 insertions, 5 deletions** — the 5 removals are 2 brace closers and the old 3-line expression body. Verified by script: 11 `runCatching`, **0 unhandled**. `assembleDebug` + `lint testDebugUnitTest` → BUILD SUCCESSFUL, **13 tests / 0 failures**, no new warnings. |
 | P3-A | Wire migration test harness | 🟩 | P1-E | ✅ | Added `androidTestImplementation(libs.room.testing)` and, inside `android {}`, `sourceSets.getByName("androidTest") { assets.srcDirs("$projectDir/schemas") }`. **Then hit a pre-existing blocker (F-14): `:app:mergeDebugAndroidTestJavaResource` fails — `androidTest` has never been buildable.** Proved pre-existing by `git stash` + rebuild on a clean tree. Root cause: `mockk-android` pulls JUnit 5 (Jupiter 5.8.2) transitively; its 6 jars each ship `META-INF/LICENSE.md` and the merger will not collapse them. Fixed at the source with `configurations.named("androidTestImplementation") { exclude(group = "org.junit.jupiter"); exclude(group = "org.junit.platform") }` **rather than** a global `packaging { resources { excludes } }` block, which would have altered the *shipped* APK for a test-only problem. Jupiter cannot run under AndroidJUnitRunner anyway, so it was dead weight. Verified: `room-testing:2.7.2` resolves on `debugAndroidTestCompileClasspath`; `:app:assembleDebugAndroidTest` → BUILD SUCCESSFUL; test APK contains `assets/…AppDatabase/1.json` (2 625 B) and `5.json` (10 689 B), **card's `grep -c "1.json"` = 1**; JVM unit tests still **13/0** (Kotest's JUnit 5 untouched — the exclude is scoped to androidTest). |
 | P3-B | Document v1→v5 schema diff | ⬜ | P3-A | ✅ | `docs/migration_v1_to_v5.sql` (104 lines, **13 statements**: 3 `ALTER`, 6 `CREATE TABLE`, 4 `CREATE INDEX`). **Machine-generated from `5.json`'s `createSql` fields** — no SQL was hand-typed, which removes the transcription-error class the card warns about rather than merely being careful about it. Shape confirmed against the card exactly: 3 columns added to `playback_history`, `media_analytics` byte-identical in v1 and v5, 6 new tables, 4 new indices, 1 FK. **Verified three independent ways:** (1) `tools/verify_migration_sql.py` — 16 invariants, byte-identity of every CREATE vs `5.json`, correct affinity/NOT NULL/seed per ALTER, no stray statements, FK-target ordering, and a guard that fails if `5.json` ever starts declaring `defaultValue` (which would invalidate DR-3's premise); (2) **mutation-tested** the verifier — flipping one `INTEGER`→`TEXT` makes it exit 1, so it can actually fail; (3) **executed end-to-end on real SQLite 3.50.4**: built a v1 DB, inserted a row, applied all 13 statements, and confirmed the row survived byte-for-byte with new columns seeded `0/-1/-1`, 8 tables, all 4 indices, FK enforced (orphan insert rejected), and **zero structural diff vs v5**. |
-| P3-C | Write `MIGRATION_1_5` | 🟥 | P3-B | ⬜ | |
+| P3-C | Write `MIGRATION_1_5` | 🟥 | P3-B | ✅ | `data/db/Migrations.kt` [NEW] — **generated from `docs/migration_v1_to_v5.sql`**, so the SQL cannot drift from the schema it was derived from. 13 `execSQL` calls in card order (ALTER → CREATE TABLE → CREATE INDEX; `playlists` before its FK referrer). Overrides `migrate(connection: SQLiteConnection)` **not** `migrate(SupportSQLiteDatabase)` — verified from Room's sources that the connection overload is invoked in *both* driver and compatibility modes, whereas the Support overload throws `NotImplementedError` if a `SQLiteDriver` is ever configured. `DatabaseModule` gains `.addMigrations(MIGRATION_1_5)`; **fallback list left unchanged on purpose** (card's Step 2 was wrong — see the card note). `tools/verify_migration_sql.py` extended to **40 invariants**: it now also asserts `Migrations.kt`'s `execSQL` literals match the `.sql` document exactly, and *executes* the migration on SQLite 3.50.4 against a populated v1 DB. **Mutation-tested twice** — dropping `AUTOINCREMENT` and deleting one `execSQL` both make it exit 1. `assembleDebug` green. |
 | P3-D | Migration test — **decides DR-3** | 🟩 | P3-C | ⬜ | |
 | P4-A | `MediaDao` tests | 🟩 | P3-D | ⬜ | |
 | P4-B | `PlaylistRepository` tests | 🟩 | P4-A | ⬜ | |
@@ -801,6 +821,7 @@ Pause and confirm before proceeding if:
 | **OQ-2** | Are there real users on schema v2, v3, or v4? `versionCode` is 2, which suggests few or none. | Revisit DR-4 | Product | Assume none; destructive fallback for 2–4 stands |
 | **OQ-3** | Preferences DataStore or Proto DataStore? | P5-C.1 | Eng | Preferences — the data is flat scalars; Proto is unearned structure here |
 | ~~**OQ-4**~~ | ~~Is a physical device or emulator available for instrumentation tests?~~ | ~~P3-D, P5-G~~ | ✅ **ANSWERED 2026-08-22** | **Yes.** 3 AVDs present: `Medium_Phone_API_36`, `Medium_Tablet`, `MyNewDevice`; system images `android-35` + `android-36`. None currently booted. P3-D and P5-G are **unblocked**; instrumentation is the default path per P3-A's watch-out. |
+| **OQ-7** | Should a blanket `.fallbackToDestructiveMigration()` backstop be added (P3-C card Step 3)? It prevents a crash loop on an unforeseen version, but makes every *future* forgotten migration a silent data wipe. | Future schema bumps | Owner | **Not added.** `fallbackToDestructiveMigrationFrom(1,2,3,4)` covers every shipped version; failing loudly on an unknown one is preferable while the app is under active schema work |
 | **OQ-6** | Should dependency versions be realigned before Phase 4? Three concrete inconsistencies found during P3-A (F-15), including `androidx.compose.ui:ui` declared **twice** — once BOM-managed, once pinned to `1.10.1`. | P4-D / release confidence | Eng + Owner | ⚠️ Deliberately **not** actioned mid-Phase-3: changing test-infra versions immediately before writing a migration test would confound a real migration failure with a dependency failure |
 | **OQ-5** | Will branch protection on `master` be enabled with `Build / Assemble, lint, unit test` as a **required** status check? A workflow file cannot make itself required; this needs repo-admin action in GitHub → Settings → Branches. | The entire value of P1-E | Owner | ⛔ None — without it a red build still merges, which is precisely how PR #10 landed |
 

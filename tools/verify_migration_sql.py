@@ -12,10 +12,12 @@ Run from the repository root:  python tools/verify_migration_sql.py
 import io
 import json
 import re
+import sqlite3
 import sys
 
 SCHEMA_DIR = "app/schemas/com.local.offlinemediaplayer.data.db.AppDatabase/"
 DOC = "docs/migration_v1_to_v5.sql"
+KOTLIN = "app/src/main/java/com/local/offlinemediaplayer/data/db/Migrations.kt"
 
 # Seed values for the three columns added to playback_history. These are NOT in the exported
 # schema -- they exist only as Kotlin property defaults in Entities.kt -- so they are asserted
@@ -100,7 +102,53 @@ def main():
             if fk["table"] in pos and pos.get(tbl, -1) < pos[fk["table"]]:
                 failures.append(f"`{tbl}` is created before its FK target `{fk['table']}`")
 
-    print(f"checked {checks} invariants against {SCHEMA_DIR}5.json")
+    # --- Migrations.kt must contain exactly these statements, verbatim ---
+    kt = io.open(KOTLIN, encoding="utf-8").read()
+    kt_stmts = re.findall(r'execSQL\(\s*"([^"]*)"\s*\)', kt)
+    checks += 1
+    if len(kt_stmts) != len(stmts):
+        failures.append(f"{KOTLIN} has {len(kt_stmts)} execSQL calls, the .sql document has {len(stmts)}")
+    doc_bare = [st.rstrip(";") for st in stmts]
+    for want in doc_bare:
+        checks += 1
+        if want not in kt_stmts:
+            failures.append(f"{KOTLIN} is missing or has altered: {want[:100]}")
+    for got in kt_stmts:
+        if got not in doc_bare:
+            failures.append(f"{KOTLIN} has a statement absent from the .sql document: {got[:100]}")
+    checks += 1
+    if "Migration(1, 5)" not in kt:
+        failures.append(f"{KOTLIN} does not declare Migration(1, 5)")
+
+    # --- the statements must actually run, and must preserve existing rows ---
+    try:
+        con = sqlite3.connect(":memory:")
+        con.execute("PRAGMA foreign_keys=ON")
+        for t, e in e1.items():
+            con.execute(e["createSql"].replace("${TABLE_NAME}", t))
+        con.execute("INSERT INTO playback_history VALUES (42, 1234, 99999, 'video')")
+        for st in doc_bare:
+            con.execute(st)
+        row = con.execute(
+            "SELECT mediaId, position, duration, timestamp, mediaType, "
+            "audioTrackIndex, subtitleTrackIndex FROM playback_history"
+        ).fetchone()
+        checks += 1
+        if row != (42, 1234, 0, 99999, "video", -1, -1):
+            failures.append(f"migration altered existing data: got {row}")
+        for t, e in e5.items():
+            got = {r[1]: (r[2].upper(), r[3]) for r in con.execute(f"PRAGMA table_info(`{t}`)")}
+            want = {f["columnName"]: (f["affinity"].upper(), 1 if f["notNull"] else 0)
+                    for f in e["fields"]}
+            checks += 1
+            if got != want:
+                failures.append(f"post-migration structure of `{t}` differs from v5: "
+                                f"{set(want.items()) ^ set(got.items())}")
+    except sqlite3.Error as exc:
+        failures.append(f"migration failed to execute on SQLite {sqlite3.sqlite_version}: {exc}")
+
+    print(f"checked {checks} invariants against {SCHEMA_DIR}5.json "
+          f"(incl. live execution on SQLite {sqlite3.sqlite_version})")
     if failures:
         print(f"\nFAIL ({len(failures)}):")
         for f in failures:
