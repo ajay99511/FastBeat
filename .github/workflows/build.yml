@@ -59,3 +59,30 @@ jobs:
       # `useJUnitPlatform()` is already configured, so Kotest specs run as-is.
       - name: Assemble, lint and unit test
         run: ./gradlew assembleDebug lint testDebugUnitTest --stacktrace
+
+      # `if-no-files-found: error` is deliberate. `base { archivesName = "FastBeat" }`
+      # in app/build.gradle.kts renames the output, so the stock `app-debug.apk`
+      # path every template uses matches nothing here. Without this setting the
+      # step would succeed while uploading an empty artifact -- a silent hole
+      # exactly like the one that produced a non-compiling master.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastBeat-debug-apk
+          path: app/build/outputs/apk/debug/FastBeat-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # Runs even when the build fails -- that is the case where the reports are
+      # actually needed. `warn` rather than `error` because an early compile
+      # failure legitimately produces no reports at all.
+      - name: Upload lint and test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-and-test-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 7
