@@ -302,7 +302,7 @@ path is blocked on a question.
 
 | | |
 |---|---|
-| **Status** | ✅ Applied in the working tree — **not yet committed** |
+| **Status** | ✅ Committed in `85749fb` |
 | **Risk** | 🟨 Medium — no runtime code changes, but it changes what git sees, which is how the damage happened |
 | **Blast radius** | Repository-wide visibility. No effect on the built app. |
 | **Depends on** | Nothing |
@@ -372,7 +372,7 @@ Every referenced symbol must now resolve to a tracked file.
 
 | | |
 |---|---|
-| **Status** | ⬜ |
+| **Status** | ✅ BUILD SUCCESSFUL (4m 22s) from clean clone of `feature/rework` |
 | **Risk** | ⬜ None — read-only verification |
 | **Blast radius** | None. |
 | **Depends on** | P0-B |
@@ -409,7 +409,7 @@ it is the gate for Phase 1.
 #### P1-B — Harden `.gitignore` against recurrence
 | | |
 |---|---|
-| **Status** | ⬜ · **Risk** ⬜ None · **Depends on** P0-C |
+| **Status** | ✅ Rewritten with a documented header; ignore-set diff shows **+2 intended, −0 lost** · **Risk** ⬜ None · **Depends on** P0-C |
 | **Files** | `.gitignore` |
 | **Task** | Add `*.tmp`, `output.md`, `/.idea/` refinement. Add a comment above the `/app/build` line recording *why* it is not `/app` — this is the fence that was previously knocked down. |
 | **Verify** | `git check-ignore -v app/build.gradle.kts.tmp` matches; `git check-ignore app/src/main/…/MainActivity.kt` does **not** match. |
@@ -418,9 +418,9 @@ it is the gate for Phase 1.
 | | |
 |---|---|
 | **Status** | ⬜ · **Risk** ⬜ None · **Depends on** P1-B |
-| **Files** | `build_info_output.txt` (49 KB), `build_stacktrace.txt`, `app/build.gradle.kts.tmp`, `output.md` |
+| **Files** | `build_info_output.txt` (49 KB), `build_stacktrace.txt`, `app/build.gradle.kts.tmp`, `output.md`, `app/release/output-metadata.json` ← **added by P1-B**, see F-9 |
 | **Task** | `git rm --cached` then delete from disk. Commit: `chore: remove committed build artifacts`. |
-| **Verify** | `git ls-files \| grep -iE "build_info_output\|build_stacktrace\|\.tmp$\|^output\.md"` returns empty. |
+| **Verify** | `git ls-files -i -c --exclude-standard` returns **empty** — this is the strongest form: it lists every file that is tracked *despite* matching an ignore rule, so it cannot miss one the way a hand-written `grep` can. |
 | **Watch-out** | These are tracked *despite* matching ignore rules — ignore rules never apply to already-tracked files. `--cached` first, then delete, or git will not stage the removal cleanly. |
 
 #### P1-D — Delete commented-out code and stale comments
@@ -680,10 +680,10 @@ Update the status cell as the **last step** of each task, in the same commit.
 
 | ID | Task | Risk | Depends on | Status | Evidence / note |
 |---|---|---|---|---|---|
-| P0-A | Repair `.gitignore` (`/app`, `*.txt`) | 🟨 | — | ✅ | L7 `/app`→`/app/build`; L18 `*.txt`→explicit `build_info_output.txt` + `build_stacktrace.txt`. `git status` shows exactly the 2 equalizer sources untracked, nothing else. ⚠️ **Working tree only — uncommitted, and `master` still has the harmful rules.** Must land on `master`. |
-| P0-B | Commit orphaned equalizer sources | 🟩 | P0-A | ⬜ | |
-| P0-C | Prove clean-clone build | ⬜ | P0-B | ⬜ | |
-| P1-B | Harden `.gitignore` | ⬜ | P0-C | ⬜ | |
+| P0-A | Repair `.gitignore` (`/app`, `*.txt`) | 🟨 | — | ✅ | L7 `/app`→`/app/build`; L18 `*.txt`→explicit `build_info_output.txt` + `build_stacktrace.txt`. `git status` shows exactly the 2 equalizer sources untracked, nothing else. Committed in `85749fb` on `feature/rework`. ⚠️ Not yet on `master` — master still carries blob `112c157`. |
+| P0-B | Commit orphaned equalizer sources | 🟩 | P0-A | ✅ | Committed in `85749fb` (AudioEffectsManager 306 L, EqualizerSheet 230 L). Verified: on-disk `.kt` 82 = tracked `.kt` 82; 0 untracked under `app/`; all 4 reference sites resolve. Files committed unmodified per DR-2. ⚠️ Not yet on `master`. |
+| P0-C | Prove clean-clone build | ⬜ | P0-B | ✅ | `git clone --branch feature/rework` → `./gradlew assembleDebug --no-daemon` → **BUILD SUCCESSFUL in 4m 22s**, 40 tasks executed. Produced `FastBeat-debug.apk` (28.8 MB). JDK 17.0.12 on PATH. **Phase 0 closed.** |
+| P1-B | Harden `.gitignore` | ⬜ | P0-C | ✅ | Rewrote into commented sections with a header recording **why** `/app` must never be ignored. Added `*.tmp`, `output.md`, `Thumbs.db`, `/.idea/shelf`, `/.idea/deploymentTargetDropDown.xml`. Proved by differential audit over all 4 304 tree paths: ignored 4 065 → 4 067, delta is exactly `app/build.gradle.kts.tmp` + `output.md`, **nothing de-ignored, nothing under `src/` newly ignored**. Regression guard passes for hypothetical new `.kt` in main/test/androidTest, `app/schemas/*.json`, `app/src/test/resources/*.txt`, all 3 baseline-profile locations, `.github/workflows/*`. Resolves F-1. |
 | P1-C | Remove committed build artifacts | ⬜ | P1-B | ⬜ | |
 | P1-D | Delete dead comments | 🟩 | P1-C | ⬜ | |
 | P1-E | CI build workflow | ⬜ | P0-C | ⬜ | |
@@ -728,10 +728,15 @@ Update the status cell as the **last step** of each task, in the same commit.
 
 | # | Found in | Item | Severity |
 |---|---|---|---|
-| F-1 | P0-A | `app/.gitignore` (nested) already contains `/build`, so root L7 `/app/build` is redundant belt-and-braces. Harmless — decide in P1-B whether to keep both or rely on the nested file. | 🟢 Minor |
+| F-1 | P0-A | ~~`app/.gitignore` (nested) already contains `/build`, so root `/app/build` is redundant.~~ **Resolved in P1-B: keep both.** The nested file is one `rm` away from vanishing, and the root rule is what carries the explanatory comment. Redundancy is the point. | ✅ Closed |
 | F-2 | P0-A | `git check-ignore` silently skips **tracked** paths, so it reports nothing for `build_info_output.txt` / `build_stacktrace.txt` until P1-C untracks them. Use `--no-index` to test a rule in isolation. Worth remembering for P1-C's verify step. | 🟢 Minor |
 | F-3 | Re-validation | PR #10 merged a **non-compiling** `master`: the equalizer references landed without the implementation, and nothing caught it. Root cause is F-0 (`/app` ignore), but the *process* gap is that no CI build gate existed to fail the PR. This is the concrete business case for P1-E. | 🔴 Critical |
 | F-4 | Re-validation | `git show <ref>:<path>` is mangled by MSYS path conversion in this Git Bash environment (`origin/master:.gitignore` → `origin\master;.gitignore`). Use `git ls-tree` / `git cat-file -e` / `MSYS_NO_PATHCONV=1` instead when verifying file presence in a ref. | 🟢 Minor |
+| F-5 | P0-B (code read) | `AudioEffectsManager` uses ~10 bare `runCatching { … }` with no failure handling (`applyEnabledState`, `restoreBandConfig`, `readBandLevels`, `releaseEffects`). Same silent-failure class as audit §3.1, which currently scopes only the 2 `catch (_:` sites. **Widen P2's scope to include these.** | 🟡 Major |
+| F-6 | P0-B (code read) | `EqualizerSheet` hardcodes user-facing English: "Equalizer", "Presets", "Bass Boost", "Virtualizer", and the availability message. Adds to P4-F.2's string-externalization scope. | 🟡 Major |
+| F-7 | P0-B (code read) | `EqualizerSheet(viewModel: PlaybackViewModel, …)` takes the whole ViewModel instead of data + callbacks, contradicting audit §1.4. This will make it hard to test in isolation — relevant to P5-G. | 🟡 Major |
+| F-9 | P1-B | `app/release/output-metadata.json` is tracked but matches the `app/release` ignore rule — a build artifact the P1-C card did not list. Card updated. Found by `git ls-files -i -c`, which is the reliable way to enumerate this class (see F-2). | 🟢 Minor |
+| F-8 | P0-C (build) | Clean build is green but noisy: deprecation warnings (`Virtualizer`, `WindowWidthSizeClass`, `statusBarColor`/`navigationBarColor`, `Icons.Filled.TrendingUp`), KT-73255 annotation-target warnings in 3 files, and `PlaybackViewModel.kt:298` needs `@OptIn(ExperimentalCoroutinesApi::class)`. Baseline these in P4-D.1, don't fix in P1-E. | 🟢 Minor |
 
 ---
 

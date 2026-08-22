@@ -1,20 +1,59 @@
-*.iml
+# ---------------------------------------------------------------------------
+# FastBeat .gitignore
+#
+# WARNING: never ignore a whole module directory (e.g. a bare `/app`).
+# Doing so silently drops every NEW file created under it. `git status` will
+# not warn you, because ignored files are never reported as untracked, and
+# files tracked *before* the rule was added keep looking fine -- so the repo
+# appears healthy while it rots.
+#
+# That exact mistake (a bare `/app` on line 7) left
+# `audio/AudioEffectsManager.kt` and `ui/components/EqualizerSheet.kt`
+# unversioned while already-committed code imported them, producing a
+# `master` branch that did not compile.
+#
+# Rule: ignore build OUTPUT directories and machine-local config only.
+# Never a source root, and never a broad extension glob (`*.txt`) that could
+# swallow a source or fixture file.
+# ---------------------------------------------------------------------------
+
+# --- Gradle / build output ---
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
+/build
+# NOT `/app` -- see the warning above. Only the build output directory.
+# Redundant with the nested `app/.gitignore`, kept deliberately so the fence
+# survives deletion of that file.
 /app/build
 app/release
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
+app/release/baselineProfiles
 /captures
 .externalNativeBuild
 .cxx
+
+# --- Machine-local config (absolute SDK paths; must never be committed) ---
 local.properties
+/local.properties
+
+# --- IDE ---
+*.iml
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/deploymentTargetDropDown.xml
+/.idea/shelf
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Transient build / tooling scratch output ---
+# Explicit names and narrow globs only. A blanket `*.txt` was previously here
+# and would have swallowed `baseline-prof.txt` (P5-E) plus any future test
+# fixture data under `app/src/test/resources`.
 build_info_output.txt
 build_stacktrace.txt
-app/release/baselineProfiles
+output.md
+*.tmp
