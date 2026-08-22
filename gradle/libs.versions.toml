@@ -35,6 +35,9 @@ coroutinesTest = "1.9.0"
 robolectric = "4.14.1"
 # Matches the junit-platform 1.8.2 already resolved on the unit-test classpath.
 junitVintage = "5.8.2"
+# 1.23.8 is the latest stable Detekt. Its analysis engine embeds a Kotlin 1.9 compiler,
+# so it parses this Kotlin 2.2 source without type resolution (see the detekt {} block).
+detekt = "1.23.8"
 kotestRobolectric = "0.5.0"
 hilt = "2.60.1"
 androidxTestCore = "1.6.1"
@@ -111,3 +114,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

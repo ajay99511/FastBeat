@@ -60,6 +60,14 @@ jobs:
       - name: Assemble, lint and unit test
         run: ./gradlew assembleDebug lint testDebugUnitTest --stacktrace
 
+      # Its own step, and `!cancelled()` so it reports even when the step above failed -- one run
+      # then tells you about both compile/test failures and style regressions instead of hiding the
+      # second behind the first. detekt is baselined (detekt-baseline.xml), so this only fails on
+      # NEW violations; see the detekt {} block in app/build.gradle.kts.
+      - name: Static analysis (detekt)
+        if: ${{ !cancelled() }}
+        run: ./gradlew detekt --stacktrace
+
       # `if-no-files-found: error` is deliberate. `base { archivesName = "FastBeat" }`
       # in app/build.gradle.kts renames the output, so the stock `app-debug.apk`
       # path every template uses matches nothing here. Without this setting the

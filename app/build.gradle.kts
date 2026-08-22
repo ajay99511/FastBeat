@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -75,6 +76,39 @@ base {
 // KSP plugin, so — like `base` — it belongs at the top level, not inside android {}.
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Static analysis. `buildUponDefaultConfig` keeps detekt's built-in rules and layers detekt.yml
+// on top, so the config file only records our deviations rather than restating everything.
+//
+// A BASELINE is used deliberately: the point of adding detekt now, before the P4-E decomposition,
+// is that pre-existing violations get recorded once and every *newly written* file is held to the
+// full rule set. Baselining after the extraction would silently absolve the new code too.
+// Regenerate with `./gradlew detektBaseline` only when you have consciously accepted new debt.
+//
+// Type resolution is NOT enabled: detekt 1.23.8 embeds a Kotlin 1.9 compiler and this project is on
+// Kotlin 2.2.10, so `detektMain` (the type-resolving variant) is not reliable here. The syntax-only
+// analysis still catches the majority of rules.
+detekt {
+    buildUponDefaultConfig = true
+    parallel = true
+    config.setFrom(files("$rootDir/detekt.yml"))
+    baseline = file("$rootDir/detekt-baseline.xml")
+    source.setFrom(files("src/main/java", "src/test/java", "src/androidTest/java"))
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "11"
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        sarif.required.set(false)
+        md.required.set(false)
+        txt.required.set(false)
+    }
+}
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
+    jvmTarget = "11"
 }
 
 // Set Kotlin JVM target (replaces the deprecated android { kotlinOptions {} } DSL)

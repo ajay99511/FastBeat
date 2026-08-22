@@ -1,0 +1,355 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:DragDropState.kt$DragDropState$key != null &amp;&amp; startIndex &gt;= 0 &amp;&amp; endIndex &gt;= 0 &amp;&amp; startIndex != endIndex</ID>
+    <ID>ComplexCondition:MeScreen.kt$isSelected || (day.isToday &amp;&amp; !hasSelection &amp;&amp; day.playtimeMinutes &gt; 0 &amp;&amp; animationProgress &gt; 0.9f)</ID>
+    <ID>CyclomaticComplexMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:AlbumListScreen.kt$@Composable fun AlbumListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel, onAlbumClick: (Long) -&gt; Unit, onAddMultipleToPlaylist: (List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>CyclomaticComplexMethod:AudioLibraryScreen.kt$@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun AudioLibraryScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onNavigateToPlayer: () -&gt; Unit, onNavigateToPlaylist: (String) -&gt; Unit, onNavigateToAlbum: (Long) -&gt; Unit, onNavigateToArtist: (String) -&gt; Unit, onNavigateToSmartPlaylist: (String) -&gt; Unit, onNavigateToDecade: (Int) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>CyclomaticComplexMethod:AudioListScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AudioListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel, onAudioClick: (MediaFile) -&gt; Unit, onAddToPlaylist: (MediaFile) -&gt; Unit, onAddMultipleToPlaylist: (List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>CyclomaticComplexMethod:DecadeScreens.kt$@Composable fun DecadeDetailScreen( decadeStart: Int, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:MainScreen.kt$@Composable fun MainScreen( viewModel: PlaybackViewModel = hiltViewModel(), widthClass: AppWidthClass = AppWidthClass.Compact, devicePosture: DevicePosture = DevicePosture.Normal )</ID>
+    <ID>CyclomaticComplexMethod:MainScreen.kt$@OptIn(ExperimentalAnimationApi::class) @Composable fun MediaPlayerAppContent(viewModel: PlaybackViewModel)</ID>
+    <ID>CyclomaticComplexMethod:MeScreen.kt$@Composable fun MeScreen( viewModel: PlaybackViewModel, themeViewModel: ThemeViewModel = hiltViewModel(), analyticsViewModel: AnalyticsViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onPlayMedia: (MediaFile) -&gt; Unit, onNavigateToAccessibilityGuide: () -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>CyclomaticComplexMethod:MeScreen.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier )</ID>
+    <ID>CyclomaticComplexMethod:MediaPropertiesDialog.kt$@Composable fun MediaPropertiesDialog(mediaFile: MediaFile, onDismiss: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
+    <ID>CyclomaticComplexMethod:NowPlayingScreen.kt$@Composable fun QueueSheetContent( queue: List&lt;MediaFile&gt;, currentIndex: Int, isReorderEnabled: Boolean, onTrackClick: (MediaFile) -&gt; Unit, onRemove: (MediaFile) -&gt; Unit, onReorder: (track: MediaFile, fromIndex: Int, toIndex: Int) -&gt; Unit, onClear: () -&gt; Unit, onSaveAsPlaylist: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:NowPlayingScreen.kt$@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun NowPlayingScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:PlaybackViewModel.kt$PlaybackViewModel$private fun startPositionUpdates()</ID>
+    <ID>CyclomaticComplexMethod:PlaylistDetailScreen.kt$@Composable fun PlaylistDetailScreen( playlistId: String, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:VideoFolderScreen.kt$@Composable private fun MoviesListContent( libraryViewModel: LibraryViewModel, onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, isGridView: Boolean, onToggleView: () -&gt; Unit, playlistViewModel: PlaylistViewModel = hiltViewModel() )</ID>
+    <ID>CyclomaticComplexMethod:VideoFolderScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoFolderScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onFolderClick: (String) -&gt; Unit, onPlaylistClick: (String) -&gt; Unit, onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>CyclomaticComplexMethod:VideoListScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, videoListOverride: List&lt;MediaFile&gt;? = null, title: String? = null, onBack: (() -&gt; Unit)? = null )</ID>
+    <ID>CyclomaticComplexMethod:VideoPlayerScreen.kt$@OptIn(UnstableApi::class) @Composable fun VideoPlayerScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:VideoPlaylistDetailScreen.kt$@Composable fun VideoPlaylistDetailScreen( playlistId: String, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit )</ID>
+    <ID>ImplicitDefaultLocale:AlbumDetailScreen.kt$String.format("%d:%02d", minutes, seconds)</ID>
+    <ID>ImplicitDefaultLocale:AudioListScreen.kt$String.format("%d:%02d", minutes, seconds)</ID>
+    <ID>ImplicitDefaultLocale:AudioListScreen.kt$String.format("%d:%02d:%02d", hours, minutes, seconds)</ID>
+    <ID>ImplicitDefaultLocale:NowPlayingScreen.kt$String.format("%d:%02d", minutes, seconds)</ID>
+    <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is IllegalStateException</ID>
+    <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is RecoverableSecurityException</ID>
+    <ID>InstanceOfCheckForException:PlaybackViewModel.kt$PlaybackViewModel$e is RecoverableSecurityException</ID>
+    <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
+    <ID>LongMethod:AccessibilityGuideScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccessibilityGuideScreen( onBack: () -&gt; Unit )</ID>
+    <ID>LongMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>LongMethod:AlbumListScreen.kt$@Composable fun AlbumListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel, onAlbumClick: (Long) -&gt; Unit, onAddMultipleToPlaylist: (List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>LongMethod:ArtistScreens.kt$@Composable fun ArtistDetailScreen( artistName: String, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>LongMethod:AudioLibraryScreen.kt$@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun AudioLibraryScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onNavigateToPlayer: () -&gt; Unit, onNavigateToPlaylist: (String) -&gt; Unit, onNavigateToAlbum: (Long) -&gt; Unit, onNavigateToArtist: (String) -&gt; Unit, onNavigateToSmartPlaylist: (String) -&gt; Unit, onNavigateToDecade: (Int) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>LongMethod:AudioListScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AudioListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel, onAudioClick: (MediaFile) -&gt; Unit, onAddToPlaylist: (MediaFile) -&gt; Unit, onAddMultipleToPlaylist: (List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>LongMethod:DecadeScreens.kt$@Composable fun DecadeDetailScreen( decadeStart: Int, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>LongMethod:EqualizerSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun EqualizerSheet( viewModel: PlaybackViewModel, onDismiss: () -&gt; Unit )</ID>
+    <ID>LongMethod:MainScreen.kt$@OptIn(ExperimentalAnimationApi::class) @Composable fun MediaPlayerAppContent(viewModel: PlaybackViewModel)</ID>
+    <ID>LongMethod:MeScreen.kt$@Composable fun MeScreen( viewModel: PlaybackViewModel, themeViewModel: ThemeViewModel = hiltViewModel(), analyticsViewModel: AnalyticsViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onPlayMedia: (MediaFile) -&gt; Unit, onNavigateToAccessibilityGuide: () -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>LongMethod:MeScreen.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier )</ID>
+    <ID>LongMethod:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
+    <ID>LongMethod:MiniPlayer.kt$@Composable fun MiniPlayer(viewModel: PlaybackViewModel, onTap: () -&gt; Unit, modifier: Modifier = Modifier)</ID>
+    <ID>LongMethod:NowPlayingScreen.kt$@Composable fun QueueSheetContent( queue: List&lt;MediaFile&gt;, currentIndex: Int, isReorderEnabled: Boolean, onTrackClick: (MediaFile) -&gt; Unit, onRemove: (MediaFile) -&gt; Unit, onReorder: (track: MediaFile, fromIndex: Int, toIndex: Int) -&gt; Unit, onClear: () -&gt; Unit, onSaveAsPlaylist: () -&gt; Unit )</ID>
+    <ID>LongMethod:NowPlayingScreen.kt$@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun NowPlayingScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit )</ID>
+    <ID>LongMethod:PlaylistDetailScreen.kt$@Composable fun AudioPlaylistItemCard( song: MediaFile, accentColor: Color, onClick: () -&gt; Unit, onPlayNext: () -&gt; Unit, onAddToQueue: () -&gt; Unit, onRemove: (() -&gt; Unit)? = null )</ID>
+    <ID>LongMethod:PlaylistDetailScreen.kt$@Composable fun PlaylistDetailScreen( playlistId: String, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>LongMethod:PlaylistListScreen.kt$@Composable fun PlaylistListScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onPlaylistClick: (String) -&gt; Unit, onCreateClick: () -&gt; Unit, isVideo: Boolean = false, // Added flag to distinguish list source onRename: ((String, String) -&gt; Unit)? = null, onDelete: ((String) -&gt; Unit)? = null, onSmartPlaylistClick: ((String) -&gt; Unit)? = null, smartPlaylistViewModel: SmartPlaylistViewModel = hiltViewModel() )</ID>
+    <ID>LongMethod:PlaylistListScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun PlaylistListItem( name: String, count: Int, isVideo: Boolean = false, onClick: () -&gt; Unit, onRename: (() -&gt; Unit)? = null, onDelete: (() -&gt; Unit)? = null )</ID>
+    <ID>LongMethod:SmartPlaylistDetailScreen.kt$@Composable fun SmartPlaylistDetailScreen( typeId: String, viewModel: PlaybackViewModel, smartPlaylistViewModel: SmartPlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit )</ID>
+    <ID>LongMethod:VideoFolderScreen.kt$@Composable private fun MoviesListContent( libraryViewModel: LibraryViewModel, onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, isGridView: Boolean, onToggleView: () -&gt; Unit, playlistViewModel: PlaylistViewModel = hiltViewModel() )</ID>
+    <ID>LongMethod:VideoFolderScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoFolderScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onFolderClick: (String) -&gt; Unit, onPlaylistClick: (String) -&gt; Unit, onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>LongMethod:VideoListScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun VideoCardItem( video: MediaFile, onVideoClick: () -&gt; Unit, onLongClick: () -&gt; Unit, accentColor: Color, onAddToPlaylist: () -&gt; Unit, isSelectionMode: Boolean, isSelected: Boolean, onDelete: () -&gt; Unit, onProperties: () -&gt; Unit, onRename: () -&gt; Unit = {}, progress: Float = 0f )</ID>
+    <ID>LongMethod:VideoListScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun VideoListItem( video: MediaFile, onVideoClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit, isSelectionMode: Boolean, isSelected: Boolean, onDelete: () -&gt; Unit, onProperties: () -&gt; Unit, onRename: () -&gt; Unit = {}, progress: Float = 0f )</ID>
+    <ID>LongMethod:VideoListScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, videoListOverride: List&lt;MediaFile&gt;? = null, title: String? = null, onBack: (() -&gt; Unit)? = null )</ID>
+    <ID>LongMethod:VideoPlayerScreen.kt$@Composable private fun PlayerBottomControls( isPlaying: Boolean, position: Long, duration: Long, playbackSpeed: Float, showRemainingTime: Boolean, onToggleRemaining: () -&gt; Unit, primaryAccent: Color, onSeek: (Long) -&gt; Unit, onPrevious: () -&gt; Unit, onRewind: () -&gt; Unit, onTogglePlay: () -&gt; Unit, onForward: () -&gt; Unit, onNext: () -&gt; Unit, onCycleSpeed: () -&gt; Unit, onRotate: () -&gt; Unit, modifier: Modifier = Modifier )</ID>
+    <ID>LongMethod:VideoPlayerScreen.kt$@OptIn(UnstableApi::class) @Composable fun VideoPlayerScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit )</ID>
+    <ID>LongMethod:VideoPlaylistDetailScreen.kt$@Composable fun VideoPlaylistDetailScreen( playlistId: String, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit )</ID>
+    <ID>LongMethod:VideoPlaylistDetailScreen.kt$@Composable fun VideoPlaylistItemCard( video: MediaFile, accentColor: Color, playCount: Int = 0, onClick: () -&gt; Unit, onRemove: () -&gt; Unit )</ID>
+    <ID>LongParameterList:AlbumDetailScreen.kt$( index: Int, song: MediaFile, isPlaying: Boolean = false, isSelectionMode: Boolean = false, isSelected: Boolean = false, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onPlayNext: () -&gt; Unit, onAddToQueue: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit )</ID>
+    <ID>LongParameterList:AudioLibraryScreen.kt$( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onNavigateToPlayer: () -&gt; Unit, onNavigateToPlaylist: (String) -&gt; Unit, onNavigateToAlbum: (Long) -&gt; Unit, onNavigateToArtist: (String) -&gt; Unit, onNavigateToSmartPlaylist: (String) -&gt; Unit, onNavigateToDecade: (Int) -&gt; Unit, isSearchVisible: Boolean )</ID>
+    <ID>LongParameterList:AudioListScreen.kt$( song: MediaFile, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onAddToPlaylist: (MediaFile) -&gt; Unit, isSelectionMode: Boolean, isSelected: Boolean, isPlaying: Boolean = false, onDelete: () -&gt; Unit, onPlayNext: (MediaFile) -&gt; Unit, onAddToQueue: (MediaFile) -&gt; Unit, onRename: () -&gt; Unit = {}, onProperties: () -&gt; Unit = {} )</ID>
+    <ID>LongParameterList:VideoListScreen.kt$( video: MediaFile, onVideoClick: () -&gt; Unit, onLongClick: () -&gt; Unit, accentColor: Color, onAddToPlaylist: () -&gt; Unit, isSelectionMode: Boolean, isSelected: Boolean, onDelete: () -&gt; Unit, onProperties: () -&gt; Unit, onRename: () -&gt; Unit = {}, progress: Float = 0f )</ID>
+    <ID>LongParameterList:VideoListScreen.kt$( video: MediaFile, onVideoClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit, isSelectionMode: Boolean, isSelected: Boolean, onDelete: () -&gt; Unit, onProperties: () -&gt; Unit, onRename: () -&gt; Unit = {}, progress: Float = 0f )</ID>
+    <ID>LongParameterList:VideoPlayerScreen.kt$( isPlaying: Boolean, position: Long, duration: Long, playbackSpeed: Float, showRemainingTime: Boolean, onToggleRemaining: () -&gt; Unit, primaryAccent: Color, onSeek: (Long) -&gt; Unit, onPrevious: () -&gt; Unit, onRewind: () -&gt; Unit, onTogglePlay: () -&gt; Unit, onForward: () -&gt; Unit, onNext: () -&gt; Unit, onCycleSpeed: () -&gt; Unit, onRotate: () -&gt; Unit, modifier: Modifier = Modifier )</ID>
+    <ID>LongParameterList:VideoPlayerScreen.kt$( title: String, isLandscape: Boolean, onBack: () -&gt; Unit, onResize: () -&gt; Unit, onShowBookmarks: () -&gt; Unit, onShowSubtitleTracks: () -&gt; Unit, onShowAudioTracks: () -&gt; Unit, onPip: () -&gt; Unit, onShowAddToPlaylist: () -&gt; Unit, modifier: Modifier = Modifier )</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$1000</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$24</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$29L</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$3</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$30</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$4</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$5</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$5000</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$6</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$60</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$6L</ID>
+    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$86400000L</ID>
+    <ID>MagicNumber:AudioEffectsManager.kt$AudioEffectsManager$1000</ID>
+    <ID>MagicNumber:DatabaseModule.kt$DatabaseModule$3</ID>
+    <ID>MagicNumber:DatabaseModule.kt$DatabaseModule$4</ID>
+    <ID>MagicNumber:LibraryViewModel.kt$LibraryViewModel$10</ID>
+    <ID>MagicNumber:LibraryViewModel.kt$LibraryViewModel$3600000</ID>
+    <ID>MagicNumber:LibraryViewModel.kt$LibraryViewModel$5000</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$0.41841f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$16</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$2.39f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$9</ID>
+    <ID>MagicNumber:MediaRepository.kt$MediaRepository$1080</ID>
+    <ID>MagicNumber:MediaRepository.kt$MediaRepository$1900</ID>
+    <ID>MagicNumber:MediaRepository.kt$MediaRepository$2160</ID>
+    <ID>MagicNumber:MediaRepository.kt$MediaRepository$29</ID>
+    <ID>MagicNumber:MediaRepository.kt$MediaRepository$480</ID>
+    <ID>MagicNumber:MediaRepository.kt$MediaRepository$720</ID>
+    <ID>MagicNumber:Migrations.kt$&lt;no name provided&gt;$5</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$0.01f</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$0.5f</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$0.99</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$1.25f</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$1.5f</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$10</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$2</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$22</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$5</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$5000</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$60</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$60_000L</ID>
+    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel.&lt;no name provided&gt;$2</ID>
+    <ID>MagicNumber:PlaylistViewModel.kt$PlaylistViewModel$5000</ID>
+    <ID>MagicNumber:SmartPlaylistViewModel.kt$SmartPlaylistViewModel$1000</ID>
+    <ID>MagicNumber:SmartPlaylistViewModel.kt$SmartPlaylistViewModel$5000</ID>
+    <ID>MagicNumber:ThemeViewModel.kt$ThemeViewModel$0xFF00E5FF</ID>
+    <ID>MagicNumber:ThemeViewModel.kt$ThemeViewModel$0xFF22C55E</ID>
+    <ID>MagicNumber:ThemeViewModel.kt$ThemeViewModel$0xFFFF5500</ID>
+    <ID>MagicNumber:ThumbnailManager.kt$ThumbnailManager$0.1</ID>
+    <ID>MagicNumber:ThumbnailManager.kt$ThumbnailManager$1000</ID>
+    <ID>MatchingDeclarationName:AdaptiveNowPlayingScreen.kt$NowPlayingLayoutType</ID>
+    <ID>MatchingDeclarationName:PlaylistDetailScreen.kt$AudioSortOption</ID>
+    <ID>MatchingDeclarationName:Theme.kt$AppThemeConfig</ID>
+    <ID>MatchingDeclarationName:VideoPlaylistDetailScreen.kt$VideoSortOption</ID>
+    <ID>MaxLineLength:AccessibilityGuideScreen.kt$description = "Access your music library organized by Tracks, Albums, and Playlists. Tap any song to start playback. Use the mini-player at the bottom to control playback while browsing."</ID>
+    <ID>MaxLineLength:AccessibilityGuideScreen.kt$description = "Browse and play videos from your device. Videos are organized by folders. Tap any video to play it in full-screen mode with gesture controls for volume, brightness, and seeking."</ID>
+    <ID>MaxLineLength:AccessibilityGuideScreen.kt$description = "View all images on your device in a beautiful grid layout. Tap any image to view it in full-screen mode."</ID>
+    <ID>MaxLineLength:AccessibilityGuideScreen.kt$description = "View your listening activity, streaks, and favorites. Customize your theme colors and toggle between light and dark modes."</ID>
+    <ID>MaxLineLength:AccessibilityGuideScreen.kt$text = "This guide will walk you through the main features of the app to help you get the most out of your media experience."</ID>
+    <ID>MaxLineLength:AccessibilityGuideScreen.kt$text = "When playing audio or video, a mini-player appears at the bottom of the screen. Tap it to expand to full-screen view. The mini-player allows you to control playback while browsing other sections of the app."</ID>
+    <ID>MaxLineLength:AdaptiveNavigation.kt$imageVector = if (selectedTab == destination.tabIndex) destination.selectedIcon else destination.unselectedIcon</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$.</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$?:</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to Playlist", tint = MaterialTheme.colorScheme.primary)</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$Icon(Icons.Default.SelectAll, contentDescription = "Select All", tint = if (allSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$text = { Text("Add to Queue", color = MaterialTheme.colorScheme.onSurface) }</ID>
+    <ID>MaxLineLength:AlbumDetailScreen.kt$tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to Playlist", tint = MaterialTheme.colorScheme.primary)</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$Icon(Icons.Default.SelectAll, contentDescription = "Select All", tint = if (allSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$model = album.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground"</ID>
+    <ID>MaxLineLength:AlbumListScreen.kt$tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$Text("Play All", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$Text("Shuffle", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }</ID>
+    <ID>MaxLineLength:ArtistScreens.kt$model = song.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground"</ID>
+    <ID>MaxLineLength:AudioLibraryScreen.kt$fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to Playlist", tint = MaterialTheme.colorScheme.primary)</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$Icon(Icons.Default.Close, contentDescription = "Close Selection", tint = MaterialTheme.colorScheme.onSurface)</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$Icon(Icons.Outlined.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$Text("Play All", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$Text("Shuffle", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface)</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$contentDescription = if (sortState.ascending) "Sorted ascending" else "Sorted descending"</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$imageVector = if (sortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null, tint = MaterialTheme.colorScheme.onSurface) }</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$model = song.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground"</ID>
+    <ID>MaxLineLength:AudioListScreen.kt$tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant</ID>
+    <ID>MaxLineLength:AudioNavigationHost.kt$com.local.offlinemediaplayer.ui.adaptive.AdaptiveNowPlayingScreen(viewModel = viewModel, onBack = { navController.popBackStack() })</ID>
+    <ID>MaxLineLength:Dialogs.kt$"Are you sure you want to permanently delete ${if (count &gt; 1) "$count files" else "this file"} from your device? This action cannot be undone."</ID>
+    <ID>MaxLineLength:ImageListScreen.kt$columns = GridCells.Adaptive(minSize = com.local.offlinemediaplayer.ui.adaptive.adaptiveImageCellSize(widthClass))</ID>
+    <ID>MaxLineLength:ImageListScreen.kt$text = if (searchQuery.isNotEmpty()) "No images match search" else "No images found on device"</ID>
+    <ID>MaxLineLength:LibraryViewModel.kt$LibraryViewModel$val</ID>
+    <ID>MaxLineLength:MainScreen.kt$((selectedTab == 0 &amp;&amp; isVideoRoot) || (selectedTab == 1 &amp;&amp; !isAudioDetailScreen) || selectedTab == 2 || selectedTab == 3)</ID>
+    <ID>MaxLineLength:MeScreen.kt$"${analytics.streakDays} Day${if(analytics.streakDays != 1) "s" else ""}"</ID>
+    <ID>MaxLineLength:MeScreen.kt$0.7f</ID>
+    <ID>MaxLineLength:MeScreen.kt$Color.Transparent</ID>
+    <ID>MaxLineLength:MeScreen.kt$RoundedCornerShape</ID>
+    <ID>MaxLineLength:MeScreen.kt$alpha</ID>
+    <ID>MaxLineLength:MeScreen.kt$fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal</ID>
+    <ID>MaxLineLength:MeScreen.kt$if</ID>
+    <ID>MaxLineLength:MeScreen.kt$size = Size(textWidth.toFloat() + (paddingParam * 2), textHeight.toFloat() + (paddingParam * 2))</ID>
+    <ID>MaxLineLength:MeScreen.kt$theme.primaryColor</ID>
+    <ID>MaxLineLength:MeScreen.kt$val startIndex = audioList.indexOfFirst { it.id == song.id }</ID>
+    <ID>MaxLineLength:MeScreen.kt$val y = topPadding + chartHeight - (chartHeight * (i.toFloat() / (gridLines - 1).coerceAtLeast(1)))</ID>
+    <ID>MaxLineLength:MeScreen.kt$viewModel.setQueue(audioList, startIndex, false)</ID>
+    <ID>MaxLineLength:MediaDao.kt$MediaDao$@Query("INSERT OR IGNORE INTO media_analytics (mediaId, playCount, skipCount, lastPlayed) VALUES (:mediaId, 0, 0, :timestamp)")</ID>
+    <ID>MaxLineLength:MediaDao.kt$MediaDao$@Query("SELECT * FROM playback_history WHERE mediaType = 'VIDEO' AND position &gt; 0 AND (duration = 0 OR position &lt; (duration * 0.95)) ORDER BY timestamp DESC LIMIT 10")</ID>
+    <ID>MaxLineLength:MediaDao.kt$MediaDao$@Query("SELECT mediaId FROM play_events WHERE timestamp &gt;= :sinceTimestamp GROUP BY mediaId ORDER BY COUNT(*) DESC LIMIT 1")</ID>
+    <ID>MaxLineLength:MediaDao.kt$MediaDao$@Query("UPDATE playback_history SET position = :position, duration = :duration, timestamp = :timestamp WHERE mediaId = :mediaId")</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$MediaStore.Audio.Albums._ID</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$bucketName = if (bucketNameColumn != -1) cursor.getString(bucketNameColumn) ?: "Unknown" else "Unknown"</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$context.contentResolver.query(collection, projection, null, null, "${MediaStore.Images.Media.DATE_ADDED} DESC")</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$displayName = if (audioDisplayNameColumn != -1) cursor.getString(audioDisplayNameColumn) ?: "" else ""</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$id</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$id = id</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val audioDateAddedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED) else -1</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val audioDateModifiedColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DATE_MODIFIED) else -1</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val audioDisplayNameColumn = if (!isVideo) cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME) else -1</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val bucketNameColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME) else -1</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val dateModifiedColumn = if (isVideo) cursor.getColumnIndex(MediaStore.Video.Media.DATE_MODIFIED) else -1</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val durationColumn = cursor.getColumnIndexOrThrow(if (isVideo) MediaStore.Video.Media.DURATION else MediaStore.Audio.Media.DURATION)</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val idColumn = cursor.getColumnIndexOrThrow(if (isVideo) MediaStore.Video.Media._ID else MediaStore.Audio.Media._ID)</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val nameColumn = cursor.getColumnIndexOrThrow(if (isVideo) MediaStore.Video.Media.DISPLAY_NAME else MediaStore.Audio.Media.TITLE)</ID>
+    <ID>MaxLineLength:MediaRepository.kt$MediaRepository$val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} &gt;= 45000" else null</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE INDEX IF NOT EXISTS `index_playlist_media_cross_ref_mediaId` ON `playlist_media_cross_ref` (`mediaId`)"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE INDEX IF NOT EXISTS `index_playlist_media_cross_ref_playlistId` ON `playlist_media_cross_ref` (`playlistId`)"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `bookmarks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `label` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `current_queue` (`mediaId` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`mediaId`))"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `daily_playtime` (`date` INTEGER NOT NULL, `totalPlaytimeMs` INTEGER NOT NULL, PRIMARY KEY(`date`))"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `play_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `playlist_media_cross_ref` (`playlistId` TEXT NOT NULL, `mediaId` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `mediaId`), FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"</ID>
+    <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `playlists` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `isVideo` INTEGER NOT NULL, PRIMARY KEY(`id`))"</ID>
+    <ID>MaxLineLength:MiniPlayer.kt$?:</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$Box</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$model = currentTrack?.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground"</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp)</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$tint = if (sleepTimerEnd != null) primaryAccent else MaterialTheme.colorScheme.onSurface</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$val icon = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat</ID>
+    <ID>MaxLineLength:NowPlayingScreen.kt$val tint = if (repeatMode == Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary</ID>
+    <ID>MaxLineLength:PermissionScreens.kt$text = "Media access is turned off for this app. To browse your videos, music and photos, enable the media permissions in system Settings, then return to the app."</ID>
+    <ID>MaxLineLength:PermissionScreens.kt$text = "Storage permission is required to access your media files. Please grant the permission to continue."</ID>
+    <ID>MaxLineLength:PlaybackViewModel.kt$PlaybackViewModel$// Tracks if current playback was initiated from a specific playlist (to prevent autoFill from adding random library songs)</ID>
+    <ID>MaxLineLength:PlaybackViewModel.kt$PlaybackViewModel$if (dur &gt; 0) min(PLAY_COUNT_THRESHOLD_MS, dur / 2) else PLAY_COUNT_THRESHOLD_MS</ID>
+    <ID>MaxLineLength:PlaylistListScreen.kt$onRename = if (onRename != null) { { playlistToRename = playlist.id to playlist.name } } else null</ID>
+    <ID>MaxLineLength:PlaylistViewModel.kt$PlaylistViewModel$fun</ID>
+    <ID>MaxLineLength:PlaylistViewModel.kt$PlaylistViewModel$if</ID>
+    <ID>MaxLineLength:VideoFolderScreen.kt$"Search ${if (pagerState.currentPage == 0) "folders" else if (pagerState.currentPage == 1) "movies" else "playlists"}..."</ID>
+    <ID>MaxLineLength:VideoFolderScreen.kt$.</ID>
+    <ID>MaxLineLength:VideoFolderScreen.kt$columns = GridCells.Fixed(com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(widthClass))</ID>
+    <ID>MaxLineLength:VideoFolderScreen.kt$item</ID>
+    <ID>MaxLineLength:VideoListScreen.kt$Icon(Icons.Default.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:VideoListScreen.kt$columns = GridCells.Fixed(com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns(widthClass))</ID>
+    <ID>MaxLineLength:VideoListScreen.kt$contentDescription = if (videoSortState.ascending) "Sorted ascending" else "Sorted descending"</ID>
+    <ID>MaxLineLength:VideoListScreen.kt$imageVector = if (videoSortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward</ID>
+    <ID>MaxLineLength:VideoListScreen.kt$val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current</ID>
+    <ID>MaxLineLength:VideoPlayerScreen.kt$// Left = Brightness, Right = Volume (matches VLC/MX Player convention)</ID>
+    <ID>MaxLineLength:VideoPlayerScreen.kt$// Scale seek range based on video duration: 15% of total, capped at 120s, min 30s</ID>
+    <ID>MaxLineLength:VideoPlayerScreen.kt$val maxSeekRange = min((duration * 0.15).toLong(), 120_000L).coerceAtLeast(30_000L)</ID>
+    <ID>NestedBlockDepth:MainActivity.kt$MainActivity$override fun onUserLeaveHint()</ID>
+    <ID>NestedBlockDepth:MediaRepository.kt$MediaRepository$private fun queryAlbums(): List&lt;Album&gt;</ID>
+    <ID>NestedBlockDepth:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
+    <ID>NestedBlockDepth:PlaybackViewModel.kt$PlaybackViewModel$fun addToQueue(songs: List&lt;MediaFile&gt;)</ID>
+    <ID>NestedBlockDepth:PlaybackViewModel.kt$PlaybackViewModel$fun getAudioTracks(): List&lt;TrackInfo&gt;</ID>
+    <ID>NestedBlockDepth:PlaybackViewModel.kt$PlaybackViewModel$fun getSubtitleTracks(): List&lt;TrackInfo&gt;</ID>
+    <ID>NestedBlockDepth:PlaybackViewModel.kt$PlaybackViewModel$fun playNext(songs: List&lt;MediaFile&gt;)</ID>
+    <ID>NestedBlockDepth:PlaybackViewModel.kt$PlaybackViewModel$fun playPrevious()</ID>
+    <ID>NestedBlockDepth:PlaybackViewModel.kt$PlaybackViewModel$private suspend fun restoreQueue(allMedia: List&lt;MediaFile&gt;)</ID>
+    <ID>NestedBlockDepth:ThumbnailManager.kt$ThumbnailManager$private fun extractThumbnail(video: MediaFile, outputFile: File): String?</ID>
+    <ID>NewLineAtEndOfFile:ExampleInstrumentedTest.kt$com.local.offlinemediaplayer.ExampleInstrumentedTest.kt</ID>
+    <ID>NewLineAtEndOfFile:ExampleUnitTest.kt$com.local.offlinemediaplayer.ExampleUnitTest.kt</ID>
+    <ID>PackageNaming:AppHeader.kt$package com.local.offlinemediaplayer.ui.theme.Headers</ID>
+    <ID>PackageNaming:AudioHeader.kt$package com.local.offlinemediaplayer.ui.theme.Headers</ID>
+    <ID>PackageNaming:FastBeatHeader.kt$package com.local.offlinemediaplayer.ui.theme.Headers</ID>
+    <ID>PackageNaming:ImageHeader.kt$package com.local.offlinemediaplayer.ui.theme.Headers</ID>
+    <ID>PackageNaming:VideoHeader.kt$package com.local.offlinemediaplayer.ui.theme.Headers</ID>
+    <ID>ReturnCount:PlaybackViewModel.kt$PlaybackViewModel$fun moveQueueItem(track: MediaFile, fromIndex: Int, toIndex: Int)</ID>
+    <ID>TooManyFunctions:AudioEffectsManager.kt$AudioEffectsManager</ID>
+    <ID>TooManyFunctions:LibraryViewModel.kt$LibraryViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:PlaylistViewModel.kt$PlaylistViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:VideoPlayerScreen.kt$com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen.kt</ID>
+    <ID>UnusedParameter:AdaptiveNavigation.kt$themeColor: Color</ID>
+    <ID>UnusedParameter:AdaptiveNowPlayingScreen.kt$posture: DevicePosture.TableTop</ID>
+    <ID>UnusedParameter:AudioListScreen.kt$onAudioClick: (MediaFile) -&gt; Unit</ID>
+    <ID>UnusedParameter:Theme.kt$dynamicColor: Boolean = false</ID>
+    <ID>UnusedParameter:VideoListScreen.kt$viewModel: PlaybackViewModel</ID>
+    <ID>UnusedParameter:VideoPlaylistDetailScreen.kt$playCount: Int = 0</ID>
+    <ID>UnusedParameter:VideoPlaylistDetailScreen.kt$viewModel: PlaybackViewModel</ID>
+    <ID>UnusedPrivateProperty:AdaptiveMainLayout.kt$val theme = LocalAppTheme.current</ID>
+    <ID>UnusedPrivateProperty:AdaptiveMeScreen.kt$val posture = LocalDevicePosture.current</ID>
+    <ID>UnusedPrivateProperty:DevicePostureTest.kt$DevicePostureTest$val inTableTop = DevicePosture.TableTop(Rect())</ID>
+    <ID>UnusedPrivateProperty:MediaRepository.kt$MediaRepository$val width = if (widthColumn != -1) cursor.getInt(widthColumn) else 0</ID>
+    <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel$private val thumbnailManager: ThumbnailManager</ID>
+    <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val AUDIO_COMPLETION_THRESHOLD = 0.99</ID>
+    <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val DAY_IN_MILLIS = 86_400_000L</ID>
+    <ID>UnusedPrivateProperty:Theme.kt$private val DarkColorScheme = darkColorScheme( primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80 )</ID>
+    <ID>UnusedPrivateProperty:Theme.kt$private val LightColorScheme = lightColorScheme( primary = Purple40, secondary = PurpleGrey40, tertiary = Pink40 )</ID>
+    <ID>VariableNaming:PlaybackViewModel.kt$PlaybackViewModel$// --- Saved Audio Session Persistence (survives a video interruption + process death) --- // When a video interrupts an active music session we snapshot the audio session both // in-memory (for the fast in-app restore) AND to disk here, so that if the process is // killed while the video is open the whole music session (queue, index, position, // shuffle, repeat) can be recovered on next launch instead of being lost. private val SAVED_AUDIO_SESSION_KEY = "saved_audio_session"</ID>
+    <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.material.icons.outlined.*</ID>
+    <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:AlbumDetailScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:AlbumDetailScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:AlbumDetailScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:AlbumDetailScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:AlbumListScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:AlbumListScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:AlbumListScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:AppHeader.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:ArtistScreens.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:ArtistScreens.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:ArtistScreens.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:AudioHeader.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:AudioLibraryScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:AudioListScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:AudioListScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:AudioListScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:AudioListScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:AudioNavigationHost.kt$import com.local.offlinemediaplayer.ui.screens.*</ID>
+    <ID>WildcardImport:Dialogs.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:Dialogs.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:Dialogs.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:ExampleInstrumentedTest.kt$import org.junit.Assert.*</ID>
+    <ID>WildcardImport:ExampleUnitTest.kt$import org.junit.Assert.*</ID>
+    <ID>WildcardImport:FastBeatHeader.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:ImageHeader.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:ImageListScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:ImageListScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:ImageListScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:MainScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:MainScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:MeScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:MeScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:MeScreen.kt$import androidx.compose.material.icons.outlined.*</ID>
+    <ID>WildcardImport:MeScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:MeScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:MediaPropertiesDialog.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:MediaPropertiesDialog.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:MiniPlayer.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:MiniPlayer.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:NowPlayingScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:NowPlayingScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:NowPlayingScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:NowPlayingScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:PermissionScreens.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:PermissionScreens.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:PlaylistDetailScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:PlaylistDetailScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:PlaylistDetailScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:PlaylistDetailScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:VideoFolderScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:VideoFolderScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:VideoFolderScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:VideoHeader.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:VideoListScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:VideoListScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:VideoListScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:VideoListScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:VideoPlayerScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:VideoPlayerScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:VideoPlayerScreen.kt$import androidx.compose.material.icons.outlined.*</ID>
+    <ID>WildcardImport:VideoPlayerScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:VideoPlayerScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:VideoPlaylistDetailScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:VideoPlaylistDetailScreen.kt$import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:VideoPlaylistDetailScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:VideoPlaylistDetailScreen.kt$import androidx.compose.runtime.*</ID>
+  </CurrentIssues>
+</SmellBaseline>
