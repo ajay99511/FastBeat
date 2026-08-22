@@ -1,6 +1,5 @@
 package com.local.offlinemediaplayer.ui
 
-// import com.local.offlinemediaplayer.model.MediaFile
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -58,9 +57,6 @@ import com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen
 import com.local.offlinemediaplayer.ui.theme.Headers.FastBeatHeader
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
-
-// import androidx.compose.ui.Alignment
-// import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.runtime.CompositionLocalProvider
 import com.local.offlinemediaplayer.ui.adaptive.AdaptiveMainLayout

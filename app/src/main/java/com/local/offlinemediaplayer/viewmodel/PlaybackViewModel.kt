@@ -283,11 +283,6 @@ constructor(
         return _currentTrack.value?.isVideo == true && _isPlaying.value
     }
 
-    // Removed duplicate setPipMode
-
-    // Removed duplicate setPipMode
-    // Removed duplicate closeVideo due to ambiguity
-
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var positionUpdateJob: Job? = null
 

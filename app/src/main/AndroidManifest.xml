@@ -27,9 +27,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Material3.DayNight.NoActionBar"
         tools:targetApi="31">
-        <!--                android:label="@string/app_name"-->
-        <!--            android:icon="@mipmap/ic_launcher"-->
-        <!--        android:roundIcon="@mipmap/ic_launcher_round"-->
         <!-- Main Activity -->
         <activity
             android:name=".MainActivity"

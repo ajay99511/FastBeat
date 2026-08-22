@@ -1,6 +1,5 @@
 package com.local.offlinemediaplayer.ui.screens
 
-// import androidx.compose.material.icons.outlined.Search
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,8 +17,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PlayArrow
-//import androidx.compose.material.icons.filled.Sort
-//import androidx.compose.material.icons.filled.ViewList
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
