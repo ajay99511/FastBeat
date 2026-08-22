@@ -1,0 +1,61 @@
+# Build gate for FastBeat.
+#
+# WHY THIS EXISTS: PR #10 merged a `master` that did not compile -- the equalizer
+# call sites landed without their implementation, because a `/app` rule in
+# .gitignore had silently kept the two source files out of the repository.
+# Nothing in the pipeline compiled the merge result, so nothing objected.
+#
+# This workflow is that missing objection. For it to actually block a bad merge
+# it must also be marked a REQUIRED status check in the repository's branch
+# protection rules for `master` -- a workflow file alone cannot enforce that.
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - "feature/**"
+      - "fix/**"
+      - "refactor/**"
+  # For pull_request, `branches` filters the BASE branch, not the head branch.
+  # Only `master` is listed: a PR aimed at a feature branch is already covered
+  # by the push trigger on that branch, so listing more here only duplicates runs.
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# A newer push to the same branch makes the in-flight run obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Assemble, lint, unit test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # JDK 17, not 21: the Gradle toolchain needs 17+, and AGP 9.0.0 with
+      # Kotlin 2.2.10 is verified against 17 locally. Keep the two in step.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # `testDebugUnitTest`, not `test`: bare `test` also builds the release
+      # variant and would drag R8/minification into every run for no gain.
+      # `useJUnitPlatform()` is already configured, so Kotest specs run as-is.
+      - name: Assemble, lint and unit test
+        run: ./gradlew assembleDebug lint testDebugUnitTest --stacktrace
