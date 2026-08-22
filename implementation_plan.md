@@ -156,6 +156,20 @@ not reject that.
 form. If it fails, we switch to the rebuild — the test already exists to prove it. Either way the answer is
 evidence, not a guess. **Record the observed outcome in P3-D's status note** so the next reader does not re-litigate it.
 
+**Evidence gathered in P3-B (2026-08-22) — necessary, not yet sufficient:**
+1. Confirmed from the schema files: all three columns are `INTEGER NOT NULL` with `defaultValue` **absent** in
+   `5.json`. The premise of this DR is factual, not assumed.
+2. The `ALTER TABLE … NOT NULL DEFAULT <n>` form **executes correctly on real SQLite 3.50.4** against a populated
+   v1 table: the pre-existing row is preserved unchanged and the new columns take `0 / -1 / -1`. The resulting
+   structure has **zero diff** against v5 (column names, affinities, NOT NULL flags, indices, FK enforcement).
+3. Reading Room's `TableInfo.Column` equality, `defaultValue` is compared **only when the entity side declares
+   one**. Here it declares none, so the DB-side default should be ignored during validation.
+
+⚠️ **This is not the decision.** Points 1–2 prove the SQL is correct; point 3 is *reasoning about* Room's
+validator, not an observation of it. Only `runMigrationsAndValidate()` on a device exercises the real comparison —
+**P3-D still decides DR-3.** The value of this evidence is that if P3-D fails, we already know the SQL itself is
+sound and the fault lies in Room's validation, which points straight at the table-rebuild fallback.
+
 ### DR-4 — Do not write unverifiable migrations for v2–v4
 **Decision:** Ship a verified `MIGRATION_1_5`. Leave 2, 3, 4 on the destructive fallback.
 **Context:** Schemas 2–4 were never exported. A defensive "works from any version" migration
@@ -535,8 +549,8 @@ and is deliberately separated so a build-config failure never gets mistaken for 
 #### P3-B — Document the v1 → v5 schema diff
 | | |
 |---|---|
-| **Status** | ⬜ · **Risk** ⬜ None — research only · **Depends on** P3-A |
-| **Output** | `docs/migration_v1_to_v5.sql` [NEW] |
+| **Status** | ✅ **Generated** from `5.json`, not transcribed; verified by `tools/verify_migration_sql.py` (16 invariants) and executed against real SQLite · **Risk** ⬜ None — research only · **Depends on** P3-A |
+| **Output** | `docs/migration_v1_to_v5.sql` [NEW], `tools/verify_migration_sql.py` [NEW] |
 
 **Task** Produce the exact SQL, transcribed from `5.json`'s `createSql` fields — **do not hand-write DDL from the
 entity classes**; a transcription error here is a production data bug. The work is:
@@ -699,7 +713,7 @@ Update the status cell as the **last step** of each task, in the same commit.
 | P2-C | Replace `printStackTrace` ×3 | 🟩 | P1-E | ✅ | All 3 replaced with distinct context strings — every site is a different PiP failure, so none share a message: `MainActivity.kt` `onUserLeaveHint()` (pre-Android-12 manual entry) → "Failed to enter picture-in-picture on user leave"; `VideoPlayerScreen.kt` `LaunchedEffect` (Android 12+ auto-enter params) → "Failed to update picture-in-picture params for auto-enter"; `VideoPlayerScreen.kt` PiP control button → "Failed to enter picture-in-picture from the player controls". Added `companion object { private const val TAG = "MainActivity" }`; in `VideoPlayerScreen.kt` `TAG` is at **file scope (L83), above the first `@Composable` (L91)** per the watch-out. **12 insertions, 3 deletions.** Verify: `grep -rn "printStackTrace" app/src/` → empty; `assembleDebug` → BUILD SUCCESSFUL 51s with no new warnings (the `WindowWidthSizeClass` ones are pre-existing, tracked in F-8). |
 | P2-D | Handle the bare `runCatching {}` sites (F-5) | 🟩 | P2-A | ✅ | **11 sites, not the 10 F-5 estimated** — all now report failure. 7 edits in `AudioEffectsManager.kt`: `buildEffects` ×2 (persisted bass/virtualizer strength), `restoreBandConfig` ×2, `readBandLevels` ×1, `applyEnabledState` ×3, `releaseEffects` ×3. **Design call:** the two per-band loops aggregate rather than logging per band — when the effect is in a bad state *every* band fails, and 10 identical lines would bury the signal; each reports once with a count and the first throwable as cause. `readBandLevels` became a block body to carry the counters; **returned values are byte-identical** (`.onFailure` returns the same `Result`, so `.getOrDefault(0)` still applies). DR-2 honoured: logging only, no control-flow or audible change. **36 insertions, 5 deletions** — the 5 removals are 2 brace closers and the old 3-line expression body. Verified by script: 11 `runCatching`, **0 unhandled**. `assembleDebug` + `lint testDebugUnitTest` → BUILD SUCCESSFUL, **13 tests / 0 failures**, no new warnings. |
 | P3-A | Wire migration test harness | 🟩 | P1-E | ✅ | Added `androidTestImplementation(libs.room.testing)` and, inside `android {}`, `sourceSets.getByName("androidTest") { assets.srcDirs("$projectDir/schemas") }`. **Then hit a pre-existing blocker (F-14): `:app:mergeDebugAndroidTestJavaResource` fails — `androidTest` has never been buildable.** Proved pre-existing by `git stash` + rebuild on a clean tree. Root cause: `mockk-android` pulls JUnit 5 (Jupiter 5.8.2) transitively; its 6 jars each ship `META-INF/LICENSE.md` and the merger will not collapse them. Fixed at the source with `configurations.named("androidTestImplementation") { exclude(group = "org.junit.jupiter"); exclude(group = "org.junit.platform") }` **rather than** a global `packaging { resources { excludes } }` block, which would have altered the *shipped* APK for a test-only problem. Jupiter cannot run under AndroidJUnitRunner anyway, so it was dead weight. Verified: `room-testing:2.7.2` resolves on `debugAndroidTestCompileClasspath`; `:app:assembleDebugAndroidTest` → BUILD SUCCESSFUL; test APK contains `assets/…AppDatabase/1.json` (2 625 B) and `5.json` (10 689 B), **card's `grep -c "1.json"` = 1**; JVM unit tests still **13/0** (Kotest's JUnit 5 untouched — the exclude is scoped to androidTest). |
-| P3-B | Document v1→v5 schema diff | ⬜ | P3-A | ⬜ | |
+| P3-B | Document v1→v5 schema diff | ⬜ | P3-A | ✅ | `docs/migration_v1_to_v5.sql` (104 lines, **13 statements**: 3 `ALTER`, 6 `CREATE TABLE`, 4 `CREATE INDEX`). **Machine-generated from `5.json`'s `createSql` fields** — no SQL was hand-typed, which removes the transcription-error class the card warns about rather than merely being careful about it. Shape confirmed against the card exactly: 3 columns added to `playback_history`, `media_analytics` byte-identical in v1 and v5, 6 new tables, 4 new indices, 1 FK. **Verified three independent ways:** (1) `tools/verify_migration_sql.py` — 16 invariants, byte-identity of every CREATE vs `5.json`, correct affinity/NOT NULL/seed per ALTER, no stray statements, FK-target ordering, and a guard that fails if `5.json` ever starts declaring `defaultValue` (which would invalidate DR-3's premise); (2) **mutation-tested** the verifier — flipping one `INTEGER`→`TEXT` makes it exit 1, so it can actually fail; (3) **executed end-to-end on real SQLite 3.50.4**: built a v1 DB, inserted a row, applied all 13 statements, and confirmed the row survived byte-for-byte with new columns seeded `0/-1/-1`, 8 tables, all 4 indices, FK enforced (orphan insert rejected), and **zero structural diff vs v5**. |
 | P3-C | Write `MIGRATION_1_5` | 🟥 | P3-B | ⬜ | |
 | P3-D | Migration test — **decides DR-3** | 🟩 | P3-C | ⬜ | |
 | P4-A | `MediaDao` tests | 🟩 | P3-D | ⬜ | |
