@@ -28,6 +28,7 @@ import com.local.offlinemediaplayer.playback.DeletionKind
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
 import com.local.offlinemediaplayer.playback.MediaDeletionHandler
 import com.local.offlinemediaplayer.playback.PlaybackAnalyticsTracker
+import com.local.offlinemediaplayer.playback.QueuePersistence
 import com.local.offlinemediaplayer.playback.QueuePolicy
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
@@ -115,6 +116,7 @@ class PlaybackViewModel
         private val analytics: PlaybackAnalyticsTracker,
         private val deletionHandler: MediaDeletionHandler,
         private val bookmarks: BookmarkManager,
+        private val queuePersistence: QueuePersistence,
     ) : AndroidViewModel(app) {
         companion object {
             private const val TAG = "PlaybackViewModel"
@@ -821,7 +823,7 @@ class PlaybackViewModel
             // it is the authoritative snapshot of the interrupted music session.
             val savedSession = loadSavedAudioSession(mediaById)
             if (savedSession != null) {
-                _currentPlaylistContext.value = sharedPrefs.getString("last_playlist_context", null)
+                _currentPlaylistContext.value = queuePersistence.playlistContext
                 applyAudioSession(savedSession)
                 clearSavedAudioState()
                 return
@@ -835,7 +837,7 @@ class PlaybackViewModel
                     QueuePolicy.restore(
                         saved = savedQueueItems,
                         mediaById = mediaById,
-                        savedIndex = sharedPrefs.getInt("last_queue_index", 0),
+                        savedIndex = queuePersistence.queueIndex,
                     )
 
                 var finalQueue = restored?.queue ?: emptyList()
@@ -844,7 +846,7 @@ class PlaybackViewModel
 
                 if (restored != null) {
                     finalStartPos =
-                        QueuePolicy.resumePosition(mediaDao.getHistory(restored.queue[restored.index].id))
+                        queuePersistence.resumePositionFor(restored.queue[restored.index].id)
                 } else {
                     // FALLBACK: If queue is empty (or was all videos), try to restore the last played
                     // AUDIO track
@@ -866,11 +868,11 @@ class PlaybackViewModel
                     _currentTrack.value = finalQueue[finalIndex]
 
                     // Restore shuffle mode, repeat mode, and playlist context from prefs
-                    val savedShuffle = sharedPrefs.getBoolean("last_shuffle_enabled", false)
-                    val savedRepeatMode = sharedPrefs.getInt("last_repeat_mode", Player.REPEAT_MODE_OFF)
+                    val savedShuffle = queuePersistence.shuffleEnabled
+                    val savedRepeatMode = queuePersistence.repeatMode
                     _isShuffleEnabled.value = savedShuffle
                     _repeatMode.value = savedRepeatMode
-                    _currentPlaylistContext.value = sharedPrefs.getString("last_playlist_context", null)
+                    _currentPlaylistContext.value = queuePersistence.playlistContext
 
                     // Set to player
                     withContext(Dispatchers.Main) {
@@ -888,103 +890,35 @@ class PlaybackViewModel
             }
         }
 
+        // --- Persisted audio session --- (owned by QueuePersistence as of P4-E.4 step 2)
+        // These remain as private helpers so the ~35 existing call sites are untouched; only the
+        // bodies moved. Every write to the saved session now goes through one class.
         private fun persistQueue(queue: List<MediaFile>) {
-            // Central guard: the persisted "current_queue" is the AUDIO session only. Never write a
-            // video into it, so video playback can't wipe the music queue on the next cold start.
-            if (!QueuePolicy.isPersistable(queue)) return
-            viewModelScope.launch(Dispatchers.IO) {
-                mediaDao.replaceQueue(QueuePolicy.toEntities(queue))
-            }
+            viewModelScope.launch(Dispatchers.IO) { queuePersistence.saveQueue(queue) }
         }
 
         private fun persistQueueIndex(index: Int) {
-            sharedPrefs.edit { putInt("last_queue_index", index) }
+            queuePersistence.queueIndex = index
         }
 
         private fun persistShuffleMode(enabled: Boolean) {
-            sharedPrefs.edit { putBoolean("last_shuffle_enabled", enabled) }
+            queuePersistence.shuffleEnabled = enabled
         }
 
         private fun persistRepeatMode(mode: Int) {
-            sharedPrefs.edit { putInt("last_repeat_mode", mode) }
+            queuePersistence.repeatMode = mode
         }
 
         private fun persistPlaylistContext(context: String?) {
-            sharedPrefs.edit {
-                if (context != null) {
-                    putString("last_playlist_context", context)
-                } else {
-                    remove("last_playlist_context")
-                }
-            }
+            queuePersistence.playlistContext = context
         }
 
-        // --- Saved Audio Session Persistence (survives a video interruption + process death) ---
-        // When a video interrupts an active music session we snapshot the audio session both
-        // in-memory (for the fast in-app restore) AND to disk here, so that if the process is
-        // killed while the video is open the whole music session (queue, index, position,
-        // shuffle, repeat) can be recovered on next launch instead of being lost.
-        private val SAVED_AUDIO_SESSION_KEY = "saved_audio_session"
+        private fun persistSavedAudioState(state: AudioPlayerState) = queuePersistence.saveAudioSession(state)
 
-        private fun persistSavedAudioState(state: AudioPlayerState) {
-            try {
-                val ids = org.json.JSONArray()
-                state.queue.forEach { ids.put(it.id) }
-                val json =
-                    org.json.JSONObject().apply {
-                        put("queueIds", ids)
-                        put("index", state.currentIndex)
-                        put("currentId", state.queue.getOrNull(state.currentIndex)?.id ?: -1L)
-                        put("position", state.position)
-                        put("shuffle", state.isShuffleEnabled)
-                        put("repeat", state.repeatMode)
-                    }
-                sharedPrefs.edit { putString(SAVED_AUDIO_SESSION_KEY, json.toString()) }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to persist saved audio session", e)
-            }
-        }
+        private fun clearSavedAudioState() = queuePersistence.clearAudioSession()
 
-        private fun clearSavedAudioState() {
-            sharedPrefs.edit { remove(SAVED_AUDIO_SESSION_KEY) }
-        }
-
-        /**
-         * Reconstructs a previously interrupted audio session from disk, resolving media IDs against
-         * the freshly-scanned library and dropping any that no longer exist. Returns null when there
-         * is no saved session or none of its tracks survive. The restored session is always paused
-         * (we never auto-blast audio on cold start).
-         */
-        private fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? {
-            val raw = sharedPrefs.getString(SAVED_AUDIO_SESSION_KEY, null) ?: return null
-            return try {
-                val json = org.json.JSONObject(raw)
-                val idsArray = json.getJSONArray("queueIds")
-                val queue = mutableListOf<MediaFile>()
-                for (i in 0 until idsArray.length()) {
-                    val track = mediaById[idsArray.getLong(i)]
-                    if (track != null && !track.isVideo) queue.add(track)
-                }
-                if (queue.isEmpty()) return null
-
-                val currentId = json.optLong("currentId", -1L)
-                val index =
-                    queue.indexOfFirst { it.id == currentId }.takeIf { it >= 0 }
-                        ?: json.getInt("index").coerceIn(0, queue.size - 1)
-
-                AudioPlayerState(
-                    queue = queue,
-                    currentIndex = index,
-                    position = json.getLong("position"),
-                    isPlaying = false, // never auto-play on cold start
-                    isShuffleEnabled = json.getBoolean("shuffle"),
-                    repeatMode = json.getInt("repeat"),
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load saved audio session", e)
-                null
-            }
-        }
+        private fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? =
+            queuePersistence.loadAudioSession(mediaById)
 
         // --- Playback Logic ---
         fun playMedia(media: MediaFile) {

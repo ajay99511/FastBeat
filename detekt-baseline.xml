@@ -202,7 +202,6 @@
     <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val PLAY_COUNT_THRESHOLD_MS = 30_000L</ID>
     <ID>UnusedPrivateProperty:Theme.kt$private val DarkColorScheme = darkColorScheme( primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80, )</ID>
     <ID>UnusedPrivateProperty:Theme.kt$private val LightColorScheme = lightColorScheme( primary = Purple40, secondary = PurpleGrey40, tertiary = Pink40, )</ID>
-    <ID>VariableNaming:PlaybackViewModel.kt$PlaybackViewModel$// --- Saved Audio Session Persistence (survives a video interruption + process death) --- // When a video interrupts an active music session we snapshot the audio session both // in-memory (for the fast in-app restore) AND to disk here, so that if the process is // killed while the video is open the whole music session (queue, index, position, // shuffle, repeat) can be recovered on next launch instead of being lost. private val SAVED_AUDIO_SESSION_KEY = "saved_audio_session"</ID>
     <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.foundation.layout.*</ID>
     <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.material.icons.filled.*</ID>
     <ID>WildcardImport:AccessibilityGuideScreen.kt$import androidx.compose.material.icons.outlined.*</ID>
