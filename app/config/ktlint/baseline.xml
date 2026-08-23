@@ -73,8 +73,8 @@
         <error line="732" column="21" source="standard:backing-property-naming" />
     </file>
     <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt">
-        <error line="384" column="21" source="standard:backing-property-naming" />
-        <error line="456" column="21" source="standard:backing-property-naming" />
-        <error line="1015" column="21" source="standard:property-naming" />
+        <error line="382" column="21" source="standard:backing-property-naming" />
+        <error line="421" column="21" source="standard:backing-property-naming" />
+        <error line="953" column="21" source="standard:property-naming" />
     </file>
 </baseline>

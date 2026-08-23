@@ -29,7 +29,6 @@
     <ID>ImplicitDefaultLocale:NowPlayingScreen.kt$String.format("%d:%02d", minutes, seconds)</ID>
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is IllegalStateException</ID>
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is RecoverableSecurityException</ID>
-    <ID>InstanceOfCheckForException:PlaybackViewModel.kt$PlaybackViewModel$e is RecoverableSecurityException</ID>
     <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
     <ID>LongMethod:AccessibilityGuideScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccessibilityGuideScreen(onBack: () -&gt; Unit)</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>

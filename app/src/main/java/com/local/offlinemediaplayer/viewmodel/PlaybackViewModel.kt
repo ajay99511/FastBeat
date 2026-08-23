@@ -1,13 +1,8 @@
 package com.local.offlinemediaplayer.viewmodel
 
 import android.app.Application
-import android.app.PendingIntent
-import android.app.RecoverableSecurityException
 import android.content.Context
-import android.content.IntentSender
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.content.edit
@@ -29,7 +24,9 @@ import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
+import com.local.offlinemediaplayer.playback.DeletionKind
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
+import com.local.offlinemediaplayer.playback.MediaDeletionHandler
 import com.local.offlinemediaplayer.playback.PlaybackAnalyticsTracker
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
@@ -117,6 +114,7 @@ class PlaybackViewModel
         val audioEffects: AudioEffectsManager,
         private val mediaControllerBinder: MediaControllerBinder,
         private val analytics: PlaybackAnalyticsTracker,
+        private val deletionHandler: MediaDeletionHandler,
     ) : AndroidViewModel(app) {
         companion object {
             private const val TAG = "PlaybackViewModel"
@@ -335,8 +333,8 @@ class PlaybackViewModel
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Library")
 
-        private val _deleteIntentEvent = MutableSharedFlow<IntentSender>()
-        val deleteIntentEvent = _deleteIntentEvent.asSharedFlow()
+        // The scoped-storage consent round-trip lives in MediaDeletionHandler (P4-E.3).
+        val deleteIntentEvent = deletionHandler.deleteIntentEvent
 
         init {
             bindMediaController()
@@ -383,59 +381,27 @@ class PlaybackViewModel
         // --- Image Deletion ---
         private val _pendingImageDeleteId = MutableStateFlow<Long?>(null)
 
-        // Android 10 per-file consent retry: RESULT_OK from the system dialog only
-        // grants write access — the delete itself must be re-attempted by the app.
-        private var pendingLegacyImageUri: Uri? = null
-        private var pendingLegacyTrackUri: Uri? = null
-
         fun deleteImage(image: MediaFile) {
             viewModelScope.launch(Dispatchers.IO) {
                 _pendingImageDeleteId.value = image.id
-                val uris = listOf(image.uri)
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val pendingIntent: PendingIntent =
-                        MediaStore.createDeleteRequest(app.contentResolver, uris)
-                    _deleteIntentEvent.emit(pendingIntent.intentSender)
-                } else {
-                    try {
-                        app.contentResolver.delete(image.uri, null, null)
-                        completeImageDelete()
-                    } catch (e: SecurityException) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
-                            pendingLegacyImageUri = image.uri
-                            _deleteIntentEvent.emit(e.userAction.actionIntent.intentSender)
-                        } else {
-                            onLegacyImageDeleteFailed(e)
-                        }
-                    } catch (e: Exception) {
-                        onLegacyImageDeleteFailed(e)
-                    }
-                }
+                deletionHandler.requestDelete(
+                    kind = DeletionKind.IMAGE,
+                    uri = image.uri,
+                    deleted = { completeImageDelete() },
+                    failed = { onLegacyImageDeleteFailed() },
+                )
             }
         }
 
-        private suspend fun onLegacyImageDeleteFailed(e: Exception) {
-            Log.e(TAG, "Failed to delete image", e)
+        private suspend fun onLegacyImageDeleteFailed() {
             _pendingImageDeleteId.value = null
             _userMessage.emit("Couldn't delete this file")
         }
 
         fun onImageDeleteSuccess() {
-            val retryUri = pendingLegacyImageUri
-            if (retryUri != null) {
-                pendingLegacyImageUri = null
-                viewModelScope.launch(Dispatchers.IO) {
-                    try {
-                        app.contentResolver.delete(retryUri, null, null)
-                        completeImageDelete()
-                    } catch (e: Exception) {
-                        onLegacyImageDeleteFailed(e)
-                    }
-                }
-                return
+            viewModelScope.launch(Dispatchers.IO) {
+                deletionHandler.onDeleteConfirmed(DeletionKind.IMAGE)
             }
-            completeImageDelete()
         }
 
         private fun completeImageDelete() {
@@ -446,8 +412,7 @@ class PlaybackViewModel
 
         /** Call when the user cancels the system delete dialog. */
         fun onDeleteCancelled() {
-            pendingLegacyImageUri = null
-            pendingLegacyTrackUri = null
+            deletionHandler.onDeleteCancelled()
             _pendingImageDeleteId.value = null
             _pendingDeleteTrackId.value = null
         }
@@ -461,51 +426,24 @@ class PlaybackViewModel
             val track = _currentTrack.value ?: return
             viewModelScope.launch(Dispatchers.IO) {
                 _pendingDeleteTrackId.value = track.id
-                val uris = listOf(track.uri)
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val pendingIntent: PendingIntent =
-                        MediaStore.createDeleteRequest(app.contentResolver, uris)
-                    _deleteIntentEvent.emit(pendingIntent.intentSender)
-                } else {
-                    try {
-                        app.contentResolver.delete(track.uri, null, null)
-                        completeCurrentTrackDelete()
-                    } catch (e: SecurityException) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
-                            pendingLegacyTrackUri = track.uri
-                            _deleteIntentEvent.emit(e.userAction.actionIntent.intentSender)
-                        } else {
-                            onLegacyTrackDeleteFailed(e)
-                        }
-                    } catch (e: Exception) {
-                        onLegacyTrackDeleteFailed(e)
-                    }
-                }
+                deletionHandler.requestDelete(
+                    kind = DeletionKind.TRACK,
+                    uri = track.uri,
+                    deleted = { completeCurrentTrackDelete() },
+                    failed = { onLegacyTrackDeleteFailed() },
+                )
             }
         }
 
-        private suspend fun onLegacyTrackDeleteFailed(e: Exception) {
-            Log.e(TAG, "Failed to delete current track", e)
+        private suspend fun onLegacyTrackDeleteFailed() {
             _pendingDeleteTrackId.value = null
             _userMessage.emit("Couldn't delete this file")
         }
 
         fun onCurrentTrackDeleteSuccess() {
-            val retryUri = pendingLegacyTrackUri
-            if (retryUri != null) {
-                pendingLegacyTrackUri = null
-                viewModelScope.launch(Dispatchers.IO) {
-                    try {
-                        app.contentResolver.delete(retryUri, null, null)
-                        completeCurrentTrackDelete()
-                    } catch (e: Exception) {
-                        onLegacyTrackDeleteFailed(e)
-                    }
-                }
-                return
+            viewModelScope.launch(Dispatchers.IO) {
+                deletionHandler.onDeleteConfirmed(DeletionKind.TRACK)
             }
-            completeCurrentTrackDelete()
         }
 
         private fun completeCurrentTrackDelete() {
