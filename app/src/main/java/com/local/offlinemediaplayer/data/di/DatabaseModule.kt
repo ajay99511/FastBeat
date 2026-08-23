@@ -29,20 +29,13 @@ object DatabaseModule {
             )
             // v1 users now keep their data instead of being wiped on upgrade.
             .addMigrations(MIGRATION_1_5)
-            // `1` is deliberately still listed here, contrary to the P3-C card, which claimed
-            // leaving it makes the migration dead code. Room's RoomOpenHelper.onUpgrade and
-            // RoomConnectionManager.onMigrate both read:
-            //
-            //     val migrations = findMigrationPath(old, new)
-            //     if (migrations != null) { run them; validate }
-            //     if (!migrated) { ...destructive fallback... }
-            //
-            // A registered migration path ALWAYS wins; this list is only consulted when no path
-            // is found. So keeping `1` costs nothing while MIGRATION_1_5 exists, and if the
-            // migration were ever removed or failed to resolve, v1 users would fall back to
-            // today's wipe rather than a hard crash on open. That is the same trade DR-4 already
-            // made deliberately: a silent wipe beats a crash loop.
-            .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4)
+            // `1` must NOT be listed here. Room's Builder.build() calls
+            // validateMigrationsNotRequired, which throws IllegalArgumentException when a
+            // registered migration's start *or end* version also appears in this set.
+            // MIGRATION_1_5 starts at 1, so listing 1 crashed the app on every launch before the
+            // database was ever opened. That check is static and runs at build() time, so the
+            // runtime onUpgrade/onMigrate precedence an earlier comment relied on never applied.
+            .fallbackToDestructiveMigrationFrom(dropAllTables = true, 2, 3, 4)
             .build()
 
     @Provides
