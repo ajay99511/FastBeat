@@ -28,6 +28,7 @@ import com.local.offlinemediaplayer.playback.DeletionKind
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
 import com.local.offlinemediaplayer.playback.MediaDeletionHandler
 import com.local.offlinemediaplayer.playback.PlaybackAnalyticsTracker
+import com.local.offlinemediaplayer.playback.QueuePolicy
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -828,31 +829,22 @@ class PlaybackViewModel
 
             val savedQueueItems = mediaDao.getSavedQueue()
             if (savedQueueItems.isNotEmpty()) {
-                val restoredQueue =
-                    savedQueueItems
-                        .mapNotNull { item -> mediaById[item.mediaId] }
-                        .filter { !it.isVideo }
+                // Restore rules (drop missing media, filter videos, clamp the saved index) live
+                // in QueuePolicy and are pinned by QueuePolicyTest.
+                val restored =
+                    QueuePolicy.restore(
+                        saved = savedQueueItems,
+                        mediaById = mediaById,
+                        savedIndex = sharedPrefs.getInt("last_queue_index", 0),
+                    )
 
-                var finalQueue = restoredQueue
-                var finalIndex = 0
+                var finalQueue = restored?.queue ?: emptyList()
+                var finalIndex = restored?.index ?: 0
                 var finalStartPos = 0L
 
-                if (finalQueue.isNotEmpty()) {
-                    // Restore Index from Prefs
-                    val savedIndex = sharedPrefs.getInt("last_queue_index", 0)
-                    finalIndex = savedIndex.coerceIn(0, finalQueue.size - 1)
-
-                    // Fetch last playback position
-                    val track = finalQueue[finalIndex]
-                    val history = mediaDao.getHistory(track.id)
-                    if (history != null &&
-                        (
-                            history.duration == 0L ||
-                                history.position < (history.duration * 0.99)
-                        )
-                    ) {
-                        finalStartPos = history.position
-                    }
+                if (restored != null) {
+                    finalStartPos =
+                        QueuePolicy.resumePosition(mediaDao.getHistory(restored.queue[restored.index].id))
                 } else {
                     // FALLBACK: If queue is empty (or was all videos), try to restore the last played
                     // AUDIO track
@@ -862,11 +854,7 @@ class PlaybackViewModel
                         if (track != null) {
                             finalQueue = listOf(track)
                             finalIndex = 0
-                            if (lastAudio.duration == 0L ||
-                                lastAudio.position < (lastAudio.duration * 0.99)
-                            ) {
-                                finalStartPos = lastAudio.position
-                            }
+                            finalStartPos = QueuePolicy.resumePosition(lastAudio)
                         }
                     }
                 }
@@ -903,10 +891,9 @@ class PlaybackViewModel
         private fun persistQueue(queue: List<MediaFile>) {
             // Central guard: the persisted "current_queue" is the AUDIO session only. Never write a
             // video into it, so video playback can't wipe the music queue on the next cold start.
-            if (queue.any { it.isVideo }) return
+            if (!QueuePolicy.isPersistable(queue)) return
             viewModelScope.launch(Dispatchers.IO) {
-                val entities = queue.mapIndexed { index, media -> QueueItemEntity(media.id, index) }
-                mediaDao.replaceQueue(entities)
+                mediaDao.replaceQueue(QueuePolicy.toEntities(queue))
             }
         }
 
