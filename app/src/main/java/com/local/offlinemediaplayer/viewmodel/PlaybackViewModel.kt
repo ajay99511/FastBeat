@@ -16,7 +16,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
-import com.local.offlinemediaplayer.data.db.BookmarkEntity
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.data.db.QueueItemEntity
@@ -24,6 +23,7 @@ import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
+import com.local.offlinemediaplayer.playback.BookmarkManager
 import com.local.offlinemediaplayer.playback.DeletionKind
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
 import com.local.offlinemediaplayer.playback.MediaDeletionHandler
@@ -43,8 +43,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -115,6 +113,7 @@ class PlaybackViewModel
         private val mediaControllerBinder: MediaControllerBinder,
         private val analytics: PlaybackAnalyticsTracker,
         private val deletionHandler: MediaDeletionHandler,
+        private val bookmarks: BookmarkManager,
     ) : AndroidViewModel(app) {
         companion object {
             private const val TAG = "PlaybackViewModel"
@@ -273,17 +272,11 @@ class PlaybackViewModel
 
         private var positionUpdateJob: Job? = null
 
-        // --- BOOKMARKS FLOW ---
-        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        // --- BOOKMARKS FLOW --- (owned by BookmarkManager as of P4-E.5)
         val currentBookmarks =
-            _currentTrack
-                .flatMapLatest { track ->
-                    if (track != null) {
-                        mediaDao.getBookmarks(track.id)
-                    } else {
-                        flowOf(emptyList())
-                    }
-                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            bookmarks
+                .bookmarksFor(_currentTrack.map { it?.id })
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         // --- FAVORITES FLOW (Is Current Track Liked?) ---
         val isCurrentTrackFavorite =
@@ -495,16 +488,10 @@ class PlaybackViewModel
             label: String,
         ) {
             val track = _currentTrack.value ?: return
-            viewModelScope.launch(Dispatchers.IO) {
-                mediaDao.addBookmark(
-                    BookmarkEntity(mediaId = track.id, timestamp = timestamp, label = label),
-                )
-            }
+            bookmarks.addBookmark(track.id, timestamp, label)
         }
 
-        fun deleteBookmark(id: Long) {
-            viewModelScope.launch(Dispatchers.IO) { mediaDao.deleteBookmark(id) }
-        }
+        fun deleteBookmark(id: Long) = bookmarks.deleteBookmark(id)
 
         // --- Favorite Management ---
         fun toggleFavorite() {
