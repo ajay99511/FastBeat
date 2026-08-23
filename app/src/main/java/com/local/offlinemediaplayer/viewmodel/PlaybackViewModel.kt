@@ -23,7 +23,6 @@ import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.BookmarkEntity
 import com.local.offlinemediaplayer.data.db.MediaDao
-import com.local.offlinemediaplayer.data.db.PlayEvent
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.data.db.QueueItemEntity
 import com.local.offlinemediaplayer.model.Album
@@ -31,6 +30,7 @@ import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
+import com.local.offlinemediaplayer.playback.PlaybackAnalyticsTracker
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,8 +57,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import javax.inject.Inject
-import kotlin.math.max
-import kotlin.math.min
 
 // Legacy combined field+direction sort enums. Superseded by SortState (see
 // Sorting.kt); retained only so persisted preference ordinals can be migrated
@@ -118,6 +116,7 @@ class PlaybackViewModel
         private val mediaRepository: MediaRepository,
         val audioEffects: AudioEffectsManager,
         private val mediaControllerBinder: MediaControllerBinder,
+        private val analytics: PlaybackAnalyticsTracker,
     ) : AndroidViewModel(app) {
         companion object {
             private const val TAG = "PlaybackViewModel"
@@ -135,9 +134,6 @@ class PlaybackViewModel
         private var savedAudioState: AudioPlayerState? = null
 
         // --- ANALYTICS INTERNAL STATE ---
-        // Tracks accumulated listening time for the CURRENT track to determine if it counts as a "play"
-        private var currentTrackPlaytimeAccumulator = 0L
-        private var hasLoggedCurrentTrack = false
 
         // --- PENDING TRACK RESTORATION ---
         private var pendingAudioTrackIndex: Int = -1
@@ -704,9 +700,11 @@ class PlaybackViewModel
                         // Auto-advance (AUTO), repeat (REPEAT) and new queues (PLAYLIST_CHANGED) are
                         // deliberately excluded so natural end-of-track playback is never a skip.
                         // _currentTrack still holds the OUTGOING track here, before it is replaced.
-                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !hasLoggedCurrentTrack) {
+                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK &&
+                            analytics.isCurrentTrackUnlogged
+                        ) {
                             _currentTrack.value?.let { outgoing ->
-                                if (!outgoing.isVideo) recordSkip(outgoing.id)
+                                if (!outgoing.isVideo) analytics.recordSkip(outgoing.id)
                             }
                         }
                         updateCurrentTrackFromPlayer(controller)
@@ -740,26 +738,6 @@ class PlaybackViewModel
             controller.addListener(listener)
         }
 
-        private fun recordPlay(mediaId: Long) {
-            viewModelScope.launch(Dispatchers.IO) {
-                val now = System.currentTimeMillis()
-                // Record analytics in DB - AnalyticsViewModel will react to this automatically via Flow
-                mediaDao.initAnalytics(mediaId, now)
-                mediaDao.incrementPlayCount(mediaId, now)
-                mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
-            }
-        }
-
-        // Records a skip for a track the user manually left before it counted as a play. This is what
-        // powers the "Most Skipped" smart playlist. initAnalytics ensures the row exists before the
-        // increment (both are IGNORE/UPDATE, so a genuine play recorded later is never lost).
-        private fun recordSkip(mediaId: Long) {
-            viewModelScope.launch(Dispatchers.IO) {
-                mediaDao.initAnalytics(mediaId, System.currentTimeMillis())
-                mediaDao.incrementSkipCount(mediaId)
-            }
-        }
-
         private fun updateCurrentTrackFromPlayer(controller: MediaController) {
             val currentMediaItem = controller.currentMediaItem
             if (currentMediaItem == null) {
@@ -773,9 +751,8 @@ class PlaybackViewModel
                 _currentTrack.value = track
                 _currentIndex.value = controller.currentMediaItemIndex
 
-                // Reset Analytics Accumulator for the new track
-                currentTrackPlaytimeAccumulator = 0L
-                hasLoggedCurrentTrack = false
+                // Reset analytics accumulators for the new track (P4-E.2).
+                analytics.onTrackChanged()
 
                 // Fix: Only persist queue index if NOT video.
                 // This prevents video playback from overwriting the last played music position in the
@@ -791,20 +768,8 @@ class PlaybackViewModel
             positionUpdateJob =
                 viewModelScope.launch {
                     var saveCounter = 0
-                    val today = getNormalizedToday()
+                    analytics.onSessionStarted()
 
-                    // Initialize today's row if missing (Fire and forget, or await on IO)
-                    // We use launch(IO) so we don't delay the first tick of the slider
-                    viewModelScope.launch(Dispatchers.IO) {
-                        try {
-                            mediaDao.initDailyPlaytime(today)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to initialize daily playtime", e)
-                        }
-                    }
-
-                    // Accumulator for playtime logic
-                    var accumulatedPlaytime = 0L
                     val updateInterval = POSITION_UPDATE_INTERVAL_MS
 
                     while (isActive) {
@@ -815,56 +780,11 @@ class PlaybackViewModel
                                 val dur = player.duration.coerceAtLeast(0L)
                                 _duration.value = dur
 
-                                // ACCUMULATE PLAYTIME
+                                // Analytics (play counts + daily playtime) live in
+                                // PlaybackAnalyticsTracker as of P4-E.2. Only ticks where playback
+                                // is actually playing accrue time.
                                 if (_isPlaying.value) {
-                                    // 1. Total Daily Playtime (Existing)
-                                    accumulatedPlaytime += updateInterval
-
-                                    // 2. Track Play Count Threshold Logic (New)
-                                    // Ensures we only count a "Play" if user listened for 30s or
-                                    // 50% of track (if short)
-                                    if (!hasLoggedCurrentTrack) {
-                                        currentTrackPlaytimeAccumulator += updateInterval
-
-                                        val threshold =
-                                            if (dur >
-                                                0
-                                            ) {
-                                                min(PLAY_COUNT_THRESHOLD_MS, dur / 2)
-                                            } else {
-                                                PLAY_COUNT_THRESHOLD_MS
-                                            }
-                                        val safeThreshold =
-                                            max(
-                                                MIN_PLAY_THRESHOLD_MS,
-                                                threshold,
-                                            ) // Minimum 5s even for very short clips
-
-                                        if (currentTrackPlaytimeAccumulator >= safeThreshold) {
-                                            val track = _currentTrack.value
-                                            if (track != null) {
-                                                recordPlay(track.id)
-                                                hasLoggedCurrentTrack = true
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Flush to DB every 30 seconds (60 ticks)
-                                if (saveCounter % 60 == 0) {
-                                    if (accumulatedPlaytime > 0) {
-                                        val timeToSave = accumulatedPlaytime
-                                        // Fire and forget IO, DO NOT suspend the loop
-                                        viewModelScope.launch(Dispatchers.IO) {
-                                            try {
-                                                mediaDao.addToDailyPlaytime(today, timeToSave)
-                                            } catch (e: Exception) {
-                                                Log.e(TAG, "Failed to save daily playtime", e)
-                                            }
-                                        }
-                                        accumulatedPlaytime =
-                                            0 // Reset local accumulator immediately
-                                    }
+                                    analytics.onPositionUpdate(_currentTrack.value?.id, dur, updateInterval)
                                 }
 
                                 // Save playback position periodically

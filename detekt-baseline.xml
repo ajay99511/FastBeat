@@ -17,7 +17,6 @@
     <ID>CyclomaticComplexMethod:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
     <ID>CyclomaticComplexMethod:NowPlayingScreen.kt$@Composable fun QueueSheetContent( queue: List&lt;MediaFile&gt;, currentIndex: Int, isReorderEnabled: Boolean, onTrackClick: (MediaFile) -&gt; Unit, onRemove: (MediaFile) -&gt; Unit, onReorder: (track: MediaFile, fromIndex: Int, toIndex: Int) -&gt; Unit, onClear: () -&gt; Unit, onSaveAsPlaylist: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:NowPlayingScreen.kt$@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun NowPlayingScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, )</ID>
-    <ID>CyclomaticComplexMethod:PlaybackViewModel.kt$PlaybackViewModel$private fun startPositionUpdates()</ID>
     <ID>CyclomaticComplexMethod:PlaylistDetailScreen.kt$@Composable fun PlaylistDetailScreen( playlistId: String, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:VideoFolderScreen.kt$@Composable private fun MoviesListContent( libraryViewModel: LibraryViewModel, onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, isGridView: Boolean, onToggleView: () -&gt; Unit, playlistViewModel: PlaylistViewModel = hiltViewModel(), )</ID>
     <ID>CyclomaticComplexMethod:VideoFolderScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VideoFolderScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onFolderClick: (String) -&gt; Unit, onPlaylistClick: (String) -&gt; Unit, onVideoClick: (MediaFile, List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean, )</ID>
@@ -110,7 +109,6 @@
     <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$22</ID>
     <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$5</ID>
     <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$5000</ID>
-    <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$60</ID>
     <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel$60_000L</ID>
     <ID>MagicNumber:PlaybackViewModel.kt$PlaybackViewModel.&lt;no name provided&gt;$2</ID>
     <ID>MagicNumber:PlaylistViewModel.kt$PlaylistViewModel$5000</ID>
@@ -194,6 +192,7 @@
     <ID>UnusedParameter:VideoListScreen.kt$viewModel: PlaybackViewModel</ID>
     <ID>UnusedParameter:VideoPlaylistDetailScreen.kt$playCount: Int = 0</ID>
     <ID>UnusedParameter:VideoPlaylistDetailScreen.kt$viewModel: PlaybackViewModel</ID>
+    <ID>UnusedPrivateMember:PlaybackViewModel.kt$PlaybackViewModel$private fun getNormalizedToday(): Long</ID>
     <ID>UnusedPrivateProperty:AdaptiveMainLayout.kt$val theme = LocalAppTheme.current</ID>
     <ID>UnusedPrivateProperty:AdaptiveMeScreen.kt$val posture = LocalDevicePosture.current</ID>
     <ID>UnusedPrivateProperty:DevicePostureTest.kt$DevicePostureTest$val inTableTop = DevicePosture.TableTop(Rect())</ID>
@@ -201,6 +200,8 @@
     <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel$private val thumbnailManager: ThumbnailManager</ID>
     <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val AUDIO_COMPLETION_THRESHOLD = 0.99</ID>
     <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val DAY_IN_MILLIS = 86_400_000L</ID>
+    <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val MIN_PLAY_THRESHOLD_MS = 5_000L</ID>
+    <ID>UnusedPrivateProperty:PlaybackViewModel.kt$PlaybackViewModel.Companion$private const val PLAY_COUNT_THRESHOLD_MS = 30_000L</ID>
     <ID>UnusedPrivateProperty:Theme.kt$private val DarkColorScheme = darkColorScheme( primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80, )</ID>
     <ID>UnusedPrivateProperty:Theme.kt$private val LightColorScheme = lightColorScheme( primary = Purple40, secondary = PurpleGrey40, tertiary = Pink40, )</ID>
     <ID>VariableNaming:PlaybackViewModel.kt$PlaybackViewModel$// --- Saved Audio Session Persistence (survives a video interruption + process death) --- // When a video interrupts an active music session we snapshot the audio session both // in-memory (for the fast in-app restore) AND to disk here, so that if the process is // killed while the video is open the whole music session (queue, index, position, // shuffle, repeat) can be recovered on next launch instead of being lost. private val SAVED_AUDIO_SESSION_KEY = "saved_audio_session"</ID>
