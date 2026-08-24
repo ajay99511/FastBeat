@@ -21,7 +21,7 @@ import kotlin.math.min
  * Extracted from `PlaybackViewModel` (P4-E.2). Behaviour is a faithful port — thresholds, flush
  * cadence and the fire-and-forget write strategy are unchanged. Two pre-existing quirks were
  * deliberately preserved rather than fixed here, because silently changing what the analytics
- * report inside a refactor commit would make the refactor unreviewable; both are logged as F-29
+ * report inside a refactor commit would make the refactor unreviewable; both are logged as F-34
  * and F-30 for a separate task.
  *
  * THREADING — all public methods are safe to call from the main thread and never block. Database
