@@ -5,7 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -56,12 +56,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
@@ -80,7 +80,7 @@ fun PlaylistListScreen(
     onRename: ((String, String) -> Unit)? = null,
     onDelete: ((String) -> Unit)? = null,
     onSmartPlaylistClick: ((String) -> Unit)? = null,
-    smartPlaylistViewModel: SmartPlaylistViewModel = hiltViewModel()
+    smartPlaylistViewModel: SmartPlaylistViewModel = hiltViewModel(),
 ) {
     // Observe specific list based on flag
     val playlists by if (isVideo) {
@@ -102,22 +102,24 @@ fun PlaylistListScreen(
     var playlistToDelete by remember { mutableStateOf<String?>(null) } // id
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
     ) {
         // 1. Header with Add Button
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = if (isVideo) "Video Playlists" else "Playlists",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
             )
 
             // Add Button (Top Right)
@@ -125,24 +127,24 @@ fun PlaylistListScreen(
                 onClick = onCreateClick,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(50),
-                modifier = Modifier.height(40.dp)
+                modifier = Modifier.height(40.dp),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "New Playlist",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Create",
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
@@ -159,14 +161,14 @@ fun PlaylistListScreen(
         //    live in one LazyColumn so the whole screen scrolls and every playlist is reachable.
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding) // Space for MiniPlayer
+            contentPadding = PaddingValues(top = 8.dp, bottom = bottomPadding), // Space for MiniPlayer
         ) {
             // 1b. Smart / Auto playlists (audio only) — derived from existing analytics, read-only.
             if (showSmart) {
                 item(key = "smart-section") {
                     SmartPlaylistsSection(
                         smartPlaylists = smartPlaylists,
-                        onClick = { typeId -> onSmartPlaylistClick?.invoke(typeId) }
+                        onClick = { typeId -> onSmartPlaylistClick?.invoke(typeId) },
                     )
                 }
             }
@@ -174,27 +176,28 @@ fun PlaylistListScreen(
             if (playlists.isEmpty()) {
                 item(key = "empty-state") {
                     Box(
-                        modifier = Modifier
-                            .fillParentMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .fillParentMaxWidth()
+                                .padding(16.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 imageVector = Icons.Default.FormatListNumbered,
                                 contentDescription = null,
                                 tint = Color.Gray,
-                                modifier = Modifier.size(64.dp)
+                                modifier = Modifier.size(64.dp),
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = "No playlists created",
                                 color = Color.Gray,
-                                style = MaterialTheme.typography.bodyLarge
+                                style = MaterialTheme.typography.bodyLarge,
                             )
                             TextButton(
                                 onClick = onCreateClick,
-                                modifier = Modifier.padding(top = 8.dp)
+                                modifier = Modifier.padding(top = 8.dp),
                             ) {
                                 Text("Create your first playlist", color = MaterialTheme.colorScheme.primary)
                             }
@@ -208,8 +211,20 @@ fun PlaylistListScreen(
                         count = playlist.mediaIds.size,
                         isVideo = isVideo,
                         onClick = { onPlaylistClick(playlist.id) },
-                        onRename = if (onRename != null) { { playlistToRename = playlist.id to playlist.name } } else null,
-                        onDelete = if (onDelete != null) { { playlistToDelete = playlist.id } } else null
+                        onRename =
+                            if (onRename !=
+                                null
+                            ) {
+                                { playlistToRename = playlist.id to playlist.name }
+                            } else {
+                                null
+                            },
+                        onDelete =
+                            if (onDelete != null) {
+                                { playlistToDelete = playlist.id }
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -224,7 +239,7 @@ fun PlaylistListScreen(
             onRename = { newName ->
                 onRename(playlistToRename!!.first, newName)
                 playlistToRename = null
-            }
+            },
         )
     }
 
@@ -235,7 +250,7 @@ fun PlaylistListScreen(
                 onDelete(playlistToDelete!!)
                 playlistToDelete = null
             },
-            onDismiss = { playlistToDelete = null }
+            onDismiss = { playlistToDelete = null },
         )
     }
 }
@@ -248,7 +263,7 @@ private fun PlaylistListItem(
     isVideo: Boolean = false,
     onClick: () -> Unit,
     onRename: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val primary = MaterialTheme.colorScheme.primary
@@ -257,50 +272,61 @@ private fun PlaylistListItem(
     // Outer Box anchors the long-press context menu to this row, and provides the
     // inter-card spacing now that each item is a self-contained card (no divider).
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 5.dp),
     ) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = if (hasMenu) { { showMenu = true } } else null
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick =
+                            if (hasMenu) {
+                                { showMenu = true }
+                            } else {
+                                null
+                            },
+                    ),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
-            ),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+                ),
             elevation = CardDefaults.cardElevation(0.dp),
-            border = BorderStroke(1.dp, primary.copy(alpha = 0.08f))
+            border = BorderStroke(1.dp, primary.copy(alpha = 0.08f)),
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Gradient art tile — the "futuristic" accent, tinted from the live theme color.
                 Box(
-                    modifier = Modifier
-                        .size(58.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    primary.copy(alpha = 0.90f),
-                                    primary.copy(alpha = 0.45f)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .size(58.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    colors =
+                                        listOf(
+                                            primary.copy(alpha = 0.90f),
+                                            primary.copy(alpha = 0.45f),
+                                        ),
+                                ),
+                            ),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (isVideo) Icons.Default.Movie else Icons.Default.LibraryMusic,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(28.dp),
                     )
                 }
 
@@ -314,25 +340,25 @@ private fun PlaylistListItem(
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(modifier = Modifier.height(5.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         Icon(
                             imageVector = if (isVideo) Icons.Default.Videocam else Icons.Default.MusicNote,
                             contentDescription = null,
                             tint = primary.copy(alpha = 0.9f),
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(14.dp),
                         )
                         Text(
                             text = "$count ${if (isVideo) "video" else "song"}${if (count != 1) "s" else ""}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -341,17 +367,18 @@ private fun PlaylistListItem(
 
                 // Open affordance — a subtle circular chevron (decorative; tap anywhere opens).
                 Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
                         tint = primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -361,7 +388,7 @@ private fun PlaylistListItem(
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface),
         ) {
             if (onRename != null) {
                 DropdownMenuItem(
@@ -370,7 +397,7 @@ private fun PlaylistListItem(
                         showMenu = false
                         onRename()
                     },
-                    leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.onSurface) },
                 )
             }
             if (onDelete != null) {
@@ -380,7 +407,7 @@ private fun PlaylistListItem(
                         showMenu = false
                         onDelete()
                     },
-                    leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) }
+                    leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) },
                 )
             }
         }
@@ -388,13 +415,14 @@ private fun PlaylistListItem(
 }
 
 /** Icon for each auto-generated playlist type (UI concern kept out of the ViewModel). */
-private fun SmartPlaylistType.icon(): ImageVector = when (this) {
-    SmartPlaylistType.MOST_PLAYED -> Icons.Default.TrendingUp
-    SmartPlaylistType.RECENTLY_ADDED -> Icons.Default.FiberNew
-    SmartPlaylistType.FORGOTTEN -> Icons.Default.History
-    SmartPlaylistType.NEVER_PLAYED -> Icons.Default.MusicOff
-    SmartPlaylistType.MOST_SKIPPED -> Icons.Default.SkipNext
-}
+private fun SmartPlaylistType.icon(): ImageVector =
+    when (this) {
+        SmartPlaylistType.MOST_PLAYED -> Icons.Default.TrendingUp
+        SmartPlaylistType.RECENTLY_ADDED -> Icons.Default.FiberNew
+        SmartPlaylistType.FORGOTTEN -> Icons.Default.History
+        SmartPlaylistType.NEVER_PLAYED -> Icons.Default.MusicOff
+        SmartPlaylistType.MOST_SKIPPED -> Icons.Default.SkipNext
+    }
 
 /**
  * "Made for you" grid of auto-generated playlists. Always shows all types (with their live
@@ -403,7 +431,7 @@ private fun SmartPlaylistType.icon(): ImageVector = when (this) {
 @Composable
 private fun SmartPlaylistsSection(
     smartPlaylists: Map<SmartPlaylistType, List<MediaFile>>,
-    onClick: (String) -> Unit
+    onClick: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -412,23 +440,24 @@ private fun SmartPlaylistsSection(
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
         )
 
         // Two-column grid laid out as rows (cheap; the set is fixed at 5 items).
         SmartPlaylistType.entries.chunked(2).forEach { rowTypes ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 rowTypes.forEach { type ->
                     SmartPlaylistCard(
                         type = type,
                         count = smartPlaylists[type]?.size ?: 0,
                         onClick = { onClick(type.id) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
                 }
                 // Keep the last odd card half-width by padding the row with empty space.
@@ -444,7 +473,7 @@ private fun SmartPlaylistsSection(
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
         )
     }
 }
@@ -454,36 +483,39 @@ private fun SmartPlaylistCard(
     type: SmartPlaylistType,
     count: Int,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         onClick = onClick,
         modifier = modifier.height(72.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        RoundedCornerShape(10.dp)
-                    ),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            RoundedCornerShape(10.dp),
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = type.icon(),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(22.dp),
                 )
             }
             Spacer(modifier = Modifier.width(10.dp))
@@ -493,13 +525,13 @@ private fun SmartPlaylistCard(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1
+                    maxLines = 1,
                 )
                 Text(
                     text = "$count song${if (count != 1) "s" else ""}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    maxLines = 1,
                 )
             }
         }

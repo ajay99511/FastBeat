@@ -23,36 +23,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 import java.io.File
 
 // Sort options for video playlist
-enum class VideoSortOption(val label: String) {
+enum class VideoSortOption(
+    val label: String,
+) {
     DEFAULT("Default"),
     TITLE("Title"),
     DURATION("Duration"),
     SIZE("Size"),
     DATE_MODIFIED("Date Modified"),
     MOST_PLAYED("Most Played"),
-    LATEST("Latest")
+    LATEST("Latest"),
 }
 
 @Composable
 fun VideoPlaylistDetailScreen(
-        playlistId: String,
-        viewModel: PlaybackViewModel,
-        libraryViewModel: LibraryViewModel = hiltViewModel(),
-        playlistViewModel: PlaylistViewModel = hiltViewModel(),
-        onBack: () -> Unit,
-        onNavigateToPlayer: (MediaFile, List<MediaFile>) -> Unit
+    playlistId: String,
+    viewModel: PlaybackViewModel,
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    onBack: () -> Unit,
+    onNavigateToPlayer: (MediaFile, List<MediaFile>) -> Unit,
 ) {
     val playlists by playlistViewModel.videoPlaylists.collectAsStateWithLifecycle()
     val allVideos by libraryViewModel.videoList.collectAsStateWithLifecycle()
@@ -74,9 +76,10 @@ fun VideoPlaylistDetailScreen(
     }
 
     val videosById = remember(allVideos) { allVideos.associateBy { it.id } }
-    val videos = remember(playlist.mediaIds, videosById) {
-        playlist.mediaIds.mapNotNull { id -> videosById[id] }
-    }
+    val videos =
+        remember(playlist.mediaIds, videosById) {
+            playlist.mediaIds.mapNotNull { id -> videosById[id] }
+        }
 
     // Colors
     val primaryAccent = LocalAppTheme.current.primaryColor
@@ -91,7 +94,10 @@ fun VideoPlaylistDetailScreen(
     var sortAscending by remember { mutableStateOf(persistedAsc) }
 
     // Persist sort changes immediately
-    fun persistSortState(sort: VideoSortOption, ascending: Boolean) {
+    fun persistSortState(
+        sort: VideoSortOption,
+        ascending: Boolean,
+    ) {
         selectedSort = sort
         sortAscending = ascending
         playlistViewModel.saveVideoPlaylistSort(playlistId, sort, ascending)
@@ -114,173 +120,197 @@ fun VideoPlaylistDetailScreen(
     }
 
     // Sort + Filter
-    val sortedAndFilteredVideos = remember(videos, searchQuery, selectedSort, sortAscending, playCountMap) {
-        val filtered = if (searchQuery.isEmpty()) videos
-        else videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    val sortedAndFilteredVideos =
+        remember(videos, searchQuery, selectedSort, sortAscending, playCountMap) {
+            val filtered =
+                if (searchQuery.isEmpty()) {
+                    videos
+                } else {
+                    videos.filter { it.title.contains(searchQuery, ignoreCase = true) }
+                }
 
-        val sorted = when (selectedSort) {
-            VideoSortOption.DEFAULT -> filtered
-            VideoSortOption.TITLE -> filtered.sortedBy { it.title.lowercase() }
-            VideoSortOption.DURATION -> filtered.sortedBy { it.duration }
-            VideoSortOption.SIZE -> filtered.sortedBy { it.size }
-            VideoSortOption.DATE_MODIFIED -> filtered.sortedBy { it.dateModified }
-            VideoSortOption.MOST_PLAYED -> filtered.sortedBy { playCountMap[it.id] ?: 0 }
-            VideoSortOption.LATEST -> filtered.sortedBy { it.dateAdded }
+            val sorted =
+                when (selectedSort) {
+                    VideoSortOption.DEFAULT -> filtered
+                    VideoSortOption.TITLE -> filtered.sortedBy { it.title.lowercase() }
+                    VideoSortOption.DURATION -> filtered.sortedBy { it.duration }
+                    VideoSortOption.SIZE -> filtered.sortedBy { it.size }
+                    VideoSortOption.DATE_MODIFIED -> filtered.sortedBy { it.dateModified }
+                    VideoSortOption.MOST_PLAYED -> filtered.sortedBy { playCountMap[it.id] ?: 0 }
+                    VideoSortOption.LATEST -> filtered.sortedBy { it.dateAdded }
+                }
+
+            if (selectedSort != VideoSortOption.DEFAULT && !sortAscending) {
+                sorted.reversed()
+            } else {
+                sorted
+            }
         }
-
-        if (selectedSort != VideoSortOption.DEFAULT && !sortAscending) {
-            sorted.reversed()
-        } else sorted
-    }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Warm gradient overlay at top
         Box(
-                modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .background(
-                                Brush.verticalGradient(
-                                        colors = listOf(
-                                                Color(0xFF3D1E0C),
-                                                Color(0xFF2A1408),
-                                                MaterialTheme.colorScheme.background
-                                        )
-                                )
-                        )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    Color(0xFF3D1E0C),
+                                    Color(0xFF2A1408),
+                                    MaterialTheme.colorScheme.background,
+                                ),
+                        ),
+                    ),
         )
 
         // CONTENT
         Column(modifier = Modifier.fillMaxSize()) {
             // ── Top Bar: Back + Search + Grid Toggle ──
             Row(
-                    modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // Back Button
                 IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        CircleShape
-                                )
+                    onClick = onBack,
+                    modifier =
+                        Modifier
+                            .size(40.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                CircleShape,
+                            ),
                 ) {
                     Icon(
-                            Icons.Default.ArrowBackIosNew,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
+                        Icons.Default.ArrowBackIosNew,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
 
                 // Search Field
                 TextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = {
-                            Text(
-                                    "Search ${playlist.name}...",
-                                    color = Color(0xFF7A7A7A),
-                                    style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = Color(0xFF7A7A7A),
-                                    modifier = Modifier.size(20.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            tint = Color.Gray,
-                                            modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        },
-                        colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                cursorColor = primaryAccent,
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        singleLine = true,
-                        modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            "Search ${playlist.name}...",
+                            color = Color(0xFF7A7A7A),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            tint = Color(0xFF7A7A7A),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(18.dp),
                                 )
+                            }
+                        }
+                    },
+                    colors =
+                        TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = primaryAccent,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    singleLine = true,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            ),
                 )
 
                 // Sort Toggle
                 Box {
                     IconButton(
-                            onClick = { showSortMenu = true },
-                            modifier = Modifier.size(40.dp)
+                        onClick = { showSortMenu = true },
+                        modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Sort,
-                                contentDescription = "Sort",
-                                tint = if (selectedSort != VideoSortOption.DEFAULT) primaryAccent
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = "Sort",
+                            tint =
+                                if (selectedSort != VideoSortOption.DEFAULT) {
+                                    primaryAccent
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            modifier = Modifier.size(24.dp),
                         )
                     }
 
                     DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface),
                     ) {
                         VideoSortOption.entries.forEach { option ->
                             DropdownMenuItem(
-                                    text = {
-                                        Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                    option.label,
-                                                    color = if (selectedSort == option) primaryAccent
-                                                    else MaterialTheme.colorScheme.onSurface
-                                            )
-                                            if (selectedSort == option && option != VideoSortOption.DEFAULT) {
-                                                Icon(
-                                                        if (!sortAscending)
-                                                            Icons.Default.ArrowDownward
-                                                        else Icons.Default.ArrowUpward,
-                                                        contentDescription = null,
-                                                        tint = primaryAccent,
-                                                        modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                    },
-                                    onClick = {
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text(
+                                            option.label,
+                                            color =
+                                                if (selectedSort == option) {
+                                                    primaryAccent
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                },
+                                        )
                                         if (selectedSort == option && option != VideoSortOption.DEFAULT) {
-                                            persistSortState(option, !sortAscending)
-                                        } else {
-                                            persistSortState(option, true)
+                                            Icon(
+                                                if (!sortAscending) {
+                                                    Icons.Default.ArrowDownward
+                                                } else {
+                                                    Icons.Default.ArrowUpward
+                                                },
+                                                contentDescription = null,
+                                                tint = primaryAccent,
+                                                modifier = Modifier.size(16.dp),
+                                            )
                                         }
-                                        showSortMenu = false
                                     }
+                                },
+                                onClick = {
+                                    if (selectedSort == option && option != VideoSortOption.DEFAULT) {
+                                        persistSortState(option, !sortAscending)
+                                    } else {
+                                        persistSortState(option, true)
+                                    }
+                                    showSortMenu = false
+                                },
                             )
                         }
                     }
@@ -289,53 +319,56 @@ fun VideoPlaylistDetailScreen(
 
             // ── Header Row: Playlist Name + Count ──
             Row(
-                    modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text(
-                            text = playlist.name,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.Bold
+                        text = playlist.name,
+                        style =
+                            MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
                             ),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                            text = "${videos.size} Video${if (videos.size != 1) "s" else ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "${videos.size} Video${if (videos.size != 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
                 // Sort indicator chip (when not default)
                 if (selectedSort != VideoSortOption.DEFAULT) {
                     AssistChip(
-                            onClick = {
-                                persistSortState(VideoSortOption.DEFAULT, true)
-                            },
-                            label = {
-                                Text(
-                                        selectedSort.label,
-                                        style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            trailingIcon = {
-                                Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Clear Sort",
-                                        modifier = Modifier.size(14.dp)
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = primaryAccent.copy(alpha = 0.15f),
-                                    labelColor = primaryAccent
+                        onClick = {
+                            persistSortState(VideoSortOption.DEFAULT, true)
+                        },
+                        label = {
+                            Text(
+                                selectedSort.label,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Clear Sort",
+                                modifier = Modifier.size(14.dp),
+                            )
+                        },
+                        colors =
+                            AssistChipDefaults.assistChipColors(
+                                containerColor = primaryAccent.copy(alpha = 0.15f),
+                                labelColor = primaryAccent,
                             ),
-                            border = null
+                        border = null,
                     )
                 }
             }
@@ -343,33 +376,38 @@ fun VideoPlaylistDetailScreen(
             // ── Video List ──
             if (sortedAndFilteredVideos.isEmpty()) {
                 Box(
-                        modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                        contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                            text = if (searchQuery.isNotEmpty()) "No results found"
-                            else "No videos yet.\nAdd some videos from folders!",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                        text =
+                            if (searchQuery.isNotEmpty()) {
+                                "No results found"
+                            } else {
+                                "No videos yet.\nAdd some videos from folders!"
+                            },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                     )
                 }
             } else {
                 LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     itemsIndexed(sortedAndFilteredVideos) { _, video ->
                         VideoPlaylistItemCard(
-                                video = video,
-                                accentColor = primaryAccent,
-                                playCount = playCountMap[video.id] ?: 0,
-                                onClick = { onNavigateToPlayer(video, sortedAndFilteredVideos) },
-                                onRemove = {
-                                    playlistViewModel.removeSongFromPlaylist(playlistId, video.id)
-                                }
+                            video = video,
+                            accentColor = primaryAccent,
+                            playCount = playCountMap[video.id] ?: 0,
+                            onClick = { onNavigateToPlayer(video, sortedAndFilteredVideos) },
+                            onRemove = {
+                                playlistViewModel.removeSongFromPlaylist(playlistId, video.id)
+                            },
                         )
                     }
                 }
@@ -380,61 +418,65 @@ fun VideoPlaylistDetailScreen(
 
 @Composable
 fun VideoPlaylistItemCard(
-        video: MediaFile,
-        accentColor: Color,
-        playCount: Int = 0,
-        onClick: () -> Unit,
-        onRemove: () -> Unit
+    video: MediaFile,
+    accentColor: Color,
+    playCount: Int = 0,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Surface(
-            modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
     ) {
         Row(
-                modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Thumbnail with play overlay + duration badge
             Box(
-                    modifier = Modifier
-                            .width(120.dp)
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                modifier =
+                    Modifier
+                        .width(120.dp)
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 AsyncImage(
-                        model = video.thumbnailPath?.let { File(it) } ?: video.uri,
-                        contentDescription = video.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                    model = video.thumbnailPath?.let { File(it) } ?: video.uri,
+                    contentDescription = video.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
                 )
 
                 // Play icon overlay
                 Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Box(
-                            modifier = Modifier
-                                    .size(32.dp)
-                                    .background(
-                                            Color.Black.copy(alpha = 0.5f),
-                                            CircleShape
-                                    ),
-                            contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(32.dp)
+                                .background(
+                                    Color.Black.copy(alpha = 0.5f),
+                                    CircleShape,
+                                ),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                                Icons.Default.PlayArrow,
-                                contentDescription = "Play",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
@@ -442,22 +484,25 @@ fun VideoPlaylistItemCard(
                 // Duration badge at bottom-right
                 if (video.duration > 0) {
                     Surface(
-                            color = Color.Black.copy(alpha = 0.8f),
-                            shape = RoundedCornerShape(4.dp),
-                            modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(4.dp)
+                        color = Color.Black.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp),
                     ) {
                         Text(
-                                text = FormatUtils.formatDuration(video.duration),
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold
+                            text = FormatUtils.formatDuration(video.duration),
+                            color = Color.White,
+                            style =
+                                MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
                                 ),
-                                modifier = Modifier.padding(
-                                        horizontal = 4.dp,
-                                        vertical = 1.dp
-                                )
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = 4.dp,
+                                    vertical = 1.dp,
+                                ),
                         )
                     }
                 }
@@ -467,43 +512,46 @@ fun VideoPlaylistItemCard(
 
             // Info column
             Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center,
             ) {
                 // Title in accent color
                 Text(
-                        text = video.title,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.SemiBold
+                    text = video.title,
+                    style =
+                        MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
                         ),
-                        color = accentColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                    color = accentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // Resolution badge + File size row
                 Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     // Resolution badge
                     if (video.resolution.isNotEmpty()) {
                         Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = accentColor
+                            shape = RoundedCornerShape(4.dp),
+                            color = accentColor,
                         ) {
                             Text(
-                                    text = video.resolution,
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold
+                                text = video.resolution,
+                                color = Color.White,
+                                style =
+                                    MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
                                     ),
-                                    modifier = Modifier.padding(
-                                            horizontal = 6.dp,
-                                            vertical = 2.dp
-                                    )
+                                modifier =
+                                    Modifier.padding(
+                                        horizontal = 6.dp,
+                                        vertical = 2.dp,
+                                    ),
                             )
                         }
                     }
@@ -511,9 +559,9 @@ fun VideoPlaylistItemCard(
                     // File size
                     if (video.size > 0) {
                         Text(
-                                text = FormatUtils.formatSize(video.size),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = FormatUtils.formatSize(video.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -523,35 +571,35 @@ fun VideoPlaylistItemCard(
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Options",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(22.dp)
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
                 DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface),
                 ) {
                     DropdownMenuItem(
-                            text = {
-                                Text(
-                                        "Remove from Playlist",
-                                        color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                onRemove()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                        Icons.Outlined.Delete,
-                                        null,
-                                        tint = MaterialTheme.colorScheme.error
-                                )
-                            }
+                        text = {
+                            Text(
+                                "Remove from Playlist",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onRemove()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                null,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
                     )
                 }
             }

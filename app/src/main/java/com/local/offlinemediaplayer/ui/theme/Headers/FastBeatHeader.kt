@@ -26,95 +26,104 @@ import androidx.compose.ui.unit.sp
 fun FastBeatHeader(
     sectionTitle: String,
     themeColor: Color,
-    onSearchClick: () -> Unit = {}
+    onSearchClick: () -> Unit = {},
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding(),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             // Left: Logo and Section
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Logo
                 Text(
                     text = "Fast",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.SansSerif,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        letterSpacing = (-0.5).sp
-                    )
+                    style =
+                        MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.SansSerif,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            letterSpacing = (-0.5).sp,
+                        ),
                 )
                 Text(
                     text = "Beat",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.SansSerif,
-                        color = themeColor,
-                        letterSpacing = (-0.5).sp
-                    )
+                    style =
+                        MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.SansSerif,
+                            color = themeColor,
+                            letterSpacing = (-0.5).sp,
+                        ),
                 )
 
                 // Divider
                 Box(
-                    modifier = Modifier
-                        .padding(horizontal = 14.dp)
-                        .width(1.5.dp)
-                        .height(18.dp)
-                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f))
+                    modifier =
+                        Modifier
+                            .padding(horizontal = 14.dp)
+                            .width(1.5.dp)
+                            .height(18.dp)
+                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)),
                 )
 
                 // Section Title
                 Text(
                     text = sectionTitle.uppercase(),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                    )
+                    style =
+                        MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        ),
                 )
             }
 
             // Right: Search Action
             IconButton(
                 onClick = onSearchClick,
-                modifier = Modifier
-                    .size(42.dp)
-                    .shadow(2.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.1f))
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                modifier =
+                    Modifier
+                        .size(42.dp)
+                        .shadow(2.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.1f))
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
                     contentDescription = "Search",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
 
         // Subtle Gradient Border at Bottom
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            themeColor.copy(alpha = 0.25f),
-                            Color.Transparent
-                        )
-                    )
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors =
+                                listOf(
+                                    Color.Transparent,
+                                    themeColor.copy(alpha = 0.25f),
+                                    Color.Transparent,
+                                ),
+                        ),
+                    ),
         )
     }
 }

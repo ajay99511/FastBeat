@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
 import com.local.offlinemediaplayer.ui.screens.VideoListScreen
@@ -21,32 +22,31 @@ import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-
 enum class VideoNavigationLayout {
-    SinglePane, TwoPane
+    SinglePane,
+    TwoPane,
 }
 
-fun videoNavigationLayout(widthClass: AppWidthClass, route: String): VideoNavigationLayout {
-    return if (widthClass == AppWidthClass.Expanded && route == "video_folders") {
+fun videoNavigationLayout(
+    widthClass: AppWidthClass,
+    route: String,
+): VideoNavigationLayout =
+    if (widthClass == AppWidthClass.Expanded && route == "video_folders") {
         VideoNavigationLayout.TwoPane
     } else {
         VideoNavigationLayout.SinglePane
     }
-}
 
 data class TwoPaneVideoState(
     val selectedFolderId: String? = null,
-    val selectedPlaylistId: String? = null
+    val selectedPlaylistId: String? = null,
 )
 
-fun TwoPaneVideoState.selectFolder(folderId: String): TwoPaneVideoState {
-    return this.copy(selectedFolderId = folderId, selectedPlaylistId = null)
-}
+fun TwoPaneVideoState.selectFolder(folderId: String): TwoPaneVideoState =
+    this.copy(selectedFolderId = folderId, selectedPlaylistId = null)
 
-fun TwoPaneVideoState.selectPlaylist(playlistId: String): TwoPaneVideoState {
-    return this.copy(selectedPlaylistId = playlistId, selectedFolderId = null)
-}
+fun TwoPaneVideoState.selectPlaylist(playlistId: String): TwoPaneVideoState =
+    this.copy(selectedPlaylistId = playlistId, selectedFolderId = null)
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
@@ -54,7 +54,7 @@ fun TwoPaneVideoNavigationHost(
     viewModel: PlaybackViewModel,
     libraryViewModel: LibraryViewModel,
     onVideoClick: (MediaFile, List<MediaFile>) -> Unit,
-    isSearchVisible: Boolean
+    isSearchVisible: Boolean,
 ) {
     var state by remember { mutableStateOf(TwoPaneVideoState()) }
     val navigator = rememberListDetailPaneScaffoldNavigator<Any>()
@@ -78,7 +78,7 @@ fun TwoPaneVideoNavigationHost(
                 onVideoClick = { mediaFile, list ->
                     onVideoClick(mediaFile, list)
                 },
-                isSearchVisible = isSearchVisible
+                isSearchVisible = isSearchVisible,
             )
         },
         detailPane = {
@@ -86,9 +86,10 @@ fun TwoPaneVideoNavigationHost(
             val playlistId = state.selectedPlaylistId
             when {
                 folderId != null -> {
-                    val folderVideos = remember(allVideos, folderId) {
-                        allVideos.filter { it.bucketId == folderId }
-                    }
+                    val folderVideos =
+                        remember(allVideos, folderId) {
+                            allVideos.filter { it.bucketId == folderId }
+                        }
                     VideoListScreen(
                         viewModel = viewModel,
                         libraryViewModel = libraryViewModel,
@@ -97,7 +98,7 @@ fun TwoPaneVideoNavigationHost(
                         title = folderVideos.firstOrNull()?.bucketName ?: "Videos",
                         onBack = {
                             navigator.navigateBack()
-                        }
+                        },
                     )
                 }
                 playlistId != null -> {
@@ -106,12 +107,12 @@ fun TwoPaneVideoNavigationHost(
                         viewModel = viewModel,
                         libraryViewModel = libraryViewModel,
                         onBack = { navigator.navigateBack() },
-                        onNavigateToPlayer = onVideoClick
+                        onNavigateToPlayer = onVideoClick,
                     )
                 }
                 else -> EmptyDetailPane()
             }
-        }
+        },
     )
 }
 

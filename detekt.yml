@@ -1,0 +1,51 @@
+# FastBeat detekt configuration.
+#
+# `buildUponDefaultConfig = true` is set in app/build.gradle.kts, so this file records only our
+# deviations from detekt's defaults. Everything not mentioned here keeps its default behaviour.
+
+build:
+  # 0 = never fail the build on weighted issue count; individual rules still fail via `active`.
+  # Existing debt is handled by detekt-baseline.xml, not by raising this threshold.
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    # Compose @Composable functions are legitimately long -- they are declarative markup, not
+    # branching logic. The default of 60 flags almost every screen in the project.
+    threshold: 120
+  LongParameterList:
+    # Composables take many small parameters by design (state + callbacks), which is exactly the
+    # shape audit section 1.4 asks for. Penalising it would push us toward passing whole ViewModels.
+    functionThreshold: 10
+    constructorThreshold: 12
+  TooManyFunctions:
+    # A Room DAO is a flat list of queries; splitting it would not make it clearer.
+    excludes: ['**/data/db/**', '**/test/**', '**/androidTest/**']
+
+style:
+  MagicNumber:
+    # dp/sp values, animation durations and index constants dominate UI code and drown the signal.
+    excludes: ['**/ui/**', '**/test/**', '**/androidTest/**']
+  MaxLineLength:
+    maxLineLength: 120
+  ReturnCount:
+    # Early-return guard clauses are the clearer style for the effect/permission code here.
+    max: 4
+
+naming:
+  FunctionNaming:
+    # @Composable functions are PascalCase by convention.
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    excludes: ['**/test/**', '**/androidTest/**']
+
+exceptions:
+  TooGenericExceptionCaught:
+    # Phase 2 deliberately catches broad exceptions at platform boundaries (AudioEffect, PiP,
+    # MediaMetadataRetriever) where the framework's thrown types are undocumented. Those sites now
+    # log rather than swallow, which was the actual defect.
+    active: false
+  SwallowedException:
+    active: true
+  TooGenericExceptionThrown:
+    active: true

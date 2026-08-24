@@ -8,5 +8,5 @@ data class Album(
     val artist: String,
     val songCount: Int,
     val firstYear: Int? = null,
-    val albumArtUri: Uri?
+    val albumArtUri: Uri?,
 )

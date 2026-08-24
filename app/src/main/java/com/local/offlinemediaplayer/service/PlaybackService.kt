@@ -1,6 +1,7 @@
 package com.local.offlinemediaplayer.service
 
 import android.content.Intent
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -12,12 +13,15 @@ import androidx.media3.session.MediaSessionService
 import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.db.MediaDao
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
 
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
+    companion object {
+        private const val TAG = "PlaybackService"
+    }
 
     private var mediaSession: MediaSession? = null
 
@@ -30,54 +34,54 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val player =
-                ExoPlayer.Builder(this)
-                        .setAudioAttributes(
-                                AudioAttributes.Builder()
-                                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                                        .setUsage(C.USAGE_MEDIA)
-                                        .build(),
-                                true
-                        )
-                        .setHandleAudioBecomingNoisy(true)
-                        .setWakeMode(C.WAKE_MODE_LOCAL)
-                        .build()
+            ExoPlayer
+                .Builder(this)
+                .setAudioAttributes(
+                    AudioAttributes
+                        .Builder()
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .setUsage(C.USAGE_MEDIA)
+                        .build(),
+                    true,
+                ).setHandleAudioBecomingNoisy(true)
+                .setWakeMode(C.WAKE_MODE_LOCAL)
+                .build()
 
         // Bridge the ExoPlayer audio session id to the effects manager. onAudioSessionIdChanged
         // fires once the audio track is initialised (and again if it is ever recreated), which is
         // exactly when the equalizer must (re)attach.
         player.addAnalyticsListener(
-                object : AnalyticsListener {
-                    override fun onAudioSessionIdChanged(
-                            eventTime: AnalyticsListener.EventTime,
-                            audioSessionId: Int
-                    ) {
-                        audioEffectsManager.onAudioSessionIdChanged(audioSessionId)
-                    }
+            object : AnalyticsListener {
+                override fun onAudioSessionIdChanged(
+                    eventTime: AnalyticsListener.EventTime,
+                    audioSessionId: Int,
+                ) {
+                    audioEffectsManager.onAudioSessionIdChanged(audioSessionId)
                 }
+            },
         )
 
         val sessionActivityPendingIntent =
-                android.app.PendingIntent.getActivity(
+            android.app.PendingIntent.getActivity(
+                this,
+                0,
+                android.content
+                    .Intent(
                         this,
-                        0,
-                        android.content.Intent(
-                                        this,
-                                        com.local.offlinemediaplayer.MainActivity::class.java
-                                )
-                                .apply { putExtra("open_player", true) },
-                        android.app.PendingIntent.FLAG_IMMUTABLE or
-                                android.app.PendingIntent.FLAG_UPDATE_CURRENT
-                )
+                        com.local.offlinemediaplayer.MainActivity::class.java,
+                    ).apply { putExtra("open_player", true) },
+                android.app.PendingIntent.FLAG_IMMUTABLE or
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+            )
 
         mediaSession =
-                MediaSession.Builder(this, player)
-                        .setSessionActivity(sessionActivityPendingIntent)
-                        .build()
+            MediaSession
+                .Builder(this, player)
+                .setSessionActivity(sessionActivityPendingIntent)
+                .build()
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
-        return mediaSession
-    }
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     /**
      * Called when the user swipes the app away from Recents. The ViewModel that normally
@@ -99,12 +103,17 @@ class PlaybackService : MediaSessionService() {
                 runBlocking {
                     try {
                         mediaDao.updateHistoryPosition(
-                                mediaId,
-                                position,
-                                duration,
-                                System.currentTimeMillis()
+                            mediaId,
+                            position,
+                            duration,
+                            System.currentTimeMillis(),
                         )
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        // Log only. This runs inside runBlocking in a lifecycle callback with a
+                        // short deadline, so anything heavier (retry, fallback write) risks an ANR
+                        // or being killed mid-write. Losing one resume position is the lesser harm.
+                        Log.e(TAG, "Failed to persist playback position on task removal", e)
+                    }
                 }
             }
 

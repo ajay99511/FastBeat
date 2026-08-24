@@ -59,9 +59,33 @@ HEAD:.../viewmodel/PlaybackViewModel.kt:27: import com.local.offlinemediaplayer.
 HEAD:.../viewmodel/PlaybackViewModel.kt:121:    val audioEffects: AudioEffectsManager
 ```
 
-A clean clone of `feature--equilizer-integration` fails to compile with unresolved references. The
-breakage is branch-local — `master` has no references to either symbol — so it was introduced by
-commit `91681be` on this branch.
+A clean clone fails to compile with unresolved references.
+
+> [!CAUTION]
+> **Update 2026-08-21 (re-validation): this is no longer branch-local — it has reached `master`.**
+> When first written, this finding noted the breakage was confined to
+> `feature--equilizer-integration`. Since then, PR #10 merged that branch into `master`
+> (`a7f3b42`). Because `.gitignore` still excluded `/app`, the merge carried the **references**
+> but not the **implementation**:
+>
+> ```console
+> $ git ls-tree -d origin/master -- app/src/main/java/com/local/offlinemediaplayer/audio
+> (empty)  # the audio/ package does not exist on master at all
+>
+> $ git grep -n "AudioEffectsManager" origin/master -- app/src | wc -l
+> 4        # master still imports and injects it
+>
+> $ git diff --stat 91681be..origin/master
+> docs/AUDIT_ADDENDUM.md | 210 +++
+> docs/ENGINEERING_AUDIT.md | 553 +++
+> implementation_plan.md | 769 +++
+> 3 files changed, 1532 insertions(+)   # documentation only — zero code
+> ```
+>
+> **`origin/master` does not compile.** The default branch is now the broken one, and the root
+> cause (`/app` in `.gitignore`, blob `112c157`) is still unfixed there. Severity of this finding
+> rises accordingly: it is no longer "a feature branch is broken" but "the release branch is broken
+> and the feature it was merged for does not exist in it".
 
 > [!CAUTION]
 > **This re-orders the plan.** The original plan scheduled CI (P0-B) immediately after `.gitignore`

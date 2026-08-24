@@ -22,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,8 +34,8 @@ import com.local.offlinemediaplayer.model.Artist
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
-import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
@@ -47,7 +46,7 @@ fun ArtistListScreen(
     viewModel: PlaybackViewModel,
     libraryViewModel: LibraryViewModel,
     onArtistClick: (String) -> Unit,
-    isSearchVisible: Boolean
+    isSearchVisible: Boolean,
 ) {
     val artists by libraryViewModel.filteredArtists.collectAsStateWithLifecycle()
     val searchQuery by libraryViewModel.artistSearchQuery.collectAsStateWithLifecycle()
@@ -56,29 +55,31 @@ fun ArtistListScreen(
     val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
     ) {
         CollapsibleSearchBox(
             isVisible = isSearchVisible,
             query = searchQuery,
             onQueryChange = { libraryViewModel.updateArtistSearchQuery(it) },
-            placeholderText = "Search artists..."
+            placeholderText = "Search artists...",
         )
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "${artists.size} ARTISTS",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                letterSpacing = 1.sp,
             )
         }
 
@@ -86,19 +87,19 @@ fun ArtistListScreen(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     if (searchQuery.isNotEmpty()) "No results found" else "No artists found",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(bottom = bottomPadding),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) {
                 items(artists, key = { it.name }) { artist ->
                     ArtistRow(artist = artist, onClick = { onArtistClick(artist.name) })
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 88.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                     )
                 }
             }
@@ -107,34 +108,39 @@ fun ArtistListScreen(
 }
 
 @Composable
-private fun ArtistRow(artist: Artist, onClick: () -> Unit) {
+private fun ArtistRow(
+    artist: Artist,
+    onClick: () -> Unit,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
         ) {
             if (artist.albumArtUri != null) {
                 AsyncImage(
                     model = artist.albumArtUri,
                     contentDescription = artist.name,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
                 )
             } else {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(28.dp),
                 )
             }
         }
@@ -147,28 +153,29 @@ private fun ArtistRow(artist: Artist, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(4.dp))
-            val meta = buildString {
-                append("${artist.songCount} song${if (artist.songCount != 1) "s" else ""}")
-                if (artist.albumCount > 0) {
-                    append(" • ${artist.albumCount} album${if (artist.albumCount != 1) "s" else ""}")
+            val meta =
+                buildString {
+                    append("${artist.songCount} song${if (artist.songCount != 1) "s" else ""}")
+                    if (artist.albumCount > 0) {
+                        append(" • ${artist.albumCount} album${if (artist.albumCount != 1) "s" else ""}")
+                    }
                 }
-            }
             Text(
                 text = meta,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -180,7 +187,7 @@ fun ArtistDetailScreen(
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onNavigateToPlayer: () -> Unit
+    onNavigateToPlayer: () -> Unit,
 ) {
     val allAudio by libraryViewModel.audioList.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
@@ -190,13 +197,20 @@ fun ArtistDetailScreen(
     // Match by the same normalized key used to build the artist list. A song's
     // tag may list several artists ("Dhanush, Anirudh"), so it belongs here if
     // ANY of its names resolves to this artist's key.
-    val artistSongs = remember(allAudio, artistName) {
-        val targetKey = com.local.offlinemediaplayer.model.ArtistGrouping.key(artistName)
-        allAudio.filter { song ->
-            com.local.offlinemediaplayer.model.ArtistGrouping.splitTokens(song.artist)
-                .any { name -> com.local.offlinemediaplayer.model.ArtistGrouping.key(name) == targetKey }
+    val artistSongs =
+        remember(allAudio, artistName) {
+            val targetKey =
+                com.local.offlinemediaplayer.model.ArtistGrouping
+                    .key(artistName)
+            allAudio.filter { song ->
+                com.local.offlinemediaplayer.model.ArtistGrouping
+                    .splitTokens(song.artist)
+                    .any { name ->
+                        com.local.offlinemediaplayer.model.ArtistGrouping
+                            .key(name) == targetKey
+                    }
+            }
         }
-    }
     val albumArtUri = remember(artistSongs) { artistSongs.firstOrNull { it.albumArtUri != null }?.albumArtUri }
 
     // Dialog state
@@ -209,47 +223,50 @@ fun ArtistDetailScreen(
             // Top bar
             Row(
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBackIosNew,
                         contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = bottomPadding)
+                contentPadding = PaddingValues(bottom = bottomPadding),
             ) {
                 item {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(
-                            modifier = Modifier.size(140.dp).clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
+                            modifier =
+                                Modifier
+                                    .size(140.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
                         ) {
                             if (albumArtUri != null) {
                                 AsyncImage(
                                     model = albumArtUri,
                                     contentDescription = null,
                                     modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                                    contentScale = ContentScale.Crop,
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(64.dp)
+                                    modifier = Modifier.size(64.dp),
                                 )
                             }
                         }
@@ -261,13 +278,13 @@ fun ArtistDetailScreen(
                             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground,
                             maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "${artistSongs.size} song${if (artistSongs.size != 1) "s" else ""}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -278,24 +295,38 @@ fun ArtistDetailScreen(
                                     if (artistSongs.isNotEmpty()) viewModel.playArtist(artistName, artistSongs, false)
                                 },
                                 modifier = Modifier.weight(1f).height(50.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                shape = RoundedCornerShape(50)
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                shape = RoundedCornerShape(50),
                             ) {
                                 Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Play All", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Play All",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                )
                             }
                             Button(
                                 onClick = {
                                     if (artistSongs.isNotEmpty()) viewModel.playArtist(artistName, artistSongs, true)
                                 },
                                 modifier = Modifier.weight(1f).height(50.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                shape = RoundedCornerShape(50)
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    ),
+                                shape = RoundedCornerShape(50),
                             ) {
                                 Icon(Icons.Outlined.Shuffle, null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Shuffle", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Shuffle",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                )
                             }
                         }
 
@@ -313,7 +344,7 @@ fun ArtistDetailScreen(
                         onAddToPlaylist = {
                             songsToAdd = listOf(song)
                             showAddToPlaylistDialog = true
-                        }
+                        },
                     )
                 }
             }
@@ -322,14 +353,14 @@ fun ArtistDetailScreen(
         MiniPlayer(
             viewModel = viewModel,
             onTap = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 
     if (showCreateDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreateDialog = false },
-            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) }
+            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) },
         )
     }
 
@@ -338,7 +369,7 @@ fun ArtistDetailScreen(
             songs = songsToAdd,
             playlistViewModel = playlistViewModel,
             onDismiss = { showAddToPlaylistDialog = false },
-            onCreateNew = { showCreateDialog = true }
+            onCreateNew = { showCreateDialog = true },
         )
     }
 }
@@ -350,27 +381,30 @@ private fun ArtistSongRow(
     onClick: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
-    onAddToPlaylist: () -> Unit
+    onAddToPlaylist: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Card(
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.size(50.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         ) {
             AsyncImage(
-                model = song.albumArtUri ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                model =
+                    song.albumArtUri
+                        ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
             )
         }
 
@@ -383,13 +417,13 @@ private fun ArtistSongRow(
                 fontWeight = FontWeight.SemiBold,
                 color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = FormatUtils.formatDuration(song.duration),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -400,22 +434,49 @@ private fun ArtistSongRow(
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
-                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface),
             ) {
                 DropdownMenuItem(
                     text = { Text("Play Next", color = MaterialTheme.colorScheme.onSurface) },
-                    onClick = { showMenu = false; onPlayNext() },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    onClick = {
+                        showMenu = false
+                        onPlayNext()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.QueueMusic,
+                            null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text("Add to Queue", color = MaterialTheme.colorScheme.onSurface) },
-                    onClick = { showMenu = false; onAddToQueue() },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    onClick = {
+                        showMenu = false
+                        onAddToQueue()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.QueueMusic,
+                            null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
-                    onClick = { showMenu = false; onAddToPlaylist() },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = MaterialTheme.colorScheme.onSurface) }
+                    onClick = {
+                        showMenu = false
+                        onAddToPlaylist()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.PlaylistAdd,
+                            null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
                 )
             }
         }
@@ -424,6 +485,6 @@ private fun ArtistSongRow(
     HorizontalDivider(
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         thickness = 0.5.dp,
-        modifier = Modifier.padding(horizontal = 16.dp)
+        modifier = Modifier.padding(horizontal = 16.dp),
     )
 }

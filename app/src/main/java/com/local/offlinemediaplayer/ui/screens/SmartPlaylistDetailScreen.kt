@@ -64,7 +64,7 @@ fun SmartPlaylistDetailScreen(
     viewModel: PlaybackViewModel,
     smartPlaylistViewModel: SmartPlaylistViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onNavigateToPlayer: () -> Unit
+    onNavigateToPlayer: () -> Unit,
 ) {
     val type = remember(typeId) { SmartPlaylistType.fromId(typeId) }
 
@@ -84,55 +84,63 @@ fun SmartPlaylistDetailScreen(
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     var searchQuery by remember { mutableStateOf("") }
-    val filteredSongs = remember(songs, searchQuery) {
-        if (searchQuery.isEmpty()) songs
-        else songs.filter {
-            it.title.contains(searchQuery, ignoreCase = true) ||
-                (it.artist?.contains(searchQuery, ignoreCase = true) == true)
+    val filteredSongs =
+        remember(songs, searchQuery) {
+            if (searchQuery.isEmpty()) {
+                songs
+            } else {
+                songs.filter {
+                    it.title.contains(searchQuery, ignoreCase = true) ||
+                        (it.artist?.contains(searchQuery, ignoreCase = true) == true)
+                }
+            }
         }
-    }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Warm gradient overlay at top (matches PlaylistDetailScreen)
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            primaryAccent.copy(alpha = 0.28f),
-                            primaryAccent.copy(alpha = 0.08f),
-                            MaterialTheme.colorScheme.background
-                        )
-                    )
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    primaryAccent.copy(alpha = 0.28f),
+                                    primaryAccent.copy(alpha = 0.08f),
+                                    MaterialTheme.colorScheme.background,
+                                ),
+                        ),
+                    ),
         )
 
         Column(modifier = Modifier.fillMaxSize()) {
             // ── Top Bar: Back + Search ──
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            CircleShape
-                        )
+                    modifier =
+                        Modifier
+                            .size(40.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                CircleShape,
+                            ),
                 ) {
                     Icon(
                         Icons.Default.ArrowBackIosNew,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                 }
 
@@ -143,7 +151,7 @@ fun SmartPlaylistDetailScreen(
                         Text(
                             "Search ${type.title}...",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     },
                     leadingIcon = {
@@ -151,7 +159,7 @@ fun SmartPlaylistDetailScreen(
                             Icons.Default.Search,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     },
                     trailingIcon = {
@@ -161,36 +169,39 @@ fun SmartPlaylistDetailScreen(
                                     Icons.Default.Close,
                                     contentDescription = "Clear",
                                     tint = Color.Gray,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
                     },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = primaryAccent,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                    ),
+                    colors =
+                        TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = primaryAccent,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
                     singleLine = true,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                 )
             }
 
             // ── Header Row: Title + Count + Play/Shuffle ──
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -198,12 +209,12 @@ fun SmartPlaylistDetailScreen(
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = "${songs.size} Song${if (songs.size != 1) "s" else ""}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
@@ -215,15 +226,16 @@ fun SmartPlaylistDetailScreen(
                             }
                         },
                         modifier = Modifier.size(42.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = primaryAccent,
-                            contentColor = Color.White
-                        )
+                        colors =
+                            IconButtonDefaults.filledIconButtonColors(
+                                containerColor = primaryAccent,
+                                contentColor = Color.White,
+                            ),
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "Play All",
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(22.dp),
                         )
                     }
 
@@ -234,15 +246,16 @@ fun SmartPlaylistDetailScreen(
                             }
                         },
                         modifier = Modifier.size(42.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
+                        colors =
+                            IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                            ),
                     ) {
                         Icon(
                             Icons.Outlined.Shuffle,
                             contentDescription = "Shuffle",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
@@ -251,23 +264,28 @@ fun SmartPlaylistDetailScreen(
             // ── Song List ──
             if (filteredSongs.isEmpty()) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (searchQuery.isNotEmpty()) "No results found"
-                        else "Nothing here yet.\nKeep listening and this list will fill up!",
+                        text =
+                            if (searchQuery.isNotEmpty()) {
+                                "No results found"
+                            } else {
+                                "Nothing here yet.\nKeep listening and this list will fill up!"
+                            },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = bottomPadding),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     itemsIndexed(filteredSongs, key = { _, song -> song.id }) { index, song ->
                         AudioPlaylistItemCard(
@@ -277,7 +295,7 @@ fun SmartPlaylistDetailScreen(
                                 viewModel.playFromSmartPlaylist(type.id, filteredSongs, index)
                             },
                             onPlayNext = { viewModel.playNext(song) },
-                            onAddToQueue = { viewModel.addToQueue(song) }
+                            onAddToQueue = { viewModel.addToQueue(song) },
                             // No onRemove — smart playlists are read-only.
                         )
                     }
@@ -288,7 +306,7 @@ fun SmartPlaylistDetailScreen(
         MiniPlayer(
             viewModel = viewModel,
             onTap = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

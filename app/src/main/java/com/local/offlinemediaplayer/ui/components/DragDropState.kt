@@ -40,19 +40,20 @@ import kotlinx.coroutines.launch
 fun rememberDragDropState(
     lazyListState: LazyListState,
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
-    onDragEnd: (key: Any, fromIndex: Int, toIndex: Int) -> Unit
+    onDragEnd: (key: Any, fromIndex: Int, toIndex: Int) -> Unit,
 ): DragDropState {
     val scope = rememberCoroutineScope()
     val currentOnMove = rememberUpdatedState(onMove)
     val currentOnDragEnd = rememberUpdatedState(onDragEnd)
-    val state = remember(lazyListState) {
-        DragDropState(
-            state = lazyListState,
-            scope = scope,
-            onMove = { from, to -> currentOnMove.value(from, to) },
-            onDragEnd = { key, from, to -> currentOnDragEnd.value(key, from, to) }
-        )
-    }
+    val state =
+        remember(lazyListState) {
+            DragDropState(
+                state = lazyListState,
+                scope = scope,
+                onMove = { from, to -> currentOnMove.value(from, to) },
+                onDragEnd = { key, from, to -> currentOnDragEnd.value(key, from, to) },
+            )
+        }
     // Consume auto-scroll requests emitted while dragging near the viewport edges.
     LaunchedEffect(state) {
         while (true) {
@@ -67,7 +68,7 @@ class DragDropState internal constructor(
     private val state: LazyListState,
     private val scope: CoroutineScope,
     private val onMove: (fromIndex: Int, toIndex: Int) -> Unit,
-    private val onDragEnd: (key: Any, fromIndex: Int, toIndex: Int) -> Unit
+    private val onDragEnd: (key: Any, fromIndex: Int, toIndex: Int) -> Unit,
 ) {
     /** Lazy-list key of the item being dragged, or null when no drag is active. */
     var draggingItemKey by mutableStateOf<Any?>(null)
@@ -82,9 +83,10 @@ class DragDropState internal constructor(
 
     /** Vertical translation to apply to the item whose key equals [draggingItemKey]. */
     val draggingItemOffset: Float
-        get() = draggingItemLayoutInfo?.let { item ->
-            draggingItemInitialOffset + draggingItemDraggedDelta - item.offset
-        } ?: 0f
+        get() =
+            draggingItemLayoutInfo?.let { item ->
+                draggingItemInitialOffset + draggingItemDraggedDelta - item.offset
+            } ?: 0f
 
     private val draggingItemLayoutInfo: LazyListItemInfo?
         get() = state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == draggingItemKey }
@@ -126,10 +128,11 @@ class DragDropState internal constructor(
         val endOffset = startOffset + draggingItem.size
         val middleOffset = startOffset + (endOffset - startOffset) / 2f
 
-        val targetItem = state.layoutInfo.visibleItemsInfo.find { item ->
-            middleOffset.toInt() in item.offset..(item.offset + item.size) &&
-                draggingItem.index != item.index
-        }
+        val targetItem =
+            state.layoutInfo.visibleItemsInfo.find { item ->
+                middleOffset.toInt() in item.offset..(item.offset + item.size) &&
+                    draggingItem.index != item.index
+            }
         if (targetItem != null) {
             if (draggingItem.index == state.firstVisibleItemIndex ||
                 targetItem.index == state.firstVisibleItemIndex
@@ -143,13 +146,14 @@ class DragDropState internal constructor(
             onMove(draggingItem.index, targetItem.index)
             draggingItemCurrentIndex = targetItem.index
         } else {
-            val overscroll = when {
-                draggingItemDraggedDelta > 0 ->
-                    (endOffset - state.layoutInfo.viewportEndOffset).coerceAtLeast(0f)
-                draggingItemDraggedDelta < 0 ->
-                    (startOffset - state.layoutInfo.viewportStartOffset).coerceAtMost(0f)
-                else -> 0f
-            }
+            val overscroll =
+                when {
+                    draggingItemDraggedDelta > 0 ->
+                        (endOffset - state.layoutInfo.viewportEndOffset).coerceAtLeast(0f)
+                    draggingItemDraggedDelta < 0 ->
+                        (startOffset - state.layoutInfo.viewportStartOffset).coerceAtMost(0f)
+                    else -> 0f
+                }
             if (overscroll != 0f) {
                 scrollChannel.trySend(overscroll)
             }
@@ -163,7 +167,10 @@ class DragDropState internal constructor(
  * list (it survives reordering, unlike an index, so the gesture is never cancelled mid-drag).
  * Drags begin immediately (no long press) since the handle is an explicit affordance.
  */
-fun Modifier.dragHandle(dragDropState: DragDropState, key: Any): Modifier =
+fun Modifier.dragHandle(
+    dragDropState: DragDropState,
+    key: Any,
+): Modifier =
     pointerInput(dragDropState, key) {
         detectDragGestures(
             onDragStart = { dragDropState.onDragStart(key) },
@@ -172,6 +179,6 @@ fun Modifier.dragHandle(dragDropState: DragDropState, key: Any): Modifier =
                 dragDropState.onDrag(dragAmount)
             },
             onDragEnd = { dragDropState.onDragInterrupted() },
-            onDragCancel = { dragDropState.onDragInterrupted() }
+            onDragCancel = { dragDropState.onDragInterrupted() },
         )
     }

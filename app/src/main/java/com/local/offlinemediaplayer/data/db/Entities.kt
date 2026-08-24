@@ -15,7 +15,7 @@ data class PlaybackHistory(
     val timestamp: Long,
     val mediaType: String, // "AUDIO" or "VIDEO"
     val audioTrackIndex: Int = -1, // New field for track persistence
-    val subtitleTrackIndex: Int = -1 // New field for track persistence (-1 = default/none or unset)
+    val subtitleTrackIndex: Int = -1, // New field for track persistence (-1 = default/none or unset)
 )
 
 @Entity(tableName = "media_analytics")
@@ -23,25 +23,25 @@ data class MediaAnalytics(
     @PrimaryKey val mediaId: Long,
     val playCount: Int = 0,
     val skipCount: Int = 0,
-    val lastPlayed: Long = 0
+    val lastPlayed: Long = 0,
 )
 
 // NEW: Tracks total listening time per day (date is normalized to midnight)
 @Entity(tableName = "daily_playtime")
 data class DailyPlaytime(
     @PrimaryKey val date: Long,
-    val totalPlaytimeMs: Long
+    val totalPlaytimeMs: Long,
 )
 
 // NEW: Log individual plays to calculate "Recent Favorites"
 @Entity(
     tableName = "play_events",
-    indices = [Index(value = ["mediaId"]), Index(value = ["timestamp"])]
+    indices = [Index(value = ["mediaId"]), Index(value = ["timestamp"])],
 )
 data class PlayEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val mediaId: Long,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
 )
 
 @Entity(tableName = "playlists")
@@ -49,7 +49,7 @@ data class PlaylistEntity(
     @PrimaryKey val id: String,
     val name: String,
     val createdAt: Long,
-    val isVideo: Boolean
+    val isVideo: Boolean,
 )
 
 @Entity(
@@ -61,14 +61,14 @@ data class PlaylistEntity(
             entity = PlaylistEntity::class,
             parentColumns = ["id"],
             childColumns = ["playlistId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
 )
 data class PlaylistMediaCrossRef(
     val playlistId: String,
     val mediaId: Long,
-    val addedAt: Long = System.currentTimeMillis() // Used for ordering
+    val addedAt: Long = System.currentTimeMillis(), // Used for ordering
 )
 
 // Helper class for Room Relations to observe changes in both tables
@@ -76,9 +76,9 @@ data class PlaylistWithRefs(
     @Embedded val playlist: PlaylistEntity,
     @Relation(
         parentColumn = "id",
-        entityColumn = "playlistId"
+        entityColumn = "playlistId",
     )
-    val refs: List<PlaylistMediaCrossRef>
+    val refs: List<PlaylistMediaCrossRef>,
 )
 
 // NEW: For timestamp bookmarks
@@ -88,12 +88,12 @@ data class BookmarkEntity(
     val mediaId: Long,
     val timestamp: Long,
     val label: String,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
 )
 
 // NEW: For persistent "Now Playing" queue
 @Entity(tableName = "current_queue")
 data class QueueItemEntity(
     @PrimaryKey val mediaId: Long,
-    val sortOrder: Int
+    val sortOrder: Int,
 )

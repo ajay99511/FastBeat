@@ -14,9 +14,9 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable
 fun AudioNavigationHost(
-        viewModel: PlaybackViewModel,
-        navController: NavHostController,
-        isSearchVisible: Boolean
+    viewModel: PlaybackViewModel,
+    navController: NavHostController,
+    isSearchVisible: Boolean,
 ) {
     val navigateToPlayer by viewModel.navigateToPlayer.collectAsStateWithLifecycle()
 
@@ -28,103 +28,105 @@ fun AudioNavigationHost(
     }
 
     NavHost(
-            navController = navController,
-            startDestination = "audio_library",
-            enterTransition = {
-                slideIntoContainer(
-                        AnimatedContentTransitionScope.SlideDirection.Left,
-                        animationSpec = tween(300)
-                )
-            },
-            exitTransition = {
-                slideOutOfContainer(
-                        AnimatedContentTransitionScope.SlideDirection.Left,
-                        animationSpec = tween(300)
-                )
-            },
-            popEnterTransition = {
-                slideIntoContainer(
-                        AnimatedContentTransitionScope.SlideDirection.Right,
-                        animationSpec = tween(300)
-                )
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                        AnimatedContentTransitionScope.SlideDirection.Right,
-                        animationSpec = tween(300)
-                )
-            }
+        navController = navController,
+        startDestination = "audio_library",
+        enterTransition = {
+            slideIntoContainer(
+                AnimatedContentTransitionScope.SlideDirection.Left,
+                animationSpec = tween(300),
+            )
+        },
+        exitTransition = {
+            slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Left,
+                animationSpec = tween(300),
+            )
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(300),
+            )
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(300),
+            )
+        },
     ) {
         composable("audio_library") {
             AudioLibraryScreen(
-                    viewModel = viewModel,
-                    onNavigateToPlayer = { navController.navigate("now_playing") },
-                    onNavigateToPlaylist = { id -> navController.navigate("playlist_detail/$id") },
-                    onNavigateToAlbum = { id -> navController.navigate("album_detail/$id") },
-                    onNavigateToArtist = { name ->
-                        navController.navigate("artist_detail/${android.net.Uri.encode(name)}")
-                    },
-                    onNavigateToSmartPlaylist = { typeId ->
-                        navController.navigate("smart_playlist_detail/$typeId")
-                    },
-                    onNavigateToDecade = { decadeStart ->
-                        navController.navigate("decade_detail/$decadeStart")
-                    },
-                    isSearchVisible = isSearchVisible
+                viewModel = viewModel,
+                onNavigateToPlayer = { navController.navigate("now_playing") },
+                onNavigateToPlaylist = { id -> navController.navigate("playlist_detail/$id") },
+                onNavigateToAlbum = { id -> navController.navigate("album_detail/$id") },
+                onNavigateToArtist = { name ->
+                    navController.navigate("artist_detail/${android.net.Uri.encode(name)}")
+                },
+                onNavigateToSmartPlaylist = { typeId ->
+                    navController.navigate("smart_playlist_detail/$typeId")
+                },
+                onNavigateToDecade = { decadeStart ->
+                    navController.navigate("decade_detail/$decadeStart")
+                },
+                isSearchVisible = isSearchVisible,
             )
         }
         composable("decade_detail/{decadeStart}") { backStackEntry ->
             val decadeStart =
-                    backStackEntry.arguments?.getString("decadeStart")?.toIntOrNull()
-                            ?: return@composable
+                backStackEntry.arguments?.getString("decadeStart")?.toIntOrNull()
+                    ?: return@composable
             DecadeDetailScreen(
-                    decadeStart = decadeStart,
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToPlayer = { navController.navigate("now_playing") }
+                decadeStart = decadeStart,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = { navController.navigate("now_playing") },
             )
         }
         composable("smart_playlist_detail/{typeId}") { backStackEntry ->
             val typeId = backStackEntry.arguments?.getString("typeId") ?: return@composable
             SmartPlaylistDetailScreen(
-                    typeId = typeId,
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToPlayer = { navController.navigate("now_playing") }
+                typeId = typeId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = { navController.navigate("now_playing") },
             )
         }
         composable("now_playing") {
-            com.local.offlinemediaplayer.ui.adaptive.AdaptiveNowPlayingScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+            com.local.offlinemediaplayer.ui.adaptive.AdaptiveNowPlayingScreen(viewModel = viewModel, onBack = {
+                navController.popBackStack()
+            })
         }
         composable("playlist_detail/{playlistId}") { backStackEntry ->
             val playlistId = backStackEntry.arguments?.getString("playlistId") ?: return@composable
             PlaylistDetailScreen(
-                    playlistId = playlistId,
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToPlayer = { navController.navigate("now_playing") }
+                playlistId = playlistId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = { navController.navigate("now_playing") },
             )
         }
         composable("album_detail/{albumId}") { backStackEntry ->
             val albumId =
-                    backStackEntry.arguments?.getString("albumId")?.toLongOrNull()
-                            ?: return@composable
+                backStackEntry.arguments?.getString("albumId")?.toLongOrNull()
+                    ?: return@composable
             AlbumDetailScreen(
-                    albumId = albumId,
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToPlayer = { navController.navigate("now_playing") }
+                albumId = albumId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = { navController.navigate("now_playing") },
             )
         }
         composable("artist_detail/{artistName}") { backStackEntry ->
             val artistName =
-                    backStackEntry.arguments?.getString("artistName")?.let { android.net.Uri.decode(it) }
-                            ?: return@composable
+                backStackEntry.arguments?.getString("artistName")?.let { android.net.Uri.decode(it) }
+                    ?: return@composable
             ArtistDetailScreen(
-                    artistName = artistName,
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToPlayer = { navController.navigate("now_playing") }
+                artistName = artistName,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = { navController.navigate("now_playing") },
             )
         }
     }

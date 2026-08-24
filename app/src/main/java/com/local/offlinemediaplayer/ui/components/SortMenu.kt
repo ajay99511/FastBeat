@@ -28,12 +28,12 @@ fun <T> SortDropdownMenu(
     onDismissRequest: () -> Unit,
     fields: List<T>,
     sortState: SortState<T>,
-    onSortChange: (SortState<T>) -> Unit
+    onSortChange: (SortState<T>) -> Unit,
 ) where T : Enum<T>, T : SortableField {
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+        modifier = Modifier.background(MaterialTheme.colorScheme.surface),
     ) {
         fields.forEach { field ->
             val isSelected = field == sortState.field
@@ -41,27 +41,39 @@ fun <T> SortDropdownMenu(
                 text = {
                     Text(
                         text = field.label,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        color =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                     )
                 },
                 trailingIcon = {
                     if (isSelected) {
                         Icon(
-                            imageVector = if (sortState.ascending) Icons.Default.ArrowUpward
-                            else Icons.Default.ArrowDownward,
-                            contentDescription = if (sortState.ascending) "Sorted ascending"
-                            else "Sorted descending",
+                            imageVector =
+                                if (sortState.ascending) {
+                                    Icons.Default.ArrowUpward
+                                } else {
+                                    Icons.Default.ArrowDownward
+                                },
+                            contentDescription =
+                                if (sortState.ascending) {
+                                    "Sorted ascending"
+                                } else {
+                                    "Sorted descending"
+                                },
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 },
                 onClick = {
                     onSortChange(sortState.select(field))
                     onDismissRequest()
-                }
+                },
             )
         }
     }

@@ -18,7 +18,7 @@ fun AdaptiveMainLayout(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     isVideoPlayingFullscreen: Boolean,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val theme = LocalAppTheme.current
     val themeColor = MaterialTheme.colorScheme.primary
@@ -30,20 +30,21 @@ fun AdaptiveMainLayout(
                     FastBeatNavigationRail(
                         selectedTab = selectedTab,
                         onTabSelected = onTabSelected,
-                        themeColor = themeColor
+                        themeColor = themeColor,
                     )
                 }
                 AppWidthClass.Expanded -> {
                     FastBeatNavigationDrawer(
                         selectedTab = selectedTab,
                         onTabSelected = onTabSelected,
-                        themeColor = themeColor
+                        themeColor = themeColor,
                     ) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .wrapContentWidth(Alignment.CenterHorizontally)
-                                .widthIn(max = MAX_CONTENT_WIDTH)
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .wrapContentWidth(Alignment.CenterHorizontally)
+                                    .widthIn(max = MAX_CONTENT_WIDTH),
                         ) {
                             content()
                         }
@@ -55,7 +56,7 @@ fun AdaptiveMainLayout(
         }
 
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             content()
         }

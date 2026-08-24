@@ -33,22 +33,23 @@ fun CollapsibleSearchBox(
     isVisible: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
-    placeholderText: String
+    placeholderText: String,
 ) {
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     AnimatedVisibility(
         visible = isVisible,
         enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut()
+        exit = shrinkVertically() + fadeOut(),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .height(52.dp)
-                .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
             TextField(
                 value = query,
@@ -57,14 +58,14 @@ fun CollapsibleSearchBox(
                     Text(
                         placeholderText,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 },
                 leadingIcon = {
                     Icon(
                         Icons.Outlined.Search,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 },
                 trailingIcon = {
@@ -73,22 +74,23 @@ fun CollapsibleSearchBox(
                             Icon(
                                 Icons.Default.Close,
                                 null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
                 },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = primaryAccent,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                ),
+                colors =
+                    TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = primaryAccent,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    ),
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

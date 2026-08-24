@@ -3,7 +3,6 @@ package com.local.offlinemediaplayer.ui.theme.Headers
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,42 +22,46 @@ fun AppHeader() {
     val neonRed = Color(0xFFFF1F48) // Vibrant Red for the brand
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0B0B0F)) // Deep dark background to match theme
-            .statusBarsPadding()
-            .padding(top = 20.dp, bottom = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0B0B0F)) // Deep dark background to match theme
+                .statusBarsPadding()
+                .padding(top = 20.dp, bottom = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Logo Text Row
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = "FAST",
-                style = TextStyle(
-                    fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 32.sp,
-                    color = Color.White,
-                    letterSpacing = 1.sp
-                )
+                style =
+                    TextStyle(
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 32.sp,
+                        color = Color.White,
+                        letterSpacing = 1.sp,
+                    ),
             )
             Text(
                 text = "BEAT",
-                style = TextStyle(
-                    fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 32.sp,
-                    color = neonRed,
-                    letterSpacing = 1.sp,
-                    shadow = Shadow(
-                        color = neonRed.copy(alpha = 0.5f),
-                        blurRadius = 35f,
-                        offset = Offset(0f, 0f)
-                    )
-                )
+                style =
+                    TextStyle(
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 32.sp,
+                        color = neonRed,
+                        letterSpacing = 1.sp,
+                        shadow =
+                            Shadow(
+                                color = neonRed.copy(alpha = 0.5f),
+                                blurRadius = 35f,
+                                offset = Offset(0f, 0f),
+                            ),
+                    ),
             )
         }
 
@@ -66,18 +69,20 @@ fun AppHeader() {
 
         // Glowing Underline Gradient
         Box(
-            modifier = Modifier
-                .width(120.dp)
-                .height(2.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            neonRed,
-                            Color.Transparent
-                        )
-                    )
-                )
+            modifier =
+                Modifier
+                    .width(120.dp)
+                    .height(2.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors =
+                                listOf(
+                                    Color.Transparent,
+                                    neonRed,
+                                    Color.Transparent,
+                                ),
+                        ),
+                    ),
         )
     }
 }

@@ -19,8 +19,15 @@ interface MediaDao {
     // Position-only update used by the service's onTaskRemoved() so that swiping the app
     // away durably records the latest position WITHOUT clobbering mediaType or the saved
     // audio/subtitle track selections written by the full saveHistory() path.
-    @Query("UPDATE playback_history SET position = :position, duration = :duration, timestamp = :timestamp WHERE mediaId = :mediaId")
-    suspend fun updateHistoryPosition(mediaId: Long, position: Long, duration: Long, timestamp: Long)
+    @Query(
+        "UPDATE playback_history SET position = :position, duration = :duration, timestamp = :timestamp WHERE mediaId = :mediaId",
+    )
+    suspend fun updateHistoryPosition(
+        mediaId: Long,
+        position: Long,
+        duration: Long,
+        timestamp: Long,
+    )
 
     @Query("SELECT * FROM playback_history ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastPlayed(): PlaybackHistory?
@@ -32,7 +39,9 @@ interface MediaDao {
     fun getLastPlayedAudioFlow(): Flow<PlaybackHistory?>
 
     // Fetch unfinished videos (progress > 0 and < 95% complete), ordered by most recently watched
-    @Query("SELECT * FROM playback_history WHERE mediaType = 'VIDEO' AND position > 0 AND (duration = 0 OR position < (duration * 0.95)) ORDER BY timestamp DESC LIMIT 10")
+    @Query(
+        "SELECT * FROM playback_history WHERE mediaType = 'VIDEO' AND position > 0 AND (duration = 0 OR position < (duration * 0.95)) ORDER BY timestamp DESC LIMIT 10",
+    )
     fun getContinueWatching(): Flow<List<PlaybackHistory>>
 
     // All in-progress video history (used to render resume progress bars on video thumbnails)
@@ -40,11 +49,19 @@ interface MediaDao {
     fun getAllVideoHistory(): Flow<List<PlaybackHistory>>
 
     // --- Analytics ---
-    @Query("INSERT OR IGNORE INTO media_analytics (mediaId, playCount, skipCount, lastPlayed) VALUES (:mediaId, 0, 0, :timestamp)")
-    suspend fun initAnalytics(mediaId: Long, timestamp: Long)
+    @Query(
+        "INSERT OR IGNORE INTO media_analytics (mediaId, playCount, skipCount, lastPlayed) VALUES (:mediaId, 0, 0, :timestamp)",
+    )
+    suspend fun initAnalytics(
+        mediaId: Long,
+        timestamp: Long,
+    )
 
     @Query("UPDATE media_analytics SET playCount = playCount + 1, lastPlayed = :timestamp WHERE mediaId = :mediaId")
-    suspend fun incrementPlayCount(mediaId: Long, timestamp: Long)
+    suspend fun incrementPlayCount(
+        mediaId: Long,
+        timestamp: Long,
+    )
 
     // Records a skip (track abandoned before it crossed the play-count threshold). Does NOT touch
     // lastPlayed so skips never masquerade as plays in "Forgotten"/"Recent Favorite" analytics.
@@ -72,13 +89,19 @@ interface MediaDao {
     suspend fun initDailyPlaytime(date: Long)
 
     @Query("UPDATE daily_playtime SET totalPlaytimeMs = totalPlaytimeMs + :durationMs WHERE date = :date")
-    suspend fun addToDailyPlaytime(date: Long, durationMs: Long)
+    suspend fun addToDailyPlaytime(
+        date: Long,
+        durationMs: Long,
+    )
 
     @Query("SELECT totalPlaytimeMs FROM daily_playtime WHERE date = :date")
     fun getPlaytimeForDay(date: Long): Flow<Long?>
 
     @Query("SELECT SUM(totalPlaytimeMs) FROM daily_playtime WHERE date >= :startDate AND date <= :endDate")
-    fun getPlaytimeRange(startDate: Long, endDate: Long): Flow<Long?>
+    fun getPlaytimeRange(
+        startDate: Long,
+        endDate: Long,
+    ): Flow<Long?>
 
     // Get all dates with activity to calculate streak in code
     @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
@@ -86,14 +109,19 @@ interface MediaDao {
 
     // Get daily playtime records for a date range (Activity Trends)
     @Query("SELECT * FROM daily_playtime WHERE date >= :startDate AND date <= :endDate ORDER BY date ASC")
-    fun getWeekDailyPlaytimes(startDate: Long, endDate: Long): Flow<List<DailyPlaytime>>
+    fun getWeekDailyPlaytimes(
+        startDate: Long,
+        endDate: Long,
+    ): Flow<List<DailyPlaytime>>
 
     // Play Events
     @Insert
     suspend fun logPlayEvent(event: PlayEvent)
 
     // Most played in range (Current Favorite)
-    @Query("SELECT mediaId FROM play_events WHERE timestamp >= :sinceTimestamp GROUP BY mediaId ORDER BY COUNT(*) DESC LIMIT 1")
+    @Query(
+        "SELECT mediaId FROM play_events WHERE timestamp >= :sinceTimestamp GROUP BY mediaId ORDER BY COUNT(*) DESC LIMIT 1",
+    )
     fun getMostPlayedMediaIdSinceFlow(sinceTimestamp: Long): Flow<Long?>
 
     // --- Playlists ---
@@ -111,7 +139,10 @@ interface MediaDao {
     suspend fun addMediaToPlaylist(crossRef: PlaylistMediaCrossRef)
 
     @Query("DELETE FROM playlist_media_cross_ref WHERE playlistId = :playlistId AND mediaId = :mediaId")
-    suspend fun removeMediaFromPlaylist(playlistId: String, mediaId: Long)
+    suspend fun removeMediaFromPlaylist(
+        playlistId: String,
+        mediaId: Long,
+    )
 
     @Query("DELETE FROM playlist_media_cross_ref WHERE playlistId = :playlistId")
     suspend fun clearPlaylistMedia(playlistId: String)
@@ -121,17 +152,26 @@ interface MediaDao {
 
     // New methods for Playlist management
     @Query("SELECT COUNT(*) FROM playlists WHERE name = :name AND isVideo = :isVideo")
-    suspend fun getPlaylistCount(name: String, isVideo: Boolean): Int
+    suspend fun getPlaylistCount(
+        name: String,
+        isVideo: Boolean,
+    ): Int
 
     @Query("SELECT id FROM playlists WHERE name = :name AND isVideo = :isVideo LIMIT 1")
-    suspend fun getPlaylistIdByName(name: String, isVideo: Boolean): String?
+    suspend fun getPlaylistIdByName(
+        name: String,
+        isVideo: Boolean,
+    ): String?
 
     // Reactive playlist count for Library Stats
     @Query("SELECT COUNT(*) FROM playlists")
     fun getPlaylistCountFlow(): Flow<Int>
 
     @Query("UPDATE playlists SET name = :newName WHERE id = :id")
-    suspend fun updatePlaylistName(id: String, newName: String)
+    suspend fun updatePlaylistName(
+        id: String,
+        newName: String,
+    )
 
     // --- Bookmarks ---
     @Query("SELECT * FROM bookmarks WHERE mediaId = :mediaId ORDER BY timestamp ASC")
@@ -164,7 +204,10 @@ interface MediaDao {
     suspend fun insertPlaylistMediaBatch(refs: List<PlaylistMediaCrossRef>)
 
     @Transaction
-    suspend fun replacePlaylistMedia(playlistId: String, refs: List<PlaylistMediaCrossRef>) {
+    suspend fun replacePlaylistMedia(
+        playlistId: String,
+        refs: List<PlaylistMediaCrossRef>,
+    ) {
         clearPlaylistMedia(playlistId)
         insertPlaylistMediaBatch(refs)
     }

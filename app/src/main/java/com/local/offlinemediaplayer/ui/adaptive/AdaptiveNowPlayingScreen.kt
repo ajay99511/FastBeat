@@ -1,8 +1,6 @@
 package com.local.offlinemediaplayer.ui.adaptive
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -11,10 +9,15 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import kotlin.math.min
 
 enum class NowPlayingLayoutType {
-    Vertical, TwoColumn, TableTopSplit
+    Vertical,
+    TwoColumn,
+    TableTopSplit,
 }
 
-fun nowPlayingLayoutType(widthClass: AppWidthClass, posture: DevicePosture): NowPlayingLayoutType {
+fun nowPlayingLayoutType(
+    widthClass: AppWidthClass,
+    posture: DevicePosture,
+): NowPlayingLayoutType {
     if (posture is DevicePosture.TableTop) {
         return NowPlayingLayoutType.TableTopSplit
     }
@@ -24,14 +27,12 @@ fun nowPlayingLayoutType(widthClass: AppWidthClass, posture: DevicePosture): Now
     }
 }
 
-fun computeAlbumArtMaxSize(availableHeightDp: Float): Float {
-    return min(availableHeightDp * 0.85f, 400f)
-}
+fun computeAlbumArtMaxSize(availableHeightDp: Float): Float = min(availableHeightDp * 0.85f, 400f)
 
 @Composable
 fun AdaptiveNowPlayingScreen(
     viewModel: PlaybackViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val widthClass = LocalWindowSizeClass.current
     val posture = LocalDevicePosture.current
@@ -54,7 +55,7 @@ fun AdaptiveNowPlayingScreen(
 @Composable
 fun TwoColumnNowPlayingLayout(
     viewModel: PlaybackViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     // For MVP, we wrap the existing NowPlayingScreen inside a bounded width
     // or we actually implement the TwoColumn layout. The requirements say:
@@ -71,7 +72,7 @@ fun TwoColumnNowPlayingLayout(
 fun TableTopNowPlayingLayout(
     viewModel: PlaybackViewModel,
     posture: DevicePosture.TableTop,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     // Similarly, delegate to standard screen as a placeholder for full table top refactoring.
     NowPlayingScreen(viewModel = viewModel, onBack = onBack)

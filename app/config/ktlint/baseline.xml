@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="src/main/java/com/local/offlinemediaplayer/audio/AudioEffectsManager.kt">
+        <error line="37" column="1" source="standard:no-consecutive-comments" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/repository/MediaRepository.kt">
+        <error line="160" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/components/MiniPlayer.kt">
+        <error line="94" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AccessibilityGuideScreen.kt">
+        <error line="75" column="121" source="standard:max-line-length" />
+        <error line="86" column="121" source="standard:max-line-length" />
+        <error line="93" column="121" source="standard:max-line-length" />
+        <error line="100" column="121" source="standard:max-line-length" />
+        <error line="107" column="121" source="standard:max-line-length" />
+        <error line="193" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AlbumDetailScreen.kt">
+        <error line="166" column="121" source="standard:max-line-length" />
+        <error line="239" column="121" source="standard:max-line-length" />
+        <error line="545" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AlbumListScreen.kt">
+        <error line="161" column="121" source="standard:max-line-length" />
+        <error line="357" column="121" source="standard:max-line-length" />
+        <error line="462" column="121" source="standard:max-line-length" />
+        <error line="498" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AudioListScreen.kt">
+        <error line="306" column="121" source="standard:max-line-length" />
+        <error line="307" column="121" source="standard:max-line-length" />
+        <error line="473" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/ImageListScreen.kt">
+        <error line="151" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/MeScreen.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/NowPlayingScreen.kt">
+        <error line="433" column="121" source="standard:max-line-length" />
+        <error line="845" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/PermissionScreens.kt">
+        <error line="83" column="121" source="standard:max-line-length" />
+        <error line="135" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt">
+        <error line="431" column="121" source="standard:max-line-length" />
+        <error line="432" column="121" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/AppHeader.kt">
+        <error line="2" column="9" source="standard:package-name" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/AudioHeader.kt">
+        <error line="2" column="9" source="standard:package-name" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/FastBeatHeader.kt">
+        <error line="2" column="9" source="standard:package-name" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/ImageHeader.kt">
+        <error line="2" column="9" source="standard:package-name" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/VideoHeader.kt">
+        <error line="2" column="9" source="standard:package-name" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/AnalyticsViewModel.kt">
+        <error line="40" column="21" source="standard:backing-property-naming" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/LibraryViewModel.kt">
+        <error line="732" column="21" source="standard:backing-property-naming" />
+    </file>
+    <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt">
+        <error line="383" column="21" source="standard:backing-property-naming" />
+        <error line="422" column="21" source="standard:backing-property-naming" />
+    </file>
+</baseline>

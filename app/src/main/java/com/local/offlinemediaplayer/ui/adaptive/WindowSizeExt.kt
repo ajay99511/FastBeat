@@ -5,7 +5,9 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowWidthSizeClass
 
 enum class AppWidthClass {
-    Compact, Medium, Expanded
+    Compact,
+    Medium,
+    Expanded,
 }
 
 fun WindowWidthSizeClass.toAppWidthClass(): AppWidthClass {
@@ -19,13 +21,12 @@ fun WindowWidthSizeClass.toAppWidthClass(): AppWidthClass {
     }
 }
 
-fun appWidthClassFromDp(widthDp: Float): AppWidthClass {
-    return when {
+fun appWidthClassFromDp(widthDp: Float): AppWidthClass =
+    when {
         widthDp < 600f -> AppWidthClass.Compact
         widthDp < 840f -> AppWidthClass.Medium
         else -> AppWidthClass.Expanded
     }
-}
 
 object AdaptiveLayoutConstants {
     val MAX_CONTENT_WIDTH: Dp = 840.dp

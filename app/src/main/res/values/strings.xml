@@ -1,3 +1,36 @@
 <resources>
     <string name="app_name">FastBeat</string>
+
+    <!--
+      User-facing error messages, resolved through model/AppError.kt (P4-F.1).
+
+      Wording is preserved verbatim from the hardcoded strings these replace, so that migrating a
+      call site in P4-F.2 changes where a message comes from without changing what the user reads.
+    -->
+    <string name="error_media_access_denied">Permission denied to access this file</string>
+    <string name="error_delete_failed">Couldn\'t delete this file</string>
+    <string name="error_generic">Something went wrong</string>
+
+    <!-- Playback failures. Kept distinct because each implies a different user action. -->
+    <string name="error_playback_file_not_found">File not found or has been moved</string>
+    <string name="error_playback_permission_denied">Permission denied to access this file</string>
+    <string name="error_playback_unsupported_format">Unable to play this video format</string>
+    <string name="error_playback_audio_init_failed">Audio initialization failed</string>
+    <string name="error_playback_unknown">Playback error occurred</string>
+
+    <!--
+      Informational messages, carried as UserMessage (P4-F.2). Wording preserved verbatim from the
+      hardcoded originals. Format arguments are positional so translations may reorder them.
+    -->
+    <string name="msg_sleep_timer_window">Sleep timer is only available between 10 PM and 5 AM</string>
+    <string name="msg_sleep_timer_ended">Sleep timer ended — playback paused</string>
+    <string name="msg_sleep_timer_set">Sleep timer set for %1$d min</string>
+    <string name="msg_subtitle_added">Subtitle added</string>
+    <string name="msg_subtitle_load_failed">Couldn\'t load subtitle file</string>
+    <string name="msg_added_to_queue">Added to queue</string>
+    <string name="msg_added_to_queue_shuffle_note">Added to queue. Shuffle may affect play order.</string>
+    <string name="msg_will_play_next">Will play next</string>
+    <string name="msg_added_to_play_next">Added to play next</string>
+    <string name="msg_turn_off_shuffle_to_reorder">Turn off shuffle to reorder the queue</string>
+    <string name="msg_saved_queue_as">Saved queue as \"%1$s\"</string>
 </resources>
