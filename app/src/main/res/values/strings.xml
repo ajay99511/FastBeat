@@ -1,3 +1,20 @@
 <resources>
     <string name="app_name">FastBeat</string>
+
+    <!--
+      User-facing error messages, resolved through model/AppError.kt (P4-F.1).
+
+      Wording is preserved verbatim from the hardcoded strings these replace, so that migrating a
+      call site in P4-F.2 changes where a message comes from without changing what the user reads.
+    -->
+    <string name="error_media_access_denied">Permission denied to access this file</string>
+    <string name="error_delete_failed">Couldn\'t delete this file</string>
+    <string name="error_generic">Something went wrong</string>
+
+    <!-- Playback failures. Kept distinct because each implies a different user action. -->
+    <string name="error_playback_file_not_found">File not found or has been moved</string>
+    <string name="error_playback_permission_denied">Permission denied to access this file</string>
+    <string name="error_playback_unsupported_format">Unable to play this video format</string>
+    <string name="error_playback_audio_init_failed">Audio initialization failed</string>
+    <string name="error_playback_unknown">Playback error occurred</string>
 </resources>
