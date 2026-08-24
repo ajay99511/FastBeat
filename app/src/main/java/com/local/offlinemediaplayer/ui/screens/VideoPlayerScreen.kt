@@ -464,7 +464,7 @@ fun VideoPlayerScreen(
 
         // Error Overlay
         ErrorOverlay(
-            error = playerError,
+            error = playerError?.userMessage(context),
             onDismiss = { viewModel.dismissPlayerError() },
             onRetry = {
                 viewModel.dismissPlayerError()

@@ -14,15 +14,18 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
+import com.local.offlinemediaplayer.R
 import com.local.offlinemediaplayer.audio.AudioEffectsManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.data.db.QueueItemEntity
 import com.local.offlinemediaplayer.model.Album
+import com.local.offlinemediaplayer.model.AppError
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.Playlist
+import com.local.offlinemediaplayer.model.UserMessage
 import com.local.offlinemediaplayer.playback.BookmarkManager
 import com.local.offlinemediaplayer.playback.DeletionKind
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
@@ -241,7 +244,8 @@ class PlaybackViewModel
         val isBuffering = _isBuffering.asStateFlow()
 
         // Error state: null means no error. Non-null is a user-facing error message.
-        private val _playerError = MutableStateFlow<String?>(null)
+        // Errors carry AppError; the UI resolves the wording (P4-F.2).
+        private val _playerError = MutableStateFlow<AppError?>(null)
         val playerError = _playerError.asStateFlow()
 
         // --- VIDEO PLAYER VISIBILITY STATE ---
@@ -254,7 +258,8 @@ class PlaybackViewModel
         private val _navigateToPlayer = MutableStateFlow(false)
         val navigateToPlayer = _navigateToPlayer.asStateFlow()
 
-        private val _userMessage = MutableSharedFlow<String>()
+        // Informational confirmations, distinct from errors -- see model/UserMessage.kt.
+        private val _userMessage = MutableSharedFlow<UserMessage>()
         val userMessage = _userMessage.asSharedFlow()
 
         fun handleIntent(intent: android.content.Intent?) {
@@ -391,7 +396,7 @@ class PlaybackViewModel
 
         private suspend fun onLegacyImageDeleteFailed() {
             _pendingImageDeleteId.value = null
-            _userMessage.emit("Couldn't delete this file")
+            _userMessage.emit(UserMessage.of(R.string.error_delete_failed))
         }
 
         fun onImageDeleteSuccess() {
@@ -433,7 +438,7 @@ class PlaybackViewModel
 
         private suspend fun onLegacyTrackDeleteFailed() {
             _pendingDeleteTrackId.value = null
-            _userMessage.emit("Couldn't delete this file")
+            _userMessage.emit(UserMessage.of(R.string.error_delete_failed))
         }
 
         fun onCurrentTrackDeleteSuccess() {
@@ -577,22 +582,7 @@ class PlaybackViewModel
                     }
 
                     override fun onPlayerError(error: PlaybackException) {
-                        val message =
-                            when (error.errorCode) {
-                                PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
-                                    "File not found or has been moved"
-                                PlaybackException.ERROR_CODE_IO_NO_PERMISSION ->
-                                    "Permission denied to access this file"
-                                PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
-                                PlaybackException.ERROR_CODE_DECODING_FAILED,
-                                ->
-                                    "Unable to play this video format"
-                                PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED ->
-                                    "Audio initialization failed"
-                                else ->
-                                    "Playback error occurred"
-                            }
-                        _playerError.value = message
+                        _playerError.value = AppError.PlaybackFailed.fromErrorCode(error.errorCode)
                         _isBuffering.value = false
                         Log.e(TAG, "Player error: ${error.errorCode} - ${error.message}", error)
                     }
@@ -1495,7 +1485,7 @@ class PlaybackViewModel
         fun setSleepTimer(durationMinutes: Int) {
             if (!isSleepTimerAllowed()) {
                 viewModelScope.launch {
-                    _userMessage.emit("Sleep timer is only available between 10 PM and 5 AM")
+                    _userMessage.emit(UserMessage.of(R.string.msg_sleep_timer_window))
                 }
                 return
             }
@@ -1507,9 +1497,9 @@ class PlaybackViewModel
                     delay(durationMs)
                     withContext(Dispatchers.Main) { player.value?.pause() }
                     _sleepTimerEndMillis.value = null
-                    _userMessage.emit("Sleep timer ended — playback paused")
+                    _userMessage.emit(UserMessage.of(R.string.msg_sleep_timer_ended))
                 }
-            viewModelScope.launch { _userMessage.emit("Sleep timer set for $durationMinutes min") }
+            viewModelScope.launch { _userMessage.emit(UserMessage.of(R.string.msg_sleep_timer_set, durationMinutes)) }
         }
 
         fun cancelSleepTimer() {
@@ -1701,10 +1691,10 @@ class PlaybackViewModel
                         .buildUpon()
                         .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
                         .build()
-                viewModelScope.launch { _userMessage.emit("Subtitle added") }
+                viewModelScope.launch { _userMessage.emit(UserMessage.of(R.string.msg_subtitle_added)) }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to add external subtitle", e)
-                viewModelScope.launch { _userMessage.emit("Couldn't load subtitle file") }
+                viewModelScope.launch { _userMessage.emit(UserMessage.of(R.string.msg_subtitle_load_failed)) }
             }
         }
 
@@ -1923,9 +1913,9 @@ class PlaybackViewModel
                 // Provide Feedback
                 viewModelScope.launch {
                     if (controller.shuffleModeEnabled) {
-                        _userMessage.emit("Added to queue. Shuffle may affect play order.")
+                        _userMessage.emit(UserMessage.of(R.string.msg_added_to_queue_shuffle_note))
                     } else {
-                        _userMessage.emit("Will play next")
+                        _userMessage.emit(UserMessage.of(R.string.msg_will_play_next))
                     }
                 }
             } else {
@@ -1964,7 +1954,7 @@ class PlaybackViewModel
                 persistQueue(queue)
 
                 viewModelScope.launch {
-                    _userMessage.emit("Added to queue")
+                    _userMessage.emit(UserMessage.of(R.string.msg_added_to_queue))
                 }
             } else {
                 playMedia(media)
@@ -2013,7 +2003,7 @@ class PlaybackViewModel
                     persistQueue(queue)
 
                     viewModelScope.launch {
-                        _userMessage.emit("Added to play next")
+                        _userMessage.emit(UserMessage.of(R.string.msg_added_to_play_next))
                     }
                 }
             } else {
@@ -2058,7 +2048,7 @@ class PlaybackViewModel
                     persistQueue(queue)
 
                     viewModelScope.launch {
-                        _userMessage.emit("Added to queue")
+                        _userMessage.emit(UserMessage.of(R.string.msg_added_to_queue))
                     }
                 }
             } else {
@@ -2080,7 +2070,7 @@ class PlaybackViewModel
             val controller = player.value ?: return
             if (fromIndex == toIndex) return
             if (controller.shuffleModeEnabled) {
-                viewModelScope.launch { _userMessage.emit("Turn off shuffle to reorder the queue") }
+                viewModelScope.launch { _userMessage.emit(UserMessage.of(R.string.msg_turn_off_shuffle_to_reorder)) }
                 return
             }
 
@@ -2157,7 +2147,7 @@ class PlaybackViewModel
                         ?.find { it.name.equals(name.trim(), ignoreCase = true) && !it.isVideo }
                 if (created != null) {
                     playlistRepository.updatePlaylistTracks(created.id, queue.map { it.id })
-                    _userMessage.emit("Saved queue as \"${name.trim()}\"")
+                    _userMessage.emit(UserMessage.of(R.string.msg_saved_queue_as, name.trim()))
                 }
             }
         }
