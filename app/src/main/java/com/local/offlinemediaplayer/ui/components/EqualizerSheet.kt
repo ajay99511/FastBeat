@@ -25,10 +25,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.R
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import kotlin.math.roundToInt
 
@@ -73,7 +75,7 @@ fun EqualizerSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Equalizer",
+                    text = stringResource(R.string.eq_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
@@ -89,9 +91,7 @@ fun EqualizerSheet(
 
             if (!isAvailable) {
                 Text(
-                    text =
-                        "Audio effects aren't available on this device, or nothing has played " +
-                            "yet this session. Start playback and reopen to adjust the equalizer.",
+                    text = stringResource(R.string.eq_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -103,7 +103,7 @@ fun EqualizerSheet(
             // Presets
             if (presetNames.isNotEmpty()) {
                 Text(
-                    text = "Presets",
+                    text = stringResource(R.string.eq_presets),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -172,7 +172,7 @@ fun EqualizerSheet(
             }
             if (bassSupported) {
                 EffectStrengthSlider(
-                    label = "Bass Boost",
+                    label = stringResource(R.string.eq_bass_boost),
                     strength = bassStrength,
                     enabled = enabled,
                     onChange = { fx.setBassBoost(it) },
@@ -181,7 +181,7 @@ fun EqualizerSheet(
             if (virtSupported) {
                 Spacer(Modifier.height(8.dp))
                 EffectStrengthSlider(
-                    label = "Virtualizer",
+                    label = stringResource(R.string.eq_virtualizer),
                     strength = virtStrength,
                     enabled = enabled,
                     onChange = { fx.setVirtualizer(it) },
@@ -207,7 +207,7 @@ private fun EffectStrengthSlider(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = "${(strength / 10)}%",
+                text = stringResource(R.string.eq_strength_percent, strength / 10),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

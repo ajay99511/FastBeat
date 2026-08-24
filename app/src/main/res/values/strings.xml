@@ -33,4 +33,22 @@
     <string name="msg_added_to_play_next">Added to play next</string>
     <string name="msg_turn_off_shuffle_to_reorder">Turn off shuffle to reorder the queue</string>
     <string name="msg_saved_queue_as">Saved queue as \"%1$s\"</string>
+
+    <!-- Library: file rename and bulk delete (F-33). Wording preserved verbatim. -->
+    <string name="msg_delete_none_succeeded">Couldn\'t delete the selected files</string>
+    <string name="msg_delete_partially_failed">Some files couldn\'t be deleted</string>
+    <string name="msg_rename_empty_name">Name cannot be empty</string>
+    <string name="msg_rename_invalid_characters">Name contains invalid characters (/ \\ : * ? \" &lt; &gt; |)</string>
+    <string name="msg_rename_failed">Rename failed</string>
+    <string name="msg_rename_name_taken">A file with that name already exists</string>
+    <string name="msg_rename_not_permitted">Rename not permitted for this file</string>
+    <string name="msg_renamed_to">Renamed to \"%1$s\"</string>
+
+    <!-- Equalizer sheet (F-6). -->
+    <string name="eq_title">Equalizer</string>
+    <string name="eq_presets">Presets</string>
+    <string name="eq_bass_boost">Bass Boost</string>
+    <string name="eq_virtualizer">Virtualizer</string>
+    <string name="eq_unavailable">Audio effects aren\'t available on this device, or nothing has played yet this session. Start playback and reopen to adjust the equalizer.</string>
+    <string name="eq_strength_percent">%1$d%%</string>
 </resources>
