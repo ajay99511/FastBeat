@@ -46,6 +46,8 @@ class PlaybackAnalyticsTracker
 
             /** Daily playtime is flushed to the database every 60 ticks (60 × 500 ms = 30 s). */
             const val FLUSH_EVERY_TICKS = 60
+
+            const val DAY_IN_MILLIS = 86_400_000L
         }
 
         /**
@@ -72,10 +74,21 @@ class PlaybackAnalyticsTracker
 
         /**
          * The day playtime is credited to, captured once when the session starts. A session that
-         * runs past midnight therefore keeps crediting the day it began on — preserved from the
-         * original implementation, see F-30.
+         * runs past midnight rolls over at the next flush, so time is credited to the day it was
+         * actually listened in (F-30). Rollover is checked at flush points rather than every tick,
+         * which bounds misattribution at one flush interval — 30 s — instead of a whole session.
          */
         private var sessionDayKey = 0L
+
+        /**
+         * Clock source. Injectable so the midnight-rollover behaviour is testable; a bug that only
+         * reproduces once a day at a specific hour is otherwise untestable in practice.
+         */
+        @VisibleForTesting
+        internal var now: () -> Long = { System.currentTimeMillis() }
+
+        /** Precomputed midnight after [sessionDayKey], so the per-tick check is a long compare. */
+        private var nextDayBoundaryMs = Long.MAX_VALUE
 
         /** True while a track has been listened to but has not yet reached the play threshold. */
         val isCurrentTrackUnlogged: Boolean
@@ -87,6 +100,7 @@ class PlaybackAnalyticsTracker
          */
         fun onSessionStarted() {
             sessionDayKey = normalizedToday()
+            nextDayBoundaryMs = sessionDayKey + DAY_IN_MILLIS
             tickCount = 0
             pendingDailyPlaytimeMs = 0L
             val day = sessionDayKey
@@ -97,6 +111,18 @@ class PlaybackAnalyticsTracker
                     Log.e(TAG, "Failed to initialize daily playtime", e)
                 }
             }
+        }
+
+        /**
+         * Ends a playback session, persisting whatever has accrued since the last flush.
+         *
+         * Without this, up to one flush interval (30 s) of listening time was discarded every time
+         * playback stopped, because the position loop is cancelled and the in-memory accumulator
+         * went with it (F-34). Pausing and resuming repeatedly could lose most of a listening
+         * session from the user's statistics.
+         */
+        fun onSessionStopped() {
+            flushDailyPlaytime()
         }
 
         /**
@@ -126,6 +152,7 @@ class PlaybackAnalyticsTracker
             durationMs: Long,
             deltaMs: Long,
         ) {
+            rollOverIfDayChanged()
             pendingDailyPlaytimeMs += deltaMs
 
             if (mediaId != null && !hasLoggedCurrentTrack) {
@@ -176,15 +203,43 @@ class PlaybackAnalyticsTracker
         }
 
         private fun flushDailyPlaytime() {
-            if (pendingDailyPlaytimeMs <= 0) return
-            val timeToSave = pendingDailyPlaytimeMs
+            if (pendingDailyPlaytimeMs > 0) {
+                val timeToSave = pendingDailyPlaytimeMs
+                val day = sessionDayKey
+                pendingDailyPlaytimeMs = 0L
+                trackerScope.launch {
+                    try {
+                        mediaDao.addToDailyPlaytime(day, timeToSave)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to save daily playtime", e)
+                    }
+                }
+            }
+        }
+
+        /**
+         * Advances accrual onto the new day once the clock passes midnight.
+         *
+         * Checked **before** the tick is accrued, and flushes first, so time listened before
+         * midnight is credited to the old day and time after it to the new one. Doing this at flush
+         * time instead would mis-date up to a whole flush interval — which is exactly what the
+         * first attempt at this fix did, and what `timeListenedAfterMidnightIsCreditedToTheNewDay`
+         * caught.
+         *
+         * The check is a long comparison against a precomputed boundary rather than a `Calendar`
+         * allocation, because it runs on every 500 ms tick.
+         */
+        private fun rollOverIfDayChanged() {
+            if (now() < nextDayBoundaryMs) return
+            flushDailyPlaytime()
+            sessionDayKey = normalizedToday()
+            nextDayBoundaryMs = sessionDayKey + DAY_IN_MILLIS
             val day = sessionDayKey
-            pendingDailyPlaytimeMs = 0L
             trackerScope.launch {
                 try {
-                    mediaDao.addToDailyPlaytime(day, timeToSave)
+                    mediaDao.initDailyPlaytime(day)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to save daily playtime", e)
+                    Log.e(TAG, "Failed to initialize daily playtime after midnight rollover", e)
                 }
             }
         }
@@ -196,6 +251,7 @@ class PlaybackAnalyticsTracker
 
         private fun normalizedToday(): Long {
             val c = Calendar.getInstance()
+            c.timeInMillis = now()
             c.set(Calendar.HOUR_OF_DAY, 0)
             c.set(Calendar.MINUTE, 0)
             c.set(Calendar.SECOND, 0)

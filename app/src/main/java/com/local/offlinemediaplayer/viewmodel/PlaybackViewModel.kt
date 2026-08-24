@@ -732,6 +732,9 @@ class PlaybackViewModel
             _currentTrack.value?.let { track ->
                 savePlaybackState(track.id, _currentPosition.value, track.duration, track.isVideo)
             }
+            // Persist listening time accrued since the last flush before the loop is cancelled;
+            // without this it was discarded on every stop (F-34).
+            analytics.onSessionStopped()
             positionUpdateJob?.cancel()
             positionUpdateJob = null
         }

@@ -42,6 +42,7 @@ class PlaybackAnalyticsTrackerTest {
         const val TICK = 500L
         const val LONG_TRACK = 300_000L // 5 minutes: threshold is the flat 30 s
         const val PLAY_THRESHOLD = 30_000L
+        const val DAY_MS = 86_400_000L
     }
 
     @Before
@@ -259,5 +260,95 @@ class PlaybackAnalyticsTrackerTest {
         play(mediaId = null, durationMs = LONG_TRACK, totalMs = PLAY_THRESHOLD * 2)
 
         assertEquals("nothing to attribute a play to", 0, playCount(0))
+    }
+
+    // ------------------------------------------------------------------ F-34: flush on stop
+
+    /**
+     * Up to one flush interval (30 s) of listening time used to be discarded every time playback
+     * stopped: the accumulator lives in memory and the position loop that owned it was cancelled.
+     * A user pausing every minute lost most of their recorded listening time.
+     */
+    @Test
+    fun stoppingASessionPersistsTimeAccruedSinceTheLastFlush() {
+        // 10 s is well short of the 30 s flush cadence, so before the fix this was simply lost.
+        play(mediaId = 1, durationMs = LONG_TRACK, totalMs = 10_000)
+        val beforeStop = playtimeToday()
+
+        tracker.onSessionStopped()
+
+        val afterStop = playtimeToday()
+        assertTrue(
+            "expected accrued time to be persisted on stop, before=$beforeStop after=$afterStop",
+            afterStop > beforeStop,
+        )
+    }
+
+    @Test
+    fun stoppingTwiceDoesNotDoubleCountTheSameTime() {
+        play(mediaId = 1, durationMs = LONG_TRACK, totalMs = 10_000)
+
+        tracker.onSessionStopped()
+        val afterFirst = playtimeToday()
+        tracker.onSessionStopped()
+
+        assertEquals("a second stop has nothing left to flush", afterFirst, playtimeToday())
+    }
+
+    @Test
+    fun stoppingWithNothingAccruedIsHarmless() {
+        tracker.onSessionStopped()
+
+        assertEquals(0L, playtimeToday())
+    }
+
+    // ------------------------------------------------------------------ F-30: midnight rollover
+
+    /**
+     * Playtime used to be credited to whichever day the session *started* on, so an evening session
+     * running past midnight booked all of its time to the previous day. Time is now attributed to
+     * the day it was actually listened in, checked at flush points.
+     */
+    @Test
+    fun timeListenedAfterMidnightIsCreditedToTheNewDay() {
+        val startOfToday = today()
+        val justBeforeMidnight = startOfToday + DAY_MS - 60_000L
+        tracker.now = { justBeforeMidnight }
+        tracker.onSessionStarted()
+
+        // Listen for a while on the old day.
+        play(mediaId = 1, durationMs = LONG_TRACK, totalMs = 10_000)
+        tracker.onSessionStopped()
+        val oldDayTotal = runBlocking { dao.getPlaytimeForDay(startOfToday).first() ?: 0L }
+        assertTrue("time before midnight belongs to the old day", oldDayTotal > 0)
+
+        // Clock crosses midnight; keep listening.
+        val afterMidnight = startOfToday + DAY_MS + 60_000L
+        tracker.now = { afterMidnight }
+        play(mediaId = 1, durationMs = LONG_TRACK, totalMs = 10_000)
+        tracker.onSessionStopped()
+
+        val newDayTotal = runBlocking { dao.getPlaytimeForDay(startOfToday + DAY_MS).first() ?: 0L }
+        assertTrue(
+            "time after midnight must be credited to the new day, got $newDayTotal",
+            newDayTotal > 0,
+        )
+        assertEquals(
+            "the old day must not gain any further time",
+            oldDayTotal,
+            runBlocking { dao.getPlaytimeForDay(startOfToday).first() ?: 0L },
+        )
+    }
+
+    @Test
+    fun aSessionThatDoesNotCrossMidnightKeepsCreditingOneDay() {
+        play(mediaId = 1, durationMs = LONG_TRACK, totalMs = 10_000)
+        tracker.onSessionStopped()
+
+        assertEquals(
+            "no rollover should occur, so tomorrow stays empty",
+            0L,
+            runBlocking { dao.getPlaytimeForDay(today() + DAY_MS).first() ?: 0L },
+        )
     }
 }
