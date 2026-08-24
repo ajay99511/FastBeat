@@ -70,7 +70,7 @@
         <error line="40" column="21" source="standard:backing-property-naming" />
     </file>
     <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/LibraryViewModel.kt">
-        <error line="732" column="21" source="standard:backing-property-naming" />
+        <error line="735" column="21" source="standard:backing-property-naming" />
     </file>
     <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt">
         <error line="383" column="21" source="standard:backing-property-naming" />

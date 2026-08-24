@@ -128,7 +128,7 @@ fun VideoFolderScreen(
     LaunchedEffect(Unit) {
         libraryViewModel.userMessage.collect { msg ->
             android.widget.Toast
-                .makeText(context, msg, android.widget.Toast.LENGTH_SHORT)
+                .makeText(context, msg.resolve(context), android.widget.Toast.LENGTH_SHORT)
                 .show()
         }
     }

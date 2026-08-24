@@ -12,8 +12,10 @@ import android.util.Log
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.local.offlinemediaplayer.R
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.model.UserMessage
 import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
@@ -455,9 +457,9 @@ class LibraryViewModel
             if (state.deletedIds.size < state.total) {
                 _userMessage.emit(
                     if (state.deletedIds.isEmpty()) {
-                        "Couldn't delete the selected files"
+                        UserMessage.of(R.string.msg_delete_none_succeeded)
                     } else {
-                        "Some files couldn't be deleted"
+                        UserMessage.of(R.string.msg_delete_partially_failed)
                     },
                 )
             }
@@ -604,7 +606,8 @@ class LibraryViewModel
         private val _renameIntentEvent = MutableSharedFlow<IntentSender>()
         val renameIntentEvent = _renameIntentEvent.asSharedFlow()
 
-        private val _userMessage = MutableSharedFlow<String>()
+        // Messages carry a string resource, not finished English (F-33).
+        private val _userMessage = MutableSharedFlow<UserMessage>()
         val userMessage = _userMessage.asSharedFlow()
 
         /** Characters MediaStore/FAT/exFAT reject in file names. */
@@ -620,11 +623,11 @@ class LibraryViewModel
         ) {
             val sanitized = newBaseName.trim().trimEnd('.')
             if (sanitized.isEmpty()) {
-                viewModelScope.launch { _userMessage.emit("Name cannot be empty") }
+                viewModelScope.launch { _userMessage.emit(UserMessage.of(R.string.msg_rename_empty_name)) }
                 return
             }
             if (invalidFileNameChars.containsMatchIn(sanitized)) {
-                viewModelScope.launch { _userMessage.emit("Name contains invalid characters (/ \\ : * ? \" < > |)") }
+                viewModelScope.launch { _userMessage.emit(UserMessage.of(R.string.msg_rename_invalid_characters)) }
                 return
             }
             val extension = file.displayName.substringAfterLast('.', "")
@@ -641,7 +644,7 @@ class LibraryViewModel
                     } catch (e: Exception) {
                         Log.e("LibraryViewModel", "createWriteRequest failed", e)
                         pendingRename = null
-                        _userMessage.emit("Rename failed")
+                        _userMessage.emit(UserMessage.of(R.string.msg_rename_failed))
                     }
                 } else {
                     performPendingRename()
@@ -668,12 +671,12 @@ class LibraryViewModel
                     val oldFile = File(file.path)
                     val newFile = File(oldFile.parentFile, newDisplayName)
                     if (newFile.exists()) {
-                        _userMessage.emit("A file with that name already exists")
+                        _userMessage.emit(UserMessage.of(R.string.msg_rename_name_taken))
                         pendingRename = null
                         return
                     }
                     if (!oldFile.renameTo(newFile)) {
-                        _userMessage.emit("Rename failed")
+                        _userMessage.emit(UserMessage.of(R.string.msg_rename_failed))
                         pendingRename = null
                         return
                     }
@@ -693,7 +696,7 @@ class LibraryViewModel
                     if (updated > 0) {
                         onRenameSuccess(file.id, newDisplayName)
                     } else {
-                        _userMessage.emit("Rename failed")
+                        _userMessage.emit(UserMessage.of(R.string.msg_rename_failed))
                     }
                 }
                 pendingRename = null
@@ -704,7 +707,7 @@ class LibraryViewModel
                 } else {
                     Log.e("LibraryViewModel", "Rename rejected", e)
                     pendingRename = null
-                    _userMessage.emit("Rename not permitted for this file")
+                    _userMessage.emit(UserMessage.of(R.string.msg_rename_not_permitted))
                 }
             } catch (e: Exception) {
                 // MediaStore throws IllegalStateException when the target name is taken.
@@ -712,9 +715,9 @@ class LibraryViewModel
                 pendingRename = null
                 _userMessage.emit(
                     if (e is IllegalStateException) {
-                        "A file with that name already exists"
+                        UserMessage.of(R.string.msg_rename_name_taken)
                     } else {
-                        "Rename failed"
+                        UserMessage.of(R.string.msg_rename_failed)
                     },
                 )
             }
@@ -725,7 +728,7 @@ class LibraryViewModel
             newDisplayName: String,
         ) {
             mediaRepository.applyRename(id, newDisplayName)
-            _userMessage.emit("Renamed to \"$newDisplayName\"")
+            _userMessage.emit(UserMessage.of(R.string.msg_renamed_to, newDisplayName))
         }
 
         // --- Image Deletion ---
