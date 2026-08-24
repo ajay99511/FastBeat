@@ -1,6 +1,7 @@
 package com.local.offlinemediaplayer.playback
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlayEvent
 import kotlinx.coroutines.CoroutineScope
@@ -47,7 +48,16 @@ class PlaybackAnalyticsTracker
             const val FLUSH_EVERY_TICKS = 60
         }
 
-        private val trackerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        /**
+         * Scope for the fire-and-forget database writes.
+         *
+         * Unlike `QueuePersistence.saveQueue`, these genuinely cannot be `suspend`: the caller is a
+         * 500 ms position loop that must never block (see F-31 for the case where the opposite was
+         * true). It is therefore overridable so tests can substitute a deterministic dispatcher
+         * instead of racing an IO thread.
+         */
+        @VisibleForTesting
+        internal var trackerScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         /** Milliseconds of the CURRENT track listened to so far, reset on every track change. */
         private var currentTrackPlaytimeMs = 0L
