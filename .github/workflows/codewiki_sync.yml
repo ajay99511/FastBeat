@@ -1,15 +1,26 @@
 # CodeWiki Documentation Sync
 #
 # Generates documentation from code changes via the Gemini API.
-# NOTE: Before enabling, you must:
-#   1. Replace "your-google-cloud-project-id" with the actual project ID.
-#   2. Add GEMINI_API_KEY to the repository secrets.
+#
+# DORMANT ON PURPOSE -- manual trigger only. `google/codewiki-sync-action@v1` is a
+# PLACEHOLDER that does not exist yet, so any automatic run of this workflow fails
+# at that step. It previously triggered on pushes to `main`, a branch this repo does
+# not have, which is the only reason the breakage was never visible. Correcting the
+# branch name to `master` alone would have turned a dormant file into a red X on
+# every single merge.
+#
+# TO ENABLE, all three:
+#   1. Replace the placeholder with the real action once the preview goes GA.
+#   2. Replace "your-google-cloud-project-id" with the actual project ID.
+#   3. Add GEMINI_API_KEY to the repository secrets.
+# ...then restore the automatic trigger:
+#   on:
+#     push:
+#       branches: [master]   # master, not main -- FastBeat's default branch
 name: CodeWiki Documentation Sync
 
 on:
-  push:
-    branches:
-      - master  # Was 'main' — FastBeat uses 'master' as its default branch.
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -9,6 +9,64 @@ plugins {
     alias(libs.plugins.androidx.baselineprofile)
 }
 
+// ---------------------------------------------------------------------------------------------
+// Version derivation. The counterpart to this block is .github/workflows/release.yml, which
+// creates the `v*` tags this reads.
+//
+// NOTHING here is hand-edited per release, and no bot ever commits a version bump back to master.
+// Both numbers are derived from git, which is already the source of truth for what a build IS:
+//
+//   versionCode -- commits reachable from HEAD. Play Store's only requirement is that this be
+//                  strictly increasing, and commit count on master is exactly that. It also cannot
+//                  drift out of sync with the code the way a hand-edited literal can.
+//   versionName -- the nearest `v*` tag with its `v` stripped. Exactly on a tag gives "1.1.0";
+//                  three commits past it gives "1.1.0-3-gab12f4d", so a build that is NOT the
+//                  release is obvious from the About screen instead of lying about its identity.
+//
+// The fallbacks below are load-bearing, not defensive padding. `providers.exec` is used rather
+// than the older `exec {}` / ByteArrayOutputStream idiom because only the provider form is
+// configuration-cache compatible. The cache is still opt-in on this project, but writing the
+// incompatible form now would quietly make enabling it a breaking change later.
+//
+// A SHALLOW clone yields a commit count of 1, which is why the count is only accepted when it
+// exceeds the fallback -- CI must check out with `fetch-depth: 0` (see build.yml) or it silently
+// gets the fallback rather than a wrong, non-monotonic number.
+// ---------------------------------------------------------------------------------------------
+
+// Last hand-managed values, kept as the floor for git-less builds (source zip, shallow CI clone,
+// a fresh clone with no `v*` tag yet). release.yml parses fallbackVersionName to seed the first
+// tag, so these two names are referenced from outside this file -- do not rename them casually.
+val fallbackVersionCode = 2
+val fallbackVersionName = "1.0.1"
+
+fun git(vararg args: String): String? =
+    runCatching {
+        val output =
+            providers.exec {
+                commandLine("git", *args)
+                isIgnoreExitValue = true
+            }
+        // Split across locals rather than one long chain: ktlint's chain-method-continuation
+        // rule forces a multiline chain at 4+ operators, and the wrapped form reads worse here.
+        val exitValue = output.result.get().exitValue
+        if (exitValue != 0) return@runCatching null
+        val text = output.standardOutput.asText.get()
+        text.trim().ifEmpty { null }
+    }.getOrNull()
+
+// `--match v[0-9]*` deliberately ignores the two legacy tags (`fastbeatv0`, `FastBeatV1`): they
+// are not semver and describing against them would produce a nonsense versionName.
+val derivedVersionName: String =
+    git("describe", "--tags", "--match", "v[0-9]*", "--abbrev=7", "--dirty")
+        ?.removePrefix("v")
+        ?: fallbackVersionName
+
+val derivedVersionCode: Int =
+    git("rev-list", "--count", "HEAD")
+        ?.toIntOrNull()
+        ?.takeIf { it > fallbackVersionCode }
+        ?: fallbackVersionCode
+
 android {
     namespace = "com.local.offlinemediaplayer"
     compileSdk = 36
@@ -17,8 +75,8 @@ android {
         applicationId = "com.local.offlinemediaplayer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = derivedVersionCode
+        versionName = derivedVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

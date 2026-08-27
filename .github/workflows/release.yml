@@ -1,0 +1,183 @@
+# Version tagging for FastBeat.
+#
+# WHY THIS EXISTS: versionCode/versionName were hand-edited literals in
+# app/build.gradle.kts, and the only two tags in the repo (`fastbeatv0`,
+# `FastBeatV1`) were ad-hoc and non-semver. Play Store rejects any upload whose
+# versionCode is not strictly greater than the last one, so a forgotten manual
+# bump is a release-day failure that nothing in the pipeline catches.
+#
+# This workflow is the missing half of that: app/build.gradle.kts now DERIVES
+# both numbers from git, and this workflow creates the `v*` tags it derives from.
+#
+# DESIGN NOTE -- nothing here ever commits to master. It only pushes a tag. That
+# is deliberate: a bot pushing commits to a protected default branch needs
+# elevated credentials, fights required status checks, and needs `[skip ci]`
+# loop guards. Pushing a tag needs none of that and cannot re-trigger this
+# workflow, because refs pushed with GITHUB_TOKEN do not fire workflow events.
+#
+# COROLLARY of that same rule: if you later add a tag-triggered release build,
+# it will NOT fire from these tags. Either add the build as a job in this file
+# or push the tag with a PAT instead.
+name: Release Tag
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force a bump level, ignoring commit messages"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+# Serialised, and never cancelled: two runs computing "the next tag" at once
+# would race, and cancelling a run mid-`git push` is not a state worth reaching.
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: Compute and push the next version tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # The one elevated grant in this repo, scoped to this job alone: pushing a tag ref.
+      contents: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Full history AND tags. `git describe` against a shallow clone finds
+          # no tag and would restart versioning from the seed on every run.
+          fetch-depth: 0
+
+      - name: Compute the next version
+        id: version
+        shell: bash
+        env:
+          # Passed through the environment rather than interpolated into the
+          # script body -- `${{ }}` inside `run:` is textual substitution and is
+          # the classic Actions script-injection sink that CodeQL flags.
+          FORCE: ${{ inputs.force || 'auto' }}
+        run: |
+          set -euo pipefail
+
+          # Single source of truth for the seed, read back out of the build file so
+          # the two cannot drift. POSIX sed rather than `grep -oP`: PCRE grep is a
+          # GNU extension that additionally requires a UTF-8 locale, and it is not
+          # worth that dependency here. sed exits 0 on no match, hence the explicit
+          # empty check -- failing loudly beats silently guessing a version.
+          SEED="$(sed -n 's/^val fallbackVersionName = "\(.*\)"$/\1/p' app/build.gradle.kts)"
+          if [ -z "$SEED" ]; then
+            echo "::error::Could not read 'val fallbackVersionName' from app/build.gradle.kts."
+            exit 1
+          fi
+
+          # --abbrev=0 gives the nearest tag that is an ANCESTOR of HEAD, which is
+          # the right notion of "last release" in a branchy history -- unlike a
+          # version sort over all tags, which can pick one off an abandoned line.
+          LAST_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No v* tag found. Anchoring history at the current app version."
+            echo "bump=seed"        >> "$GITHUB_OUTPUT"
+            echo "next=v${SEED}"    >> "$GITHUB_OUTPUT"
+            echo "last=(none)"      >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! [[ "${LAST_TAG#v}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Last tag '$LAST_TAG' is not a bare MAJOR.MINOR.PATCH version."
+            exit 1
+          fi
+          MAJ="${BASH_REMATCH[1]}"; MIN="${BASH_REMATCH[2]}"; PAT="${BASH_REMATCH[3]}"
+
+          # --no-merges: this repo merges PRs with merge commits, so the real
+          # conventional-commit subjects live underneath them, not on them.
+          LOG="$(git log --no-merges --format='%B' "${LAST_TAG}..HEAD")"
+
+          BUMP=none
+          if [ "$FORCE" != "auto" ]; then
+            BUMP="$FORCE"
+          elif printf '%s\n' "$LOG" | grep -qiE '^[a-z]+(\([^)]*\))?!:' \
+            || printf '%s\n' "$LOG" | grep -qE '^BREAKING[ -]CHANGE:'; then
+            BUMP=major
+          elif printf '%s\n' "$LOG" | grep -qiE '^feat(\([^)]*\))?:'; then
+            BUMP=minor
+          elif printf '%s\n' "$LOG" | grep -qiE '^(fix|perf)(\([^)]*\))?:'; then
+            BUMP=patch
+          fi
+
+          # `none` is a normal, frequent outcome, not a failure: a merge of only
+          # docs/test/refactor/chore work is not a release. versionCode still
+          # advances with the commit count, so such a build is still identifiable.
+          if [ "$BUMP" = "none" ]; then
+            echo "No release-worthy commits since ${LAST_TAG}."
+            echo "bump=none"          >> "$GITHUB_OUTPUT"
+            echo "last=${LAST_TAG}"   >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          case "$BUMP" in
+            major) MAJ=$((MAJ + 1)); MIN=0; PAT=0 ;;
+            minor) MIN=$((MIN + 1)); PAT=0 ;;
+            patch) PAT=$((PAT + 1)) ;;
+          esac
+          NEXT="v${MAJ}.${MIN}.${PAT}"
+
+          # Idempotency. Re-running this workflow on an unchanged master must be
+          # a no-op rather than a failed `git tag`.
+          if git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; then
+            echo "Tag ${NEXT} already exists; nothing to do."
+            echo "bump=none"        >> "$GITHUB_OUTPUT"
+            echo "last=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "bump=${BUMP}"     >> "$GITHUB_OUTPUT"
+          echo "next=${NEXT}"     >> "$GITHUB_OUTPUT"
+          echo "last=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push the tag
+        if: steps.version.outputs.bump != 'none'
+        shell: bash
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+          LAST: ${{ steps.version.outputs.last }}
+          BUMP: ${{ steps.version.outputs.bump }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEXT" -m "Release $NEXT (${BUMP} bump from ${LAST})"
+          git push origin "refs/tags/${NEXT}"
+
+      - name: Summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+          LAST: ${{ steps.version.outputs.last }}
+          BUMP: ${{ steps.version.outputs.bump }}
+        run: |
+          {
+            echo "### Release tag"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Previous tag | \`${LAST:-(none)}\` |"
+            echo "| Bump | \`${BUMP:-none}\` |"
+            echo "| New tag | \`${NEXT:-— no tag created}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
