@@ -92,7 +92,7 @@ jobs:
       # step would succeed while uploading an empty artifact -- a silent hole
       # exactly like the one that produced a non-compiling master.
       - name: Upload debug APK
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: FastBeat-debug-apk
           path: app/build/outputs/apk/debug/FastBeat-debug.apk
@@ -104,7 +104,7 @@ jobs:
       # failure legitimately produces no reports at all.
       - name: Upload lint and test reports
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lint-and-test-reports
           path: |
