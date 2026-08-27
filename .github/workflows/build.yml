@@ -53,7 +53,7 @@ jobs:
       # tampered with. This is a supply-chain security best practice -- a malicious
       # wrapper JAR could execute arbitrary code during every build.
       - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@94baf225fe0a508e581a564467443d0e2379123b # v4.3.0
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # JDK 17, not 21: the Gradle toolchain needs 17+, and AGP 9.0.0 with
       # Kotlin 2.2.10 is verified against 17 locally. Keep the two in step.
