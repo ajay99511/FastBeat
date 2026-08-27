@@ -1,12 +1,9 @@
 package com.local.offlinemediaplayer.viewmodel
 
-import android.app.Application
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.core.content.edit
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -16,6 +13,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.local.offlinemediaplayer.R
 import com.local.offlinemediaplayer.audio.AudioEffectsManager
+import com.local.offlinemediaplayer.data.AppPreferencesManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
@@ -109,7 +107,6 @@ data class TrackInfo(
 class PlaybackViewModel
     @Inject
     constructor(
-        private val app: Application,
         private val playlistRepository: PlaylistRepository,
         private val mediaDao: MediaDao,
         private val thumbnailManager: ThumbnailManager,
@@ -120,7 +117,8 @@ class PlaybackViewModel
         private val deletionHandler: MediaDeletionHandler,
         private val bookmarks: BookmarkManager,
         private val queuePersistence: QueuePersistence,
-    ) : AndroidViewModel(app) {
+        private val appPrefs: AppPreferencesManager,
+    ) : ViewModel() {
         companion object {
             private const val TAG = "PlaybackViewModel"
             private const val REWIND_THRESHOLD_MS = 3000L
@@ -142,19 +140,18 @@ class PlaybackViewModel
         private var pendingAudioTrackIndex: Int = -1
         private var pendingSubtitleTrackIndex: Int = -1
 
-        // Persistence (used for queue index)
-        private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-
         // --- VIDEO BRIGHTNESS ---
-        // User-set video player brightness (0.01f..1f). -1f is a sentinel meaning
+        // User-set video player brightness (0.01f..1f). BRIGHTNESS_UNSET is a sentinel meaning
         // "never set / follow the system brightness" so we don't override on first launch.
-        private val _videoBrightness = MutableStateFlow(sharedPrefs.getFloat("video_brightness", -1f))
+        // Starts on the sentinel and is hydrated from DataStore below (P5-C.3); a video cannot be
+        // on screen before that read completes, so the stored value still lands before it is used.
+        private val _videoBrightness = MutableStateFlow(AppPreferencesManager.BRIGHTNESS_UNSET)
         val videoBrightness = _videoBrightness.asStateFlow()
 
         fun setVideoBrightness(value: Float) {
             val clamped = value.coerceIn(0.01f, 1f)
             _videoBrightness.value = clamped
-            sharedPrefs.edit { putFloat("video_brightness", clamped) }
+            viewModelScope.launch { appPrefs.setVideoBrightness(clamped) }
         }
 
         // Media Lists
@@ -339,6 +336,7 @@ class PlaybackViewModel
 
         init {
             bindMediaController()
+            viewModelScope.launch { _videoBrightness.value = appPrefs.getVideoBrightness() }
             viewModelScope.launch(Dispatchers.IO) {
                 playlistRepository.migrateLegacyData()
                 playlistRepository.ensureDefaultPlaylists()
@@ -816,7 +814,7 @@ class PlaybackViewModel
             // it is the authoritative snapshot of the interrupted music session.
             val savedSession = loadSavedAudioSession(mediaById)
             if (savedSession != null) {
-                _currentPlaylistContext.value = queuePersistence.playlistContext
+                _currentPlaylistContext.value = queuePersistence.getPlaylistContext()
                 applyAudioSession(savedSession)
                 clearSavedAudioState()
                 return
@@ -830,7 +828,7 @@ class PlaybackViewModel
                     QueuePolicy.restore(
                         saved = savedQueueItems,
                         mediaById = mediaById,
-                        savedIndex = queuePersistence.queueIndex,
+                        savedIndex = queuePersistence.getQueueIndex(),
                     )
 
                 var finalQueue = restored?.queue ?: emptyList()
@@ -861,11 +859,11 @@ class PlaybackViewModel
                     _currentTrack.value = finalQueue[finalIndex]
 
                     // Restore shuffle mode, repeat mode, and playlist context from prefs
-                    val savedShuffle = queuePersistence.shuffleEnabled
-                    val savedRepeatMode = queuePersistence.repeatMode
+                    val savedShuffle = queuePersistence.getShuffleEnabled()
+                    val savedRepeatMode = queuePersistence.getRepeatMode()
                     _isShuffleEnabled.value = savedShuffle
                     _repeatMode.value = savedRepeatMode
-                    _currentPlaylistContext.value = queuePersistence.playlistContext
+                    _currentPlaylistContext.value = queuePersistence.getPlaylistContext()
 
                     // Set to player
                     withContext(Dispatchers.Main) {
@@ -890,27 +888,36 @@ class PlaybackViewModel
             viewModelScope.launch(Dispatchers.IO) { queuePersistence.saveQueue(queue) }
         }
 
+        // Since P5-C.3 these writes go to DataStore, which has no synchronous write, so each one
+        // is launched. The helpers stay non-suspend so the ~29 call sites — several of them
+        // `Player.Listener` callbacks that cannot suspend — are untouched. Ordering is preserved:
+        // `viewModelScope` dispatches on Main.immediate, so the writes reach DataStore's
+        // single-writer actor in call order.
         private fun persistQueueIndex(index: Int) {
-            queuePersistence.queueIndex = index
+            viewModelScope.launch { queuePersistence.setQueueIndex(index) }
         }
 
         private fun persistShuffleMode(enabled: Boolean) {
-            queuePersistence.shuffleEnabled = enabled
+            viewModelScope.launch { queuePersistence.setShuffleEnabled(enabled) }
         }
 
         private fun persistRepeatMode(mode: Int) {
-            queuePersistence.repeatMode = mode
+            viewModelScope.launch { queuePersistence.setRepeatMode(mode) }
         }
 
         private fun persistPlaylistContext(context: String?) {
-            queuePersistence.playlistContext = context
+            viewModelScope.launch { queuePersistence.setPlaylistContext(context) }
         }
 
-        private fun persistSavedAudioState(state: AudioPlayerState) = queuePersistence.saveAudioSession(state)
+        private fun persistSavedAudioState(state: AudioPlayerState) {
+            viewModelScope.launch { queuePersistence.saveAudioSession(state) }
+        }
 
-        private fun clearSavedAudioState() = queuePersistence.clearAudioSession()
+        private fun clearSavedAudioState() {
+            viewModelScope.launch { queuePersistence.clearAudioSession() }
+        }
 
-        private fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? =
+        private suspend fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? =
             queuePersistence.loadAudioSession(mediaById)
 
         // --- Playback Logic ---

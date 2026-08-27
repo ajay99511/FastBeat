@@ -4,15 +4,16 @@ import android.app.Application
 import android.app.PendingIntent
 import android.app.RecoverableSecurityException
 import android.content.ContentValues
-import android.content.Context
 import android.content.IntentSender
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
-import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.R
+import com.local.offlinemediaplayer.data.AppPreferencesManager
+import com.local.offlinemediaplayer.data.LibraryLayout
+import com.local.offlinemediaplayer.data.LibrarySort
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.UserMessage
@@ -51,32 +52,28 @@ class LibraryViewModel
         private val mediaRepository: MediaRepository,
         private val playlistRepository: PlaylistRepository,
         private val mediaDao: MediaDao,
+        private val appPrefs: AppPreferencesManager,
     ) : AndroidViewModel(app) {
-        private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-
         private fun <T> saveSortState(
-            prefix: String,
+            sort: LibrarySort,
             state: SortState<T>,
         )
             where T : Enum<T>, T : SortableField {
-            sharedPrefs.edit {
-                putInt("${prefix}_field", state.field.ordinal)
-                putBoolean("${prefix}_asc", state.ascending)
-            }
+            viewModelScope.launch { appPrefs.setSort(sort, state.field.ordinal, state.ascending) }
         }
 
         /**
-         * Loads a media sort state, migrating once from the legacy combined-enum
-         * preference (stored under [legacyKey] as a [SortOption] ordinal) if the
-         * new field/direction keys have not been written yet.
+         * Loads a media sort state, migrating once from the legacy combined-enum preference (stored
+         * under the list's own key as a [SortOption] ordinal) if the new field/direction keys have
+         * not been written yet.
+         *
+         * Suspend since P5-C.3 — DataStore has no synchronous read. Called from `init`, so the
+         * flows below hold their defaults for the few frames before the read lands.
          */
-        private fun loadMediaSortState(
-            prefix: String,
-            legacyKey: String,
-        ): SortState<SortField> {
-            val fieldKey = "${prefix}_field"
-            if (!sharedPrefs.contains(fieldKey)) {
-                val legacy = SortOption.entries.getOrNull(sharedPrefs.getInt(legacyKey, -1))
+        private suspend fun loadMediaSortState(sort: LibrarySort): SortState<SortField> {
+            val stored = appPrefs.getSort(sort)
+            if (stored == null) {
+                val legacy = SortOption.entries.getOrNull(appPrefs.getLegacySortOrdinal(sort) ?: -1)
                 val migrated =
                     when (legacy) {
                         SortOption.TITLE_ASC -> SortState(SortField.TITLE, ascending = true)
@@ -86,21 +83,18 @@ class LibraryViewModel
                         SortOption.MOST_PLAYED -> SortState(SortField.MOST_PLAYED)
                         SortOption.DATE_ADDED_DESC, null -> SortState(SortField.DATE_ADDED)
                     }
-                saveSortState(prefix, migrated)
+                appPrefs.setSort(sort, migrated.field.ordinal, migrated.ascending)
                 return migrated
             }
-            val field = SortField.entries.getOrElse(sharedPrefs.getInt(fieldKey, 0)) { SortField.DATE_ADDED }
-            return SortState(field, sharedPrefs.getBoolean("${prefix}_asc", field.defaultAscending))
+            val field = SortField.entries.getOrElse(stored.fieldOrdinal) { SortField.DATE_ADDED }
+            return SortState(field, stored.ascending ?: field.defaultAscending)
         }
 
         /** Album counterpart of [loadMediaSortState], migrating from [AlbumSortOption]. */
-        private fun loadAlbumSortState(
-            prefix: String,
-            legacyKey: String,
-        ): SortState<AlbumSortField> {
-            val fieldKey = "${prefix}_field"
-            if (!sharedPrefs.contains(fieldKey)) {
-                val legacy = AlbumSortOption.entries.getOrNull(sharedPrefs.getInt(legacyKey, -1))
+        private suspend fun loadAlbumSortState(sort: LibrarySort): SortState<AlbumSortField> {
+            val stored = appPrefs.getSort(sort)
+            if (stored == null) {
+                val legacy = AlbumSortOption.entries.getOrNull(appPrefs.getLegacySortOrdinal(sort) ?: -1)
                 val migrated =
                     when (legacy) {
                         AlbumSortOption.ARTIST_ASC -> SortState(AlbumSortField.ARTIST)
@@ -108,11 +102,11 @@ class LibraryViewModel
                         AlbumSortOption.SONG_COUNT_DESC -> SortState(AlbumSortField.SONG_COUNT)
                         AlbumSortOption.NAME_ASC, null -> SortState(AlbumSortField.NAME)
                     }
-                saveSortState(prefix, migrated)
+                appPrefs.setSort(sort, migrated.field.ordinal, migrated.ascending)
                 return migrated
             }
-            val field = AlbumSortField.entries.getOrElse(sharedPrefs.getInt(fieldKey, 0)) { AlbumSortField.NAME }
-            return SortState(field, sharedPrefs.getBoolean("${prefix}_asc", field.defaultAscending))
+            val field = AlbumSortField.entries.getOrElse(stored.fieldOrdinal) { AlbumSortField.NAME }
+            return SortState(field, stored.ascending ?: field.defaultAscending)
         }
 
         val isRefreshing = mediaRepository.isRefreshing
@@ -139,16 +133,18 @@ class LibraryViewModel
         private val _folderSearchQuery = MutableStateFlow("")
         val folderSearchQuery = _folderSearchQuery.asStateFlow()
 
-        private val _albumSortState = MutableStateFlow(loadAlbumSortState("sort_albums", "sort_albums"))
+        // These four start on the same defaults the loaders fall back to, and are replaced from
+        // DataStore in `init` (P5-C.3).
+        private val _albumSortState = MutableStateFlow(SortState(AlbumSortField.NAME))
         val albumSortState = _albumSortState.asStateFlow()
 
-        private val _audioSortState = MutableStateFlow(loadMediaSortState("sort_audio", "sort_audio"))
+        private val _audioSortState = MutableStateFlow(SortState(SortField.DATE_ADDED))
         val audioSortState = _audioSortState.asStateFlow()
 
-        private val _videoSortState = MutableStateFlow(loadMediaSortState("sort_video", "sort_video"))
+        private val _videoSortState = MutableStateFlow(SortState(SortField.DATE_ADDED))
         val videoSortState = _videoSortState.asStateFlow()
 
-        private val _movieSortState = MutableStateFlow(loadMediaSortState("sort_movies", "sort_movies"))
+        private val _movieSortState = MutableStateFlow(SortState(SortField.DATE_ADDED))
         val movieSortState = _movieSortState.asStateFlow()
 
         val moviesList =
@@ -334,52 +330,74 @@ class LibraryViewModel
 
         fun updateAudioSort(state: SortState<SortField>) {
             _audioSortState.value = state
-            saveSortState("sort_audio", state)
+            saveSortState(LibrarySort.AUDIO, state)
         }
 
         fun updateVideoSort(state: SortState<SortField>) {
             _videoSortState.value = state
-            saveSortState("sort_video", state)
+            saveSortState(LibrarySort.VIDEO, state)
         }
 
         fun updateAlbumSort(state: SortState<AlbumSortField>) {
             _albumSortState.value = state
-            saveSortState("sort_albums", state)
+            saveSortState(LibrarySort.ALBUMS, state)
         }
 
         fun updateMovieSort(state: SortState<SortField>) {
             _movieSortState.value = state
-            saveSortState("sort_movies", state)
+            saveSortState(LibrarySort.MOVIES, state)
         }
 
         // --- View layout (grid vs list) persistence ---
-        private val _videoGridView = MutableStateFlow(sharedPrefs.getBoolean("view_video_grid", true))
+        private val _videoGridView = MutableStateFlow(LibraryLayout.VIDEO_GRID.default)
         val videoGridView = _videoGridView.asStateFlow()
 
-        private val _folderGridView = MutableStateFlow(sharedPrefs.getBoolean("view_folder_grid", true))
+        private val _folderGridView = MutableStateFlow(LibraryLayout.FOLDER_GRID.default)
         val folderGridView = _folderGridView.asStateFlow()
 
-        private val _movieGridView = MutableStateFlow(sharedPrefs.getBoolean("view_movie_grid", true))
+        private val _movieGridView = MutableStateFlow(LibraryLayout.MOVIE_GRID.default)
         val movieGridView = _movieGridView.asStateFlow()
 
-        private val _albumListView = MutableStateFlow(sharedPrefs.getBoolean("view_album_list", false))
+        private val _albumListView = MutableStateFlow(LibraryLayout.ALBUM_LIST.default)
         val albumListView = _albumListView.asStateFlow()
 
-        fun toggleVideoGridView() = toggleViewPref(_videoGridView, "view_video_grid")
+        /**
+         * Hydrates every persisted list preference from DataStore (P5-C.3). One coroutine, so the
+         * four sorts and four layouts settle together rather than the screen re-sorting twice.
+         *
+         * Deliberately placed **after** the eight properties it writes, not in the init block
+         * above. `viewModelScope` dispatches on `Main.immediate`, so a coroutine launched from a
+         * constructor on the main thread begins running before the constructor returns — and would
+         * touch these flows before they exist.
+         */
+        init {
+            viewModelScope.launch {
+                _audioSortState.value = loadMediaSortState(LibrarySort.AUDIO)
+                _videoSortState.value = loadMediaSortState(LibrarySort.VIDEO)
+                _movieSortState.value = loadMediaSortState(LibrarySort.MOVIES)
+                _albumSortState.value = loadAlbumSortState(LibrarySort.ALBUMS)
+                _videoGridView.value = appPrefs.getLayout(LibraryLayout.VIDEO_GRID)
+                _folderGridView.value = appPrefs.getLayout(LibraryLayout.FOLDER_GRID)
+                _movieGridView.value = appPrefs.getLayout(LibraryLayout.MOVIE_GRID)
+                _albumListView.value = appPrefs.getLayout(LibraryLayout.ALBUM_LIST)
+            }
+        }
 
-        fun toggleFolderGridView() = toggleViewPref(_folderGridView, "view_folder_grid")
+        fun toggleVideoGridView() = toggleViewPref(_videoGridView, LibraryLayout.VIDEO_GRID)
 
-        fun toggleMovieGridView() = toggleViewPref(_movieGridView, "view_movie_grid")
+        fun toggleFolderGridView() = toggleViewPref(_folderGridView, LibraryLayout.FOLDER_GRID)
 
-        fun toggleAlbumListView() = toggleViewPref(_albumListView, "view_album_list")
+        fun toggleMovieGridView() = toggleViewPref(_movieGridView, LibraryLayout.MOVIE_GRID)
+
+        fun toggleAlbumListView() = toggleViewPref(_albumListView, LibraryLayout.ALBUM_LIST)
 
         private fun toggleViewPref(
             state: MutableStateFlow<Boolean>,
-            key: String,
+            layout: LibraryLayout,
         ) {
             val newValue = !state.value
             state.value = newValue
-            sharedPrefs.edit { putBoolean(key, newValue) }
+            viewModelScope.launch { appPrefs.setLayout(layout, newValue) }
         }
 
         private val _selectedMediaIds = MutableStateFlow<Set<Long>>(emptySet())

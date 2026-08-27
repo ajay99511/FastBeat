@@ -29,7 +29,7 @@
     <ID>ImplicitDefaultLocale:NowPlayingScreen.kt$String.format("%d:%02d", minutes, seconds)</ID>
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is IllegalStateException</ID>
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is RecoverableSecurityException</ID>
-    <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
+    <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : ViewModel</ID>
     <ID>LongMethod:AccessibilityGuideScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccessibilityGuideScreen(onBack: () -&gt; Unit)</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun AlbumSongRow( index: Int, song: MediaFile, isPlaying: Boolean = false, isSelectionMode: Boolean = false, isSelected: Boolean = false, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onPlayNext: () -&gt; Unit, onAddToQueue: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit, )</ID>
@@ -180,7 +180,7 @@
     <ID>ReturnCount:PlaybackViewModel.kt$PlaybackViewModel$fun moveQueueItem( track: MediaFile, fromIndex: Int, toIndex: Int, )</ID>
     <ID>TooManyFunctions:AudioEffectsManager.kt$AudioEffectsManager</ID>
     <ID>TooManyFunctions:LibraryViewModel.kt$LibraryViewModel : AndroidViewModel</ID>
-    <ID>TooManyFunctions:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:PlaybackViewModel.kt$PlaybackViewModel : ViewModel</ID>
     <ID>TooManyFunctions:PlaylistViewModel.kt$PlaylistViewModel : ViewModel</ID>
     <ID>TooManyFunctions:VideoPlayerScreen.kt$com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen.kt</ID>
     <ID>UnusedParameter:AdaptiveNavigation.kt$themeColor: Color</ID>

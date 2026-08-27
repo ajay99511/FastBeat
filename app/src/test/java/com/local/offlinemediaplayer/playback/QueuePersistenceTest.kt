@@ -2,27 +2,36 @@ package com.local.offlinemediaplayer.playback
 
 import android.content.Context
 import android.net.Uri
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.media3.common.Player
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.local.offlinemediaplayer.data.AppPreferencesManager
 import com.local.offlinemediaplayer.data.db.AppDatabase
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 /**
- * Round-trip tests for [QueuePersistence] against a real in-memory Room database and real
- * SharedPreferences.
+ * Round-trip tests for [QueuePersistence] against a real in-memory Room database and a real
+ * Preferences DataStore.
  *
  * The interrupted-session snapshot in particular had **no coverage at all** before this: it is JSON
  * hand-assembled and hand-parsed, it runs only when a video interrupts music and the process is
@@ -31,29 +40,44 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class QueuePersistenceTest {
+    @get:Rule
+    val tempFolder = TemporaryFolder()
+
     private lateinit var db: AppDatabase
     private lateinit var dao: MediaDao
+    private lateinit var appPrefs: AppPreferencesManager
     private lateinit var persistence: QueuePersistence
+    private lateinit var dataStoreScope: CoroutineScope
 
+    /**
+     * Each test gets its **own** DataStore file. DataStore refuses two live instances over one
+     * file, and a shared file would also leak state between methods now that there is no
+     * synchronous `clear()`. The scope is cancelled in [tearDown] to release the file again.
+     */
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context
-            .getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            .edit()
-            .clear()
-            .commit()
         db =
             Room
                 .inMemoryDatabaseBuilder(context, AppDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
         dao = db.mediaDao()
-        persistence = QueuePersistence(context, dao)
+        dataStoreScope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        appPrefs =
+            AppPreferencesManager(
+                PreferenceDataStoreFactory.create(scope = dataStoreScope) {
+                    File(tempFolder.newFolder(), "app_prefs.preferences_pb")
+                },
+            )
+        persistence = QueuePersistence(appPrefs, dao)
     }
 
     @After
-    fun tearDown() = db.close()
+    fun tearDown() {
+        db.close()
+        dataStoreScope.cancel()
+    }
 
     private fun audio(id: Long) = track(id, isVideo = false)
 
@@ -69,33 +93,36 @@ class QueuePersistenceTest {
     // ------------------------------------------------------------------ scalar prefs
 
     @Test
-    fun scalarsDefaultToTheDocumentedValuesOnAFreshInstall() {
-        assertEquals(0, persistence.queueIndex)
-        assertFalse(persistence.shuffleEnabled)
-        assertEquals(Player.REPEAT_MODE_OFF, persistence.repeatMode)
-        assertNull(persistence.playlistContext)
-    }
+    fun scalarsDefaultToTheDocumentedValuesOnAFreshInstall() =
+        runBlocking {
+            assertEquals(0, persistence.getQueueIndex())
+            assertFalse(persistence.getShuffleEnabled())
+            assertEquals(Player.REPEAT_MODE_OFF, persistence.getRepeatMode())
+            assertNull(persistence.getPlaylistContext())
+        }
 
     @Test
-    fun scalarsRoundTrip() {
-        persistence.queueIndex = 7
-        persistence.shuffleEnabled = true
-        persistence.repeatMode = Player.REPEAT_MODE_ALL
-        persistence.playlistContext = "ALBUM_42"
+    fun scalarsRoundTrip() =
+        runBlocking {
+            persistence.setQueueIndex(7)
+            persistence.setShuffleEnabled(true)
+            persistence.setRepeatMode(Player.REPEAT_MODE_ALL)
+            persistence.setPlaylistContext("ALBUM_42")
 
-        assertEquals(7, persistence.queueIndex)
-        assertEquals(true, persistence.shuffleEnabled)
-        assertEquals(Player.REPEAT_MODE_ALL, persistence.repeatMode)
-        assertEquals("ALBUM_42", persistence.playlistContext)
-    }
+            assertEquals(7, persistence.getQueueIndex())
+            assertEquals(true, persistence.getShuffleEnabled())
+            assertEquals(Player.REPEAT_MODE_ALL, persistence.getRepeatMode())
+            assertEquals("ALBUM_42", persistence.getPlaylistContext())
+        }
 
     @Test
-    fun clearingThePlaylistContextRemovesItRatherThanStoringNull() {
-        persistence.playlistContext = "ALBUM_42"
-        persistence.playlistContext = null
+    fun clearingThePlaylistContextRemovesItRatherThanStoringNull() =
+        runBlocking {
+            persistence.setPlaylistContext("ALBUM_42")
+            persistence.setPlaylistContext(null)
 
-        assertNull(persistence.playlistContext)
-    }
+            assertNull(persistence.getPlaylistContext())
+        }
 
     // ------------------------------------------------------------------ queue round trip
 
@@ -127,7 +154,7 @@ class QueuePersistenceTest {
     fun loadQueueUsesThePersistedIndex() =
         runBlocking {
             persistence.saveQueue(listOf(audio(1), audio(2), audio(3)))
-            persistence.queueIndex = 2
+            persistence.setQueueIndex(2)
 
             assertEquals(2, persistence.loadQueue(byId(audio(1), audio(2), audio(3)))!!.index)
         }
@@ -170,79 +197,82 @@ class QueuePersistenceTest {
     )
 
     @Test
-    fun anInterruptedSessionSurvivesARoundTrip() {
-        persistence.saveAudioSession(session(listOf(audio(1), audio(2), audio(3)), index = 1))
+    fun anInterruptedSessionSurvivesARoundTrip() =
+        runBlocking {
+            persistence.saveAudioSession(session(listOf(audio(1), audio(2), audio(3)), index = 1))
 
-        val restored = persistence.loadAudioSession(byId(audio(1), audio(2), audio(3)))!!
-        assertEquals(listOf(1L, 2L, 3L), restored.queue.map { it.id })
-        assertEquals(1, restored.currentIndex)
-        assertEquals(5_000L, restored.position)
-        assertEquals(true, restored.isShuffleEnabled)
-        assertEquals(Player.REPEAT_MODE_ONE, restored.repeatMode)
-    }
+            val restored = persistence.loadAudioSession(byId(audio(1), audio(2), audio(3)))!!
+            assertEquals(listOf(1L, 2L, 3L), restored.queue.map { it.id })
+            assertEquals(1, restored.currentIndex)
+            assertEquals(5_000L, restored.position)
+            assertEquals(true, restored.isShuffleEnabled)
+            assertEquals(Player.REPEAT_MODE_ONE, restored.repeatMode)
+        }
 
     @Test
-    fun aRestoredSessionIsAlwaysPaused() {
-        persistence.saveAudioSession(session(listOf(audio(1)), index = 0))
+    fun aRestoredSessionIsAlwaysPaused() =
+        runBlocking {
+            persistence.saveAudioSession(session(listOf(audio(1)), index = 0))
 
-        assertFalse(
-            "a cold start must never begin playing audio on its own",
-            persistence.loadAudioSession(byId(audio(1)))!!.isPlaying,
-        )
-    }
+            assertFalse(
+                "a cold start must never begin playing audio on its own",
+                persistence.loadAudioSession(byId(audio(1)))!!.isPlaying,
+            )
+        }
 
     /**
      * The current track is located by id, not by index. A track deleted from the library shifts
      * every later index, so trusting the stored index would resume the wrong song.
      */
     @Test
-    fun theCurrentTrackIsFoundByIdEvenAfterEarlierTracksDisappear() {
-        persistence.saveAudioSession(session(listOf(audio(1), audio(2), audio(3)), index = 2))
+    fun theCurrentTrackIsFoundByIdEvenAfterEarlierTracksDisappear() =
+        runBlocking {
+            persistence.saveAudioSession(session(listOf(audio(1), audio(2), audio(3)), index = 2))
 
-        // Track 1 is gone from the library; track 3 is now at index 1, not 2.
-        val restored = persistence.loadAudioSession(byId(audio(2), audio(3)))!!
-        assertEquals(listOf(2L, 3L), restored.queue.map { it.id })
-        assertEquals(1, restored.currentIndex)
-        assertEquals(3L, restored.queue[restored.currentIndex].id)
-    }
-
-    @Test
-    fun videosAreStrippedFromARestoredSession() {
-        persistence.saveAudioSession(session(listOf(audio(1), audio(2)), index = 0))
-
-        val restored = persistence.loadAudioSession(byId(audio(1), video(2)))!!
-        assertEquals(listOf(1L), restored.queue.map { it.id })
-    }
+            // Track 1 is gone from the library; track 3 is now at index 1, not 2.
+            val restored = persistence.loadAudioSession(byId(audio(2), audio(3)))!!
+            assertEquals(listOf(2L, 3L), restored.queue.map { it.id })
+            assertEquals(1, restored.currentIndex)
+            assertEquals(3L, restored.queue[restored.currentIndex].id)
+        }
 
     @Test
-    fun aSessionWhoseTracksAllVanishedRestoresAsNull() {
-        persistence.saveAudioSession(session(listOf(audio(1), audio(2)), index = 0))
+    fun videosAreStrippedFromARestoredSession() =
+        runBlocking {
+            persistence.saveAudioSession(session(listOf(audio(1), audio(2)), index = 0))
 
-        assertNull(persistence.loadAudioSession(emptyMap()))
-    }
-
-    @Test
-    fun thereIsNoSessionToLoadOnAFreshInstall() {
-        assertNull(persistence.loadAudioSession(byId(audio(1))))
-    }
+            val restored = persistence.loadAudioSession(byId(audio(1), video(2)))!!
+            assertEquals(listOf(1L), restored.queue.map { it.id })
+        }
 
     @Test
-    fun clearingRemovesTheSession() {
-        persistence.saveAudioSession(session(listOf(audio(1)), index = 0))
-        persistence.clearAudioSession()
+    fun aSessionWhoseTracksAllVanishedRestoresAsNull() =
+        runBlocking {
+            persistence.saveAudioSession(session(listOf(audio(1), audio(2)), index = 0))
 
-        assertNull(persistence.loadAudioSession(byId(audio(1))))
-    }
+            assertNull(persistence.loadAudioSession(emptyMap()))
+        }
 
     @Test
-    fun corruptStoredJsonRestoresAsNullRatherThanCrashing() {
-        ApplicationProvider
-            .getApplicationContext<Context>()
-            .getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            .edit()
-            .putString("saved_audio_session", "{not json")
-            .commit()
+    fun thereIsNoSessionToLoadOnAFreshInstall() =
+        runBlocking {
+            assertNull(persistence.loadAudioSession(byId(audio(1))))
+        }
 
-        assertNull(persistence.loadAudioSession(byId(audio(1))))
-    }
+    @Test
+    fun clearingRemovesTheSession() =
+        runBlocking {
+            persistence.saveAudioSession(session(listOf(audio(1)), index = 0))
+            persistence.clearAudioSession()
+
+            assertNull(persistence.loadAudioSession(byId(audio(1))))
+        }
+
+    @Test
+    fun corruptStoredJsonRestoresAsNullRatherThanCrashing() =
+        runBlocking {
+            appPrefs.setSavedAudioSession("{not json")
+
+            assertNull(persistence.loadAudioSession(byId(audio(1))))
+        }
 }
