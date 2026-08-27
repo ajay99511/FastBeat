@@ -69,11 +69,4 @@
     <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/AnalyticsViewModel.kt">
         <error line="40" column="21" source="standard:backing-property-naming" />
     </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/LibraryViewModel.kt">
-        <error line="753" column="21" source="standard:backing-property-naming" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/PlaybackViewModel.kt">
-        <error line="381" column="21" source="standard:backing-property-naming" />
-        <error line="420" column="21" source="standard:backing-property-naming" />
-    </file>
 </baseline>

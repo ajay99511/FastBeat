@@ -750,11 +750,11 @@ class LibraryViewModel
         }
 
         // --- Image Deletion ---
-        private val _pendingImageDeleteId = MutableStateFlow<Long?>(null)
+        private val pendingImageDeleteId = MutableStateFlow<Long?>(null)
 
         fun deleteImage(image: MediaFile) {
             viewModelScope.launch(Dispatchers.IO) {
-                _pendingImageDeleteId.value = image.id
+                pendingImageDeleteId.value = image.id
                 val uris = listOf(image.uri)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
@@ -763,7 +763,7 @@ class LibraryViewModel
                     startLegacyDelete(listOf(image)) { deletedIds ->
                         mediaRepository.removeMediaIds(deletedIds)
                         playlistRepository.cleanupDeletedMedia(deletedIds)
-                        _pendingImageDeleteId.value = null
+                        pendingImageDeleteId.value = null
                     }
                 }
             }
@@ -771,11 +771,11 @@ class LibraryViewModel
 
         fun onImageDeleteSuccess() {
             if (resumeLegacyDeleteIfPending()) return
-            val id = _pendingImageDeleteId.value ?: return
+            val id = pendingImageDeleteId.value ?: return
             viewModelScope.launch {
                 mediaRepository.removeMediaIds(listOf(id))
                 playlistRepository.cleanupDeletedMedia(listOf(id))
-                _pendingImageDeleteId.value = null
+                pendingImageDeleteId.value = null
             }
         }
     }
