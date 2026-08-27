@@ -6,9 +6,6 @@
     <file name="src/main/java/com/local/offlinemediaplayer/repository/MediaRepository.kt">
         <error line="160" column="121" source="standard:max-line-length" />
     </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/components/MiniPlayer.kt">
-        <error line="94" column="121" source="standard:max-line-length" />
-    </file>
     <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AccessibilityGuideScreen.kt">
         <error line="75" column="121" source="standard:max-line-length" />
         <error line="86" column="121" source="standard:max-line-length" />

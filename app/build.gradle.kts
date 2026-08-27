@@ -211,6 +211,11 @@ dependencies {
     testImplementation(libs.androidx.arch.core.testing) // InstantTaskExecutorRule
     testImplementation(libs.androidx.test.core.ktx) // ApplicationProvider, etc.
     testImplementation(libs.room.testing) // in-memory Room + migration tests
+    // Compose UI tests (P5-G) run here rather than in androidTest, on Robolectric, so they run in
+    // CI without an emulator — the same trade-off OQ-8 settled for the DAO and repository tests.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4) // createComposeRule, onNodeWithText, performClick
+    testImplementation(libs.androidx.ui.test.manifest) // ComponentActivity for the test host
     // Robolectric is a JUnit *4* runner, and `kotest-extensions-robolectric` 0.5.0 is a
     // Kotest-4-era artifact (it targets kotest 4.6.3 / robolectric 4.6.1, its extension class
     // is `internal`, and 0.5.0 is the newest release that exists) -- so it cannot drive
