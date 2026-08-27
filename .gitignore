@@ -24,6 +24,11 @@
 # Redundant with the nested `app/.gitignore`, kept deliberately so the fence
 # survives deletion of that file.
 /app/build
+# Same rule for the Baseline Profile module added in P5-E. `/build` above only
+# matches the ROOT build directory, so every new module needs its own line --
+# without this the module's entire build output becomes untracked-but-visible
+# and lands in the next `git add -A`.
+/baselineprofile/build
 app/release
 app/release/baselineProfiles
 /captures

@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -177,6 +178,11 @@ dependencies {
 
     // Parses the legacy playlists.json file — see PlaylistRepository.migrateLegacyData
     implementation(libs.kotlinx.serialization.json)
+
+    // Baseline Profile (P5-E). `profileinstaller` is what actually applies the profile on devices
+    // that do not receive it through Play; without it the profile ships but never takes effect.
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
 
     // Room Database
     implementation(libs.room.runtime)
