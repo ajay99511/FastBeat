@@ -1,12 +1,9 @@
 package com.local.offlinemediaplayer.viewmodel
 
-import android.app.Application
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.core.content.edit
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -16,6 +13,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.local.offlinemediaplayer.R
 import com.local.offlinemediaplayer.audio.AudioEffectsManager
+import com.local.offlinemediaplayer.data.AppPreferencesManager
 import com.local.offlinemediaplayer.data.ThumbnailManager
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaybackHistory
@@ -31,6 +29,7 @@ import com.local.offlinemediaplayer.playback.DeletionKind
 import com.local.offlinemediaplayer.playback.MediaControllerBinder
 import com.local.offlinemediaplayer.playback.MediaDeletionHandler
 import com.local.offlinemediaplayer.playback.PlaybackAnalyticsTracker
+import com.local.offlinemediaplayer.playback.QueueManager
 import com.local.offlinemediaplayer.playback.QueuePersistence
 import com.local.offlinemediaplayer.playback.QueuePolicy
 import com.local.offlinemediaplayer.repository.MediaRepository
@@ -109,7 +108,6 @@ data class TrackInfo(
 class PlaybackViewModel
     @Inject
     constructor(
-        private val app: Application,
         private val playlistRepository: PlaylistRepository,
         private val mediaDao: MediaDao,
         private val thumbnailManager: ThumbnailManager,
@@ -120,7 +118,8 @@ class PlaybackViewModel
         private val deletionHandler: MediaDeletionHandler,
         private val bookmarks: BookmarkManager,
         private val queuePersistence: QueuePersistence,
-    ) : AndroidViewModel(app) {
+        private val appPrefs: AppPreferencesManager,
+    ) : ViewModel() {
         companion object {
             private const val TAG = "PlaybackViewModel"
             private const val REWIND_THRESHOLD_MS = 3000L
@@ -142,19 +141,18 @@ class PlaybackViewModel
         private var pendingAudioTrackIndex: Int = -1
         private var pendingSubtitleTrackIndex: Int = -1
 
-        // Persistence (used for queue index)
-        private val sharedPrefs = app.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-
         // --- VIDEO BRIGHTNESS ---
-        // User-set video player brightness (0.01f..1f). -1f is a sentinel meaning
+        // User-set video player brightness (0.01f..1f). BRIGHTNESS_UNSET is a sentinel meaning
         // "never set / follow the system brightness" so we don't override on first launch.
-        private val _videoBrightness = MutableStateFlow(sharedPrefs.getFloat("video_brightness", -1f))
+        // Starts on the sentinel and is hydrated from DataStore below (P5-C.3); a video cannot be
+        // on screen before that read completes, so the stored value still lands before it is used.
+        private val _videoBrightness = MutableStateFlow(AppPreferencesManager.BRIGHTNESS_UNSET)
         val videoBrightness = _videoBrightness.asStateFlow()
 
         fun setVideoBrightness(value: Float) {
             val clamped = value.coerceIn(0.01f, 1f)
             _videoBrightness.value = clamped
-            sharedPrefs.edit { putFloat("video_brightness", clamped) }
+            viewModelScope.launch { appPrefs.setVideoBrightness(clamped) }
         }
 
         // Media Lists
@@ -172,19 +170,20 @@ class PlaybackViewModel
         val isRefreshing = _isRefreshing.asStateFlow()
 
         // --- QUEUE STATE ---
-        private val _currentQueue = MutableStateFlow<List<MediaFile>>(emptyList())
-        val currentQueue = _currentQueue.asStateFlow()
+        // Owned by QueueManager since P4-E.4. Constructed here rather than injected: this is state
+        // that must die with the ViewModel, so a @Singleton would resurrect a stale queue into a
+        // fresh ViewModel. The four flows are re-exposed under their original names, so nothing
+        // downstream of this class changes.
+        private val queueManager = QueueManager()
 
-        private val _currentIndex = MutableStateFlow<Int?>(null)
-        val currentIndex = _currentIndex.asStateFlow()
+        val currentQueue = queueManager.currentQueue
+        val currentIndex = queueManager.currentIndex
 
         // Tracks if current playback was initiated from a specific playlist (to prevent autoFill from adding random library songs)
-        private val _currentPlaylistContext = MutableStateFlow<String?>(null)
-        val currentPlaylistContext = _currentPlaylistContext.asStateFlow()
+        val currentPlaylistContext = queueManager.playlistContext
 
         // Display queue for UI - reflects shuffled order when shuffle is enabled
-        private val _displayQueue = MutableStateFlow<List<MediaFile>>(emptyList())
-        val displayQueue = _displayQueue.asStateFlow()
+        val displayQueue = queueManager.displayQueue
 
         // Playlist State
         val playlists =
@@ -307,7 +306,7 @@ class PlaybackViewModel
 
         // Track current position in display queue (for highlighting current track in shuffled view)
         val displayQueueIndex =
-            combine(_currentTrack, _displayQueue) { track, queue ->
+            combine(_currentTrack, queueManager.displayQueue) { track, queue ->
                 if (track == null) {
                     null
                 } else {
@@ -319,7 +318,7 @@ class PlaybackViewModel
         // artist / library). Derived from the persisted playlist context so the Now Playing
         // screen can show the real source instead of the track's artist.
         val queueSourceLabel =
-            combine(_currentPlaylistContext, playlists, _albums) { context, allPlaylists, albumList ->
+            combine(queueManager.playlistContext, playlists, _albums) { context, allPlaylists, albumList ->
                 when {
                     context == null -> "Library"
                     context.startsWith("ALBUM_") -> {
@@ -339,6 +338,7 @@ class PlaybackViewModel
 
         init {
             bindMediaController()
+            viewModelScope.launch { _videoBrightness.value = appPrefs.getVideoBrightness() }
             viewModelScope.launch(Dispatchers.IO) {
                 playlistRepository.migrateLegacyData()
                 playlistRepository.ensureDefaultPlaylists()
@@ -347,15 +347,14 @@ class PlaybackViewModel
             // Sync queue with library deletions in real-time
             viewModelScope.launch {
                 audioList.collect { allAudio ->
-                    val currentQueueList = _currentQueue.value
+                    val currentQueueList = queueManager.queue
                     if (currentQueueList.isEmpty()) return@collect
 
                     val allIds = allAudio.map { it.id }.toSet()
                     val updatedQueue = currentQueueList.filter { it.id in allIds }
 
                     if (updatedQueue.size != currentQueueList.size) {
-                        _currentQueue.value = updatedQueue
-                        _displayQueue.value = updatedQueue
+                        queueManager.setQueue(updatedQueue)
 
                         withContext(Dispatchers.Main) {
                             player.value?.let { controller ->
@@ -380,11 +379,11 @@ class PlaybackViewModel
         }
 
         // --- Image Deletion ---
-        private val _pendingImageDeleteId = MutableStateFlow<Long?>(null)
+        private val pendingImageDeleteId = MutableStateFlow<Long?>(null)
 
         fun deleteImage(image: MediaFile) {
             viewModelScope.launch(Dispatchers.IO) {
-                _pendingImageDeleteId.value = image.id
+                pendingImageDeleteId.value = image.id
                 deletionHandler.requestDelete(
                     kind = DeletionKind.IMAGE,
                     uri = image.uri,
@@ -395,7 +394,7 @@ class PlaybackViewModel
         }
 
         private suspend fun onLegacyImageDeleteFailed() {
-            _pendingImageDeleteId.value = null
+            pendingImageDeleteId.value = null
             _userMessage.emit(UserMessage.of(R.string.error_delete_failed))
         }
 
@@ -406,27 +405,27 @@ class PlaybackViewModel
         }
 
         private fun completeImageDelete() {
-            val id = _pendingImageDeleteId.value ?: return
+            val id = pendingImageDeleteId.value ?: return
             _imageList.value = _imageList.value.filter { it.id != id }
-            _pendingImageDeleteId.value = null
+            pendingImageDeleteId.value = null
         }
 
         /** Call when the user cancels the system delete dialog. */
         fun onDeleteCancelled() {
             deletionHandler.onDeleteCancelled()
-            _pendingImageDeleteId.value = null
-            _pendingDeleteTrackId.value = null
+            pendingImageDeleteId.value = null
+            pendingDeleteTrackId.value = null
         }
 
         // --- Delete Current Track ---
-        private val _pendingDeleteTrackId = MutableStateFlow<Long?>(null)
+        private val pendingDeleteTrackId = MutableStateFlow<Long?>(null)
         private val _onDeleteTrackComplete = MutableSharedFlow<Unit>()
         val onDeleteTrackComplete = _onDeleteTrackComplete.asSharedFlow()
 
         fun deleteCurrentTrack() {
             val track = _currentTrack.value ?: return
             viewModelScope.launch(Dispatchers.IO) {
-                _pendingDeleteTrackId.value = track.id
+                pendingDeleteTrackId.value = track.id
                 deletionHandler.requestDelete(
                     kind = DeletionKind.TRACK,
                     uri = track.uri,
@@ -437,7 +436,7 @@ class PlaybackViewModel
         }
 
         private suspend fun onLegacyTrackDeleteFailed() {
-            _pendingDeleteTrackId.value = null
+            pendingDeleteTrackId.value = null
             _userMessage.emit(UserMessage.of(R.string.error_delete_failed))
         }
 
@@ -448,21 +447,20 @@ class PlaybackViewModel
         }
 
         private fun completeCurrentTrackDelete() {
-            val id = _pendingDeleteTrackId.value ?: return
+            val id = pendingDeleteTrackId.value ?: return
             viewModelScope.launch {
                 // 1. Sync with MediaRepository and clean up database tables (playlists, history, etc.)
                 mediaRepository.removeMediaIds(listOf(id))
                 playlistRepository.cleanupDeletedMedia(listOf(id))
 
                 // 2. Handle queue: remove the deleted track while keeping the rest of the queue intact
-                val queue = _currentQueue.value.toMutableList()
+                val queue = queueManager.queue.toMutableList()
                 val deletedIndex = queue.indexOfFirst { it.id == id }
 
                 if (deletedIndex >= 0) {
                     // Update local state and persistence
                     queue.removeAt(deletedIndex)
-                    _currentQueue.value = queue
-                    _displayQueue.value = queue
+                    queueManager.setQueue(queue)
                     persistQueue(queue)
 
                     withContext(Dispatchers.Main) {
@@ -476,7 +474,7 @@ class PlaybackViewModel
                             if (controller.mediaItemCount == 0) {
                                 _currentTrack.value = null
                                 _isPlaying.value = false
-                                _currentIndex.value = null
+                                queueManager.setIndex(null)
                             } else {
                                 // Sync UI state for track/index shifts
                                 updateCurrentTrackFromPlayer(controller)
@@ -485,7 +483,7 @@ class PlaybackViewModel
                     }
                 }
 
-                _pendingDeleteTrackId.value = null
+                pendingDeleteTrackId.value = null
                 _onDeleteTrackComplete.emit(Unit)
             }
         }
@@ -571,7 +569,7 @@ class PlaybackViewModel
                             _playerError.value = null // Clear any previous error on successful load
                             _duration.value = controller.duration.coerceAtLeast(0L)
                         } else if (playbackState == Player.STATE_ENDED) {
-                            if (_isShuffleEnabled.value && _currentPlaylistContext.value != null) {
+                            if (_isShuffleEnabled.value && queueManager.context != null) {
                                 // Shuffled playlist/album reached end — re-shuffle and restart
                                 // so all songs play again in a new order instead of stopping.
                                 reshuffleAndRestart()
@@ -660,14 +658,14 @@ class PlaybackViewModel
             val currentMediaItem = controller.currentMediaItem
             if (currentMediaItem == null) {
                 _currentTrack.value = null
-                _currentIndex.value = null
+                queueManager.setIndex(null)
                 return
             }
             val id = currentMediaItem.mediaId.toLongOrNull()
             if (id != null) {
                 val track = mediaRepository.mediaById.value[id]
                 _currentTrack.value = track
-                _currentIndex.value = controller.currentMediaItemIndex
+                queueManager.setIndex(controller.currentMediaItemIndex)
 
                 // Reset analytics accumulators for the new track (P4-E.2).
                 analytics.onTrackChanged()
@@ -798,7 +796,7 @@ class PlaybackViewModel
 
                     // RESTORE QUEUE AFTER LOADING
                     // Only restore if queue is empty to avoid disrupting playback on refresh
-                    if (_currentQueue.value.isEmpty()) {
+                    if (queueManager.queue.isEmpty()) {
                         restoreQueue(audio + videos)
                     }
                 } finally {
@@ -816,7 +814,7 @@ class PlaybackViewModel
             // it is the authoritative snapshot of the interrupted music session.
             val savedSession = loadSavedAudioSession(mediaById)
             if (savedSession != null) {
-                _currentPlaylistContext.value = queuePersistence.playlistContext
+                queueManager.setPlaylistContext(queuePersistence.getPlaylistContext())
                 applyAudioSession(savedSession)
                 clearSavedAudioState()
                 return
@@ -830,7 +828,7 @@ class PlaybackViewModel
                     QueuePolicy.restore(
                         saved = savedQueueItems,
                         mediaById = mediaById,
-                        savedIndex = queuePersistence.queueIndex,
+                        savedIndex = queuePersistence.getQueueIndex(),
                     )
 
                 var finalQueue = restored?.queue ?: emptyList()
@@ -855,17 +853,16 @@ class PlaybackViewModel
                 }
 
                 if (finalQueue.isNotEmpty()) {
-                    _currentQueue.value = finalQueue
-                    _displayQueue.value = finalQueue
-                    _currentIndex.value = finalIndex
+                    queueManager.setQueue(finalQueue)
+                    queueManager.setIndex(finalIndex)
                     _currentTrack.value = finalQueue[finalIndex]
 
                     // Restore shuffle mode, repeat mode, and playlist context from prefs
-                    val savedShuffle = queuePersistence.shuffleEnabled
-                    val savedRepeatMode = queuePersistence.repeatMode
+                    val savedShuffle = queuePersistence.getShuffleEnabled()
+                    val savedRepeatMode = queuePersistence.getRepeatMode()
                     _isShuffleEnabled.value = savedShuffle
                     _repeatMode.value = savedRepeatMode
-                    _currentPlaylistContext.value = queuePersistence.playlistContext
+                    queueManager.setPlaylistContext(queuePersistence.getPlaylistContext())
 
                     // Set to player
                     withContext(Dispatchers.Main) {
@@ -890,27 +887,36 @@ class PlaybackViewModel
             viewModelScope.launch(Dispatchers.IO) { queuePersistence.saveQueue(queue) }
         }
 
+        // Since P5-C.3 these writes go to DataStore, which has no synchronous write, so each one
+        // is launched. The helpers stay non-suspend so the ~29 call sites — several of them
+        // `Player.Listener` callbacks that cannot suspend — are untouched. Ordering is preserved:
+        // `viewModelScope` dispatches on Main.immediate, so the writes reach DataStore's
+        // single-writer actor in call order.
         private fun persistQueueIndex(index: Int) {
-            queuePersistence.queueIndex = index
+            viewModelScope.launch { queuePersistence.setQueueIndex(index) }
         }
 
         private fun persistShuffleMode(enabled: Boolean) {
-            queuePersistence.shuffleEnabled = enabled
+            viewModelScope.launch { queuePersistence.setShuffleEnabled(enabled) }
         }
 
         private fun persistRepeatMode(mode: Int) {
-            queuePersistence.repeatMode = mode
+            viewModelScope.launch { queuePersistence.setRepeatMode(mode) }
         }
 
         private fun persistPlaylistContext(context: String?) {
-            queuePersistence.playlistContext = context
+            viewModelScope.launch { queuePersistence.setPlaylistContext(context) }
         }
 
-        private fun persistSavedAudioState(state: AudioPlayerState) = queuePersistence.saveAudioSession(state)
+        private fun persistSavedAudioState(state: AudioPlayerState) {
+            viewModelScope.launch { queuePersistence.saveAudioSession(state) }
+        }
 
-        private fun clearSavedAudioState() = queuePersistence.clearAudioSession()
+        private fun clearSavedAudioState() {
+            viewModelScope.launch { queuePersistence.clearAudioSession() }
+        }
 
-        private fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? =
+        private suspend fun loadSavedAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? =
             queuePersistence.loadAudioSession(mediaById)
 
         // --- Playback Logic ---
@@ -918,7 +924,7 @@ class PlaybackViewModel
             if (media.isVideo) {
                 playVideo(media) // Redirect to new video handler
             } else if (!media.isImage) {
-                _currentPlaylistContext.value = null
+                queueManager.setPlaylistContext(null)
                 persistPlaylistContext(null)
                 val currentVisibleList = audioList.value
                 val startIndex = currentVisibleList.indexOfFirst { it.id == media.id }
@@ -969,11 +975,11 @@ class PlaybackViewModel
 
             // Snapshot Audio State if we are interrupting an active audio session
             val current = _currentTrack.value
-            if (_currentQueue.value.isNotEmpty() && current?.isVideo != true) {
+            if (queueManager.queue.isNotEmpty() && current?.isVideo != true) {
                 savedAudioState =
                     AudioPlayerState(
-                        queue = _currentQueue.value,
-                        currentIndex = _currentIndex.value ?: 0,
+                        queue = queueManager.queue,
+                        currentIndex = queueManager.index ?: 0,
                         position = _currentPosition.value,
                         isPlaying = _isPlaying.value,
                         isShuffleEnabled = _isShuffleEnabled.value,
@@ -1049,7 +1055,7 @@ class PlaybackViewModel
                 player.value?.stop()
                 player.value?.clearMediaItems()
                 _currentTrack.value = null
-                _currentQueue.value = emptyList()
+                queueManager.clearQueue()
             }
         }
 
@@ -1059,9 +1065,8 @@ class PlaybackViewModel
          * interaction is dispatched to Main; playback only resumes when [state.isPlaying] is true.
          */
         private fun applyAudioSession(state: AudioPlayerState) {
-            _currentQueue.value = state.queue
-            _displayQueue.value = state.queue
-            _currentIndex.value = state.currentIndex
+            queueManager.setQueue(state.queue)
+            queueManager.setIndex(state.currentIndex)
             _isShuffleEnabled.value = state.isShuffleEnabled
             _repeatMode.value = state.repeatMode
 
@@ -1096,7 +1101,7 @@ class PlaybackViewModel
             shuffle: Boolean,
         ) {
             if (songs.isNotEmpty()) {
-                _currentPlaylistContext.value = playlist.id
+                queueManager.setPlaylistContext(playlist.id)
                 persistPlaylistContext(playlist.id)
                 val startIndex = 0 // setQueue will handle the starting index if shuffle is enabled
                 if (playlist.isVideo) {
@@ -1115,7 +1120,7 @@ class PlaybackViewModel
         ) {
             val albumSongs = audioList.value.filter { it.albumId == album.id }
             if (albumSongs.isNotEmpty()) {
-                _currentPlaylistContext.value = "ALBUM_${album.id}"
+                queueManager.setPlaylistContext("ALBUM_${album.id}")
                 persistPlaylistContext("ALBUM_${album.id}")
                 val startIndex = 0
                 setQueue(albumSongs, startIndex, shuffle)
@@ -1132,7 +1137,7 @@ class PlaybackViewModel
             startIndex: Int,
         ) {
             if (songs.isNotEmpty() && startIndex in songs.indices) {
-                _currentPlaylistContext.value = "ALBUM_$albumId"
+                queueManager.setPlaylistContext("ALBUM_$albumId")
                 persistPlaylistContext("ALBUM_$albumId")
                 setQueue(songs, startIndex, false)
             }
@@ -1148,7 +1153,7 @@ class PlaybackViewModel
             shuffle: Boolean,
         ) {
             if (songs.isNotEmpty()) {
-                _currentPlaylistContext.value = "ARTIST_$artistName"
+                queueManager.setPlaylistContext("ARTIST_$artistName")
                 persistPlaylistContext("ARTIST_$artistName")
                 setQueue(songs, 0, shuffle)
             }
@@ -1163,7 +1168,7 @@ class PlaybackViewModel
             startIndex: Int,
         ) {
             if (songs.isNotEmpty() && startIndex in songs.indices) {
-                _currentPlaylistContext.value = "ARTIST_$artistName"
+                queueManager.setPlaylistContext("ARTIST_$artistName")
                 persistPlaylistContext("ARTIST_$artistName")
                 setQueue(songs, startIndex, false)
             }
@@ -1179,7 +1184,7 @@ class PlaybackViewModel
             startIndex: Int,
         ) {
             if (songs.isNotEmpty() && startIndex in songs.indices) {
-                _currentPlaylistContext.value = playlistId
+                queueManager.setPlaylistContext(playlistId)
                 persistPlaylistContext(playlistId)
                 setQueue(songs, startIndex, false)
             }
@@ -1195,7 +1200,7 @@ class PlaybackViewModel
             shuffle: Boolean,
         ) {
             if (songs.isNotEmpty()) {
-                _currentPlaylistContext.value = "SMART_$typeId"
+                queueManager.setPlaylistContext("SMART_$typeId")
                 persistPlaylistContext("SMART_$typeId")
                 setQueue(songs, 0, shuffle)
             }
@@ -1210,7 +1215,7 @@ class PlaybackViewModel
             startIndex: Int,
         ) {
             if (songs.isNotEmpty() && startIndex in songs.indices) {
-                _currentPlaylistContext.value = "SMART_$typeId"
+                queueManager.setPlaylistContext("SMART_$typeId")
                 persistPlaylistContext("SMART_$typeId")
                 setQueue(songs, startIndex, false)
             }
@@ -1220,7 +1225,7 @@ class PlaybackViewModel
             list: List<MediaFile> = audioList.value,
             shuffle: Boolean,
         ) {
-            _currentPlaylistContext.value = null
+            queueManager.setPlaylistContext(null)
             persistPlaylistContext(null)
             if (list.isNotEmpty()) {
                 val startIndex = 0
@@ -1241,7 +1246,7 @@ class PlaybackViewModel
 
                 withContext(Dispatchers.Main) {
                     // Update Local State synchronously with MediaController to prevent UI flicker
-                    _currentQueue.value = mediaList
+                    queueManager.setPlayOrder(mediaList)
                     _isShuffleEnabled.value = shuffle
 
                     player.value?.let { controller ->
@@ -1293,8 +1298,7 @@ class PlaybackViewModel
             startIndex: Int,
         ) {
             // Update Local State so UI shows correct list
-            _currentQueue.value = mediaList
-            _displayQueue.value = mediaList // Since we are in static mode
+            queueManager.setQueue(mediaList) // Since we are in static mode
 
             // Update Player: Add items before and after current item
             // We use a simplified strategy: Replace the items but keep the current window/position
@@ -1338,23 +1342,23 @@ class PlaybackViewModel
         private fun updateDisplayQueue() {
             displayQueueUpdateJob?.cancel()
             val controller = player.value
-            val currentQueueSnapshot = _currentQueue.value
+            val currentQueueSnapshot = queueManager.queue
 
             if (controller == null || currentQueueSnapshot.isEmpty()) {
-                _displayQueue.value = currentQueueSnapshot
+                queueManager.setDisplayOrder(currentQueueSnapshot)
                 return
             }
 
             val shuffleEnabled = _isShuffleEnabled.value && controller.shuffleModeEnabled
 
             if (!shuffleEnabled) {
-                _displayQueue.value = currentQueueSnapshot
+                queueManager.setDisplayOrder(currentQueueSnapshot)
                 return
             }
 
             val timeline = controller.currentTimeline
             if (timeline.isEmpty) {
-                _displayQueue.value = currentQueueSnapshot
+                queueManager.setDisplayOrder(currentQueueSnapshot)
                 return
             }
 
@@ -1379,7 +1383,7 @@ class PlaybackViewModel
                     val shuffledQueue = shuffledMediaIds.mapNotNull { mediaIdToMediaFile[it] }
 
                     withContext(Dispatchers.Main) {
-                        _displayQueue.value = shuffledQueue
+                        queueManager.setDisplayOrder(shuffledQueue)
                     }
                 }
         }
@@ -1714,7 +1718,7 @@ class PlaybackViewModel
             // Check if we are playing a specific context (playlist, album)
             // If so, do not automatically jump to random library songs when it finishes.
             // It's confusing if you queue an album and end up listening to the whole library.
-            if (_currentPlaylistContext.value != null && !playPrevious) {
+            if (queueManager.context != null && !playPrevious) {
                 return
             }
 
@@ -1724,9 +1728,8 @@ class PlaybackViewModel
             val shuffledAudio = audioListSnapshot.shuffled()
 
             if (playPrevious) {
-                val newQueue = _currentQueue.value.let { shuffledAudio + it }
-                _currentQueue.value = newQueue
-                _displayQueue.value = newQueue
+                val newQueue = queueManager.queue.let { shuffledAudio + it }
+                queueManager.setQueue(newQueue)
 
                 viewModelScope.launch(Dispatchers.IO) {
                     val mediaItems = shuffledAudio.map { it.toMediaItem() }
@@ -1738,9 +1741,8 @@ class PlaybackViewModel
                     persistQueue(newQueue)
                 }
             } else {
-                val newQueue = _currentQueue.value + shuffledAudio
-                _currentQueue.value = newQueue
-                _displayQueue.value = newQueue
+                val newQueue = queueManager.queue + shuffledAudio
+                queueManager.setQueue(newQueue)
 
                 viewModelScope.launch(Dispatchers.IO) {
                     val mediaItems = shuffledAudio.map { it.toMediaItem() }
@@ -1875,8 +1877,8 @@ class PlaybackViewModel
         // --- Queue Management ---
         fun playNext(media: MediaFile) {
             val controller = player.value
-            val queue = _currentQueue.value.toMutableList()
-            val currentIdx = _currentIndex.value ?: -1
+            val queue = queueManager.queue.toMutableList()
+            val currentIdx = queueManager.index ?: -1
 
             if (controller != null && queue.isNotEmpty() && currentIdx >= 0) {
                 // Check if media already exists in queue
@@ -1898,14 +1900,14 @@ class PlaybackViewModel
                     val insertIndex = if (existingIndex < currentIdx) currentIdx else currentIdx + 1
 
                     queue.add(insertIndex, media)
-                    _currentQueue.value = queue
+                    queueManager.setPlayOrder(queue)
                     controller.addMediaItem(insertIndex, media.toMediaItem())
                 } else {
                     // CASE 4: New Song -> Add Next
                     // Simply insert at current + 1
                     val insertIndex = currentIdx + 1
                     queue.add(insertIndex, media)
-                    _currentQueue.value = queue
+                    queueManager.setPlayOrder(queue)
                     controller.addMediaItem(insertIndex, media.toMediaItem())
                 }
 
@@ -1928,8 +1930,8 @@ class PlaybackViewModel
 
         fun addToQueue(media: MediaFile) {
             val controller = player.value
-            val queue = _currentQueue.value.toMutableList()
-            val currentIdx = _currentIndex.value ?: -1
+            val queue = queueManager.queue.toMutableList()
+            val currentIdx = queueManager.index ?: -1
 
             if (controller != null && queue.isNotEmpty()) {
                 val existingIndex = queue.indexOfFirst { it.id == media.id }
@@ -1943,12 +1945,12 @@ class PlaybackViewModel
 
                     // Add to end
                     queue.add(media)
-                    _currentQueue.value = queue
+                    queueManager.setPlayOrder(queue)
                     controller.addMediaItem(media.toMediaItem())
                 } else {
                     // CASE 4: New Song -> Add to End
                     queue.add(media)
-                    _currentQueue.value = queue
+                    queueManager.setPlayOrder(queue)
                     controller.addMediaItem(media.toMediaItem())
                 }
 
@@ -1970,8 +1972,8 @@ class PlaybackViewModel
          */
         fun playNext(songs: List<MediaFile>) {
             val controller = player.value
-            val queue = _currentQueue.value.toMutableList()
-            val currentIdx = _currentIndex.value ?: -1
+            val queue = queueManager.queue.toMutableList()
+            val currentIdx = queueManager.index ?: -1
 
             if (controller != null && queue.isNotEmpty() && currentIdx >= 0) {
                 val currentTrackId = _currentTrack.value?.id
@@ -1997,7 +1999,7 @@ class PlaybackViewModel
                     val insertIndex = updatedCurrentIdx + 1
 
                     queue.addAll(insertIndex, itemsToAdd)
-                    _currentQueue.value = queue
+                    queueManager.setPlayOrder(queue)
 
                     val mediaItems = itemsToAdd.map { it.toMediaItem() }
                     controller.addMediaItems(insertIndex, mediaItems)
@@ -2020,8 +2022,8 @@ class PlaybackViewModel
          */
         fun addToQueue(songs: List<MediaFile>) {
             val controller = player.value
-            val queue = _currentQueue.value.toMutableList()
-            val currentIdx = _currentIndex.value ?: -1
+            val queue = queueManager.queue.toMutableList()
+            val currentIdx = queueManager.index ?: -1
 
             if (controller != null && queue.isNotEmpty()) {
                 val currentTrackId = _currentTrack.value?.id
@@ -2042,7 +2044,7 @@ class PlaybackViewModel
 
                     // Add to end
                     queue.addAll(itemsToAdd)
-                    _currentQueue.value = queue
+                    queueManager.setPlayOrder(queue)
 
                     val mediaItems = itemsToAdd.map { it.toMediaItem() }
                     controller.addMediaItems(mediaItems)
@@ -2077,7 +2079,7 @@ class PlaybackViewModel
                 return
             }
 
-            val queue = _currentQueue.value.toMutableList()
+            val queue = queueManager.queue.toMutableList()
             if (fromIndex !in queue.indices || toIndex !in queue.indices) return
             if (fromIndex >= controller.mediaItemCount || toIndex >= controller.mediaItemCount) return
             // Stale-drag guard: the queue can change underneath the sheet (e.g. a library deletion
@@ -2085,10 +2087,10 @@ class PlaybackViewModel
             if (queue[fromIndex].id != track.id) return
 
             queue.add(toIndex, queue.removeAt(fromIndex))
-            _currentQueue.value = queue
+            queueManager.setPlayOrder(queue)
 
             controller.moveMediaItem(fromIndex, toIndex)
-            _currentIndex.value = controller.currentMediaItemIndex
+            queueManager.setIndex(controller.currentMediaItemIndex)
 
             updateDisplayQueue()
             persistQueue(queue)
@@ -2113,10 +2115,10 @@ class PlaybackViewModel
                     break
                 }
             }
-            val queue = _currentQueue.value.toMutableList()
+            val queue = queueManager.queue.toMutableList()
             queue.removeAll { it.id == track.id }
-            _currentQueue.value = queue
-            _currentIndex.value = controller.currentMediaItemIndex
+            queueManager.setPlayOrder(queue)
+            queueManager.setIndex(controller.currentMediaItemIndex)
             updateDisplayQueue()
             persistQueue(queue)
         }
@@ -2132,15 +2134,15 @@ class PlaybackViewModel
                 }
             }
             val newQueue = listOf(current)
-            _currentQueue.value = newQueue
-            _currentIndex.value = controller.currentMediaItemIndex
+            queueManager.setPlayOrder(newQueue)
+            queueManager.setIndex(controller.currentMediaItemIndex)
             updateDisplayQueue()
             persistQueue(newQueue)
         }
 
         /** Persist the current queue as a new audio playlist. */
         fun saveQueueAsPlaylist(name: String) {
-            val queue = _currentQueue.value
+            val queue = queueManager.queue
             if (queue.isEmpty() || name.isBlank()) return
             viewModelScope.launch(Dispatchers.IO) {
                 playlistRepository.createPlaylist(name.trim(), false)

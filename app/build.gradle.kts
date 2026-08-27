@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -174,12 +176,21 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 
-    // Gson for JSON Persistence
-    implementation(libs.gson)
+    // Parses the legacy playlists.json file — see PlaylistRepository.migrateLegacyData
+    implementation(libs.kotlinx.serialization.json)
+
+    // Baseline Profile (P5-E). `profileinstaller` is what actually applies the profile on devices
+    // that do not receive it through Play; without it the profile ships but never takes effect.
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
 
     // Room Database
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    // Preferences DataStore, not Proto: the sort keys are generated at runtime
+    // (audio_sort_$playlistId and friends), an unbounded key space Proto cannot model
+    // without restructuring into an explicit map. See OQ-3.
+    implementation(libs.androidx.datastore.preferences)
     ksp(libs.room.compiler)
 
     // Adaptive Layouts
@@ -200,6 +211,11 @@ dependencies {
     testImplementation(libs.androidx.arch.core.testing) // InstantTaskExecutorRule
     testImplementation(libs.androidx.test.core.ktx) // ApplicationProvider, etc.
     testImplementation(libs.room.testing) // in-memory Room + migration tests
+    // Compose UI tests (P5-G) run here rather than in androidTest, on Robolectric, so they run in
+    // CI without an emulator — the same trade-off OQ-8 settled for the DAO and repository tests.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4) // createComposeRule, onNodeWithText, performClick
+    testImplementation(libs.androidx.ui.test.manifest) // ComponentActivity for the test host
     // Robolectric is a JUnit *4* runner, and `kotest-extensions-robolectric` 0.5.0 is a
     // Kotest-4-era artifact (it targets kotest 4.6.3 / robolectric 4.6.1, its extension class
     // is `internal`, and 0.5.0 is the newest release that exists) -- so it cannot drive

@@ -2,8 +2,6 @@ package com.local.offlinemediaplayer.repository
 
 import android.content.Context
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.data.db.PlaylistEntity
 import com.local.offlinemediaplayer.data.db.PlaylistMediaCrossRef
@@ -13,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,16 +28,35 @@ class PlaylistRepository
             private const val TAG = "PlaylistRepository"
         }
 
-        private val gson = Gson()
+        /**
+         * Configured to keep the tolerance Gson had, because the input is a file written by an
+         * older build that this code cannot change:
+         *  - [Json.ignoreUnknownKeys]: the old React version wrote fields this model does not
+         *    declare. Gson skipped them silently; kotlinx throws on them by default, which would
+         *    turn every real legacy file into a failed import.
+         *  - [Json.isLenient]: accepts the quoting relaxations Gson accepted.
+         *  - [Json.coerceInputValues]: an explicit `null` for a field that has a default falls back
+         *    to that default rather than throwing, which is what Gson did.
+         */
+        private val json =
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                coerceInputValues = true
+            }
+
         private val legacyFile = File(context.filesDir, "playlists.json")
 
         // Internal model matching the OLD JSON structure exactly
+        @Serializable
         private data class LegacyPlaylist(
             val id: String,
             val name: String,
             val items: List<String>? = null, // Old React version used 'items' (String IDs)
             val mediaIds: List<Long>? = null, // Safety for mixed versions
-            val createdAt: Long,
+            // Defaulted rather than required: Gson filled a missing number with 0 instead of
+            // failing, and a legacy file with no timestamp must still migrate.
+            val createdAt: Long = 0L,
             val isVideo: Boolean = false,
         )
 
@@ -61,12 +80,11 @@ class PlaylistRepository
             withContext(Dispatchers.IO) {
                 if (legacyFile.exists()) {
                     try {
-                        val json = legacyFile.readText()
-                        // Use LegacyPlaylist type to safely read 'items' string array
-                        val type = object : TypeToken<List<LegacyPlaylist>>() {}.type
-                        val legacyPlaylists: List<LegacyPlaylist>? = gson.fromJson(json, type)
+                        // Decodes the old 'items' string array as well as the newer 'mediaIds'.
+                        val legacyPlaylists: List<LegacyPlaylist> =
+                            json.decodeFromString(legacyFile.readText())
 
-                        legacyPlaylists?.forEach { playlist ->
+                        legacyPlaylists.forEach { playlist ->
                             // 1. Insert Playlist
                             mediaDao.insertPlaylist(
                                 PlaylistEntity(

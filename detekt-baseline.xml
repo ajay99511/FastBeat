@@ -29,7 +29,7 @@
     <ID>ImplicitDefaultLocale:NowPlayingScreen.kt$String.format("%d:%02d", minutes, seconds)</ID>
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is IllegalStateException</ID>
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is RecoverableSecurityException</ID>
-    <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
+    <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : ViewModel</ID>
     <ID>LongMethod:AccessibilityGuideScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccessibilityGuideScreen(onBack: () -&gt; Unit)</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun AlbumSongRow( index: Int, song: MediaFile, isPlaying: Boolean = false, isSelectionMode: Boolean = false, isSelected: Boolean = false, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onPlayNext: () -&gt; Unit, onAddToQueue: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit, )</ID>
@@ -44,7 +44,6 @@
     <ID>LongMethod:MeScreen.kt$@Composable fun MeScreen( viewModel: PlaybackViewModel, themeViewModel: ThemeViewModel = hiltViewModel(), analyticsViewModel: AnalyticsViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onPlayMedia: (MediaFile) -&gt; Unit, onNavigateToAccessibilityGuide: () -&gt; Unit, isSearchVisible: Boolean, )</ID>
     <ID>LongMethod:MeScreen.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
-    <ID>LongMethod:MiniPlayer.kt$@Composable fun MiniPlayer( viewModel: PlaybackViewModel, onTap: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:NowPlayingScreen.kt$@Composable fun QueueSheetContent( queue: List&lt;MediaFile&gt;, currentIndex: Int, isReorderEnabled: Boolean, onTrackClick: (MediaFile) -&gt; Unit, onRemove: (MediaFile) -&gt; Unit, onReorder: (track: MediaFile, fromIndex: Int, toIndex: Int) -&gt; Unit, onClear: () -&gt; Unit, onSaveAsPlaylist: () -&gt; Unit, )</ID>
     <ID>LongMethod:NowPlayingScreen.kt$@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun NowPlayingScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, )</ID>
     <ID>LongMethod:PlaylistDetailScreen.kt$@Composable fun AudioPlaylistItemCard( song: MediaFile, accentColor: Color, onClick: () -&gt; Unit, onPlayNext: () -&gt; Unit, onAddToQueue: () -&gt; Unit, onRemove: (() -&gt; Unit)? = null, )</ID>
@@ -152,7 +151,6 @@
     <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `play_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `mediaId` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL)"</ID>
     <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `playlist_media_cross_ref` (`playlistId` TEXT NOT NULL, `mediaId` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `mediaId`), FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"</ID>
     <ID>MaxLineLength:Migrations.kt$&lt;no name provided&gt;$"CREATE TABLE IF NOT EXISTS `playlists` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `isVideo` INTEGER NOT NULL, PRIMARY KEY(`id`))"</ID>
-    <ID>MaxLineLength:MiniPlayer.kt$?:</ID>
     <ID>MaxLineLength:NowPlayingScreen.kt$color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface</ID>
     <ID>MaxLineLength:NowPlayingScreen.kt$tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant</ID>
     <ID>MaxLineLength:PermissionScreens.kt$text = "Media access is turned off for this app. To browse your videos, music and photos, enable the media permissions in system Settings, then return to the app."</ID>
@@ -180,7 +178,7 @@
     <ID>ReturnCount:PlaybackViewModel.kt$PlaybackViewModel$fun moveQueueItem( track: MediaFile, fromIndex: Int, toIndex: Int, )</ID>
     <ID>TooManyFunctions:AudioEffectsManager.kt$AudioEffectsManager</ID>
     <ID>TooManyFunctions:LibraryViewModel.kt$LibraryViewModel : AndroidViewModel</ID>
-    <ID>TooManyFunctions:PlaybackViewModel.kt$PlaybackViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:PlaybackViewModel.kt$PlaybackViewModel : ViewModel</ID>
     <ID>TooManyFunctions:PlaylistViewModel.kt$PlaylistViewModel : ViewModel</ID>
     <ID>TooManyFunctions:VideoPlayerScreen.kt$com.local.offlinemediaplayer.ui.screens.VideoPlayerScreen.kt</ID>
     <ID>UnusedParameter:AdaptiveNavigation.kt$themeColor: Color</ID>

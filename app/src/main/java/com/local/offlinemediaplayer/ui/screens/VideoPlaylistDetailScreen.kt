@@ -89,9 +89,9 @@ fun VideoPlaylistDetailScreen(
     var showSortMenu by remember { mutableStateOf(false) }
 
     // Sort state — restored from persistence, keyed by playlistId
-    val (persistedSort, persistedAsc) = playlistViewModel.getVideoPlaylistSort(playlistId)
-    var selectedSort by remember { mutableStateOf(persistedSort) }
-    var sortAscending by remember { mutableStateOf(persistedAsc) }
+    // Seeded with the default and hydrated by the LaunchedEffect below (P5-C.2).
+    var selectedSort by remember { mutableStateOf(VideoSortOption.DEFAULT) }
+    var sortAscending by remember { mutableStateOf(true) }
 
     // Persist sort changes immediately
     fun persistSortState(

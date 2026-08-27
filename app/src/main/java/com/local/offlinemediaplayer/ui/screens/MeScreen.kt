@@ -191,14 +191,12 @@ fun MeScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxWidth().height(140.dp),
             ) {
-                items(continueWatchingList) { (video, history) ->
-                    val progress =
-                        if (history.duration > 0) {
-                            history.position.toFloat() /
-                                history.duration.toFloat()
-                        } else {
-                            0f
-                        }
+                items(continueWatchingList) { item ->
+                    val video = item.media
+                    // `progress` now comes from the shared use case, so this row and the Video
+                    // library agree. They did not before: this screen showed 0 % whenever the
+                    // history row had no duration, while the library fell back to the media's.
+                    val progress = item.progress
 
                     Card(
                         modifier =

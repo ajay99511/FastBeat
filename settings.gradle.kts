@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Offline Media Player"
 include(":app")
+include(":baselineprofile")

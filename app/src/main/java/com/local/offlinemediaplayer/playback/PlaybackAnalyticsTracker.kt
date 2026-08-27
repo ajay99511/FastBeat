@@ -3,7 +3,7 @@ package com.local.offlinemediaplayer.playback
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.local.offlinemediaplayer.data.db.MediaDao
-import com.local.offlinemediaplayer.data.db.PlayEvent
+import com.local.offlinemediaplayer.domain.LogPlayEventUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,6 +34,7 @@ class PlaybackAnalyticsTracker
     @Inject
     constructor(
         private val mediaDao: MediaDao,
+        private val logPlayEvent: LogPlayEventUseCase,
     ) {
         private companion object {
             const val TAG = "PlaybackAnalyticsTracker"
@@ -191,11 +192,8 @@ class PlaybackAnalyticsTracker
         private fun recordPlay(mediaId: Long) {
             trackerScope.launch {
                 try {
-                    val now = System.currentTimeMillis()
                     // AnalyticsViewModel reacts to these writes automatically via Flow.
-                    mediaDao.initAnalytics(mediaId, now)
-                    mediaDao.incrementPlayCount(mediaId, now)
-                    mediaDao.logPlayEvent(PlayEvent(mediaId = mediaId, timestamp = now))
+                    logPlayEvent(mediaId, System.currentTimeMillis())
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to record play for $mediaId", e)
                 }

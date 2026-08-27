@@ -114,24 +114,27 @@ class PlaylistViewModel
         }
 
         // --- Audio Playlist Sort Persistence ---
-        fun getAudioPlaylistSort(playlistId: String) = sortPrefsManager.getAudioPlaylistSort(playlistId)
+        // suspend: DataStore has no synchronous read. Callers already invoke this from a
+        // LaunchedEffect, so no call site gains a coroutine it did not already have.
+        suspend fun getAudioPlaylistSort(playlistId: String) = sortPrefsManager.getAudioPlaylistSort(playlistId)
 
         fun saveAudioPlaylistSort(
             playlistId: String,
             option: com.local.offlinemediaplayer.ui.screens.AudioSortOption,
             ascending: Boolean,
         ) {
-            sortPrefsManager.saveAudioPlaylistSort(playlistId, option, ascending)
+            // Writes stay fire-and-forget so the composable callback signature is unchanged.
+            viewModelScope.launch { sortPrefsManager.saveAudioPlaylistSort(playlistId, option, ascending) }
         }
 
         // --- Video Playlist Sort Persistence ---
-        fun getVideoPlaylistSort(playlistId: String) = sortPrefsManager.getVideoPlaylistSort(playlistId)
+        suspend fun getVideoPlaylistSort(playlistId: String) = sortPrefsManager.getVideoPlaylistSort(playlistId)
 
         fun saveVideoPlaylistSort(
             playlistId: String,
             option: com.local.offlinemediaplayer.ui.screens.VideoSortOption,
             ascending: Boolean,
         ) {
-            sortPrefsManager.saveVideoPlaylistSort(playlistId, option, ascending)
+            viewModelScope.launch { sortPrefsManager.saveVideoPlaylistSort(playlistId, option, ascending) }
         }
     }

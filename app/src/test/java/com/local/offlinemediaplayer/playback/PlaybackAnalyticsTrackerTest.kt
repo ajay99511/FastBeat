@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.local.offlinemediaplayer.data.db.AppDatabase
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.domain.LogPlayEventUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -56,7 +57,7 @@ class PlaybackAnalyticsTrackerTest {
                 .setTransactionExecutor { it.run() }
                 .build()
         dao = db.mediaDao()
-        tracker = PlaybackAnalyticsTracker(dao)
+        tracker = PlaybackAnalyticsTracker(dao, LogPlayEventUseCase(dao))
         tracker.trackerScope = CoroutineScope(Dispatchers.Unconfined)
         tracker.onSessionStarted()
     }

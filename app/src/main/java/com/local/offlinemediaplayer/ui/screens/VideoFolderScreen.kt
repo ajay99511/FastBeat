@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.local.offlinemediaplayer.domain.ContinueWatchingItem
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.VideoFolder
 import com.local.offlinemediaplayer.ui.common.FormatUtils
@@ -48,7 +49,6 @@ import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
 import com.local.offlinemediaplayer.ui.components.RenameMediaDialog
 import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
-import com.local.offlinemediaplayer.viewmodel.ContinueWatchingItem
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel

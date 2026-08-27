@@ -1,13 +1,10 @@
 package com.local.offlinemediaplayer.playback
 
-import android.content.Context
 import android.util.Log
-import androidx.core.content.edit
-import androidx.media3.common.Player
+import com.local.offlinemediaplayer.data.AppPreferencesManager
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.model.AudioPlayerState
 import com.local.offlinemediaplayer.model.MediaFile
-import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
@@ -25,25 +22,22 @@ import javax.inject.Singleton
  * The decision rules live in [QueuePolicy] and are pinned by `QueuePolicyTest`; this class is the
  * plumbing around them. The queue StateFlows themselves deliberately remain in the ViewModel — see
  * OQ-9.
+ *
+ * Over detekt's TooManyFunctions threshold only because P5-C.3 turned the four scalar `var`s into
+ * suspending get/set pairs — the same four values, counted differently. The class still owns
+ * exactly one thing: the persisted audio session.
  */
+@Suppress("TooManyFunctions")
 @Singleton
 class QueuePersistence
     @Inject
     constructor(
-        @ApplicationContext context: Context,
+        private val appPrefs: AppPreferencesManager,
         private val mediaDao: MediaDao,
     ) {
         private companion object {
             const val TAG = "QueuePersistence"
-            const val PREFS = "app_prefs"
-            const val KEY_QUEUE_INDEX = "last_queue_index"
-            const val KEY_SHUFFLE = "last_shuffle_enabled"
-            const val KEY_REPEAT = "last_repeat_mode"
-            const val KEY_CONTEXT = "last_playlist_context"
-            const val KEY_SESSION = "saved_audio_session"
         }
-
-        private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
         // ------------------------------------------------------------------ queue rows
 
@@ -66,31 +60,31 @@ class QueuePersistence
 
         /** Rebuilds the saved queue, or null when nothing restorable remains. */
         suspend fun loadQueue(mediaById: Map<Long, MediaFile>): QueueRestore? =
-            QueuePolicy.restore(mediaDao.getSavedQueue(), mediaById, queueIndex)
+            QueuePolicy.restore(mediaDao.getSavedQueue(), mediaById, getQueueIndex())
 
         /** Where the given track should resume, applying the completion rule. */
         suspend fun resumePositionFor(mediaId: Long): Long = QueuePolicy.resumePosition(mediaDao.getHistory(mediaId))
 
         // ------------------------------------------------------------------ scalars
 
-        var queueIndex: Int
-            get() = prefs.getInt(KEY_QUEUE_INDEX, 0)
-            set(value) = prefs.edit { putInt(KEY_QUEUE_INDEX, value) }
+        // Suspend rather than `var` since P5-C.3: DataStore has no synchronous read. The keys,
+        // types and defaults now live in AppPreferencesManager, which owns the whole file.
 
-        var shuffleEnabled: Boolean
-            get() = prefs.getBoolean(KEY_SHUFFLE, false)
-            set(value) = prefs.edit { putBoolean(KEY_SHUFFLE, value) }
+        suspend fun getQueueIndex(): Int = appPrefs.getQueueIndex()
 
-        var repeatMode: Int
-            get() = prefs.getInt(KEY_REPEAT, Player.REPEAT_MODE_OFF)
-            set(value) = prefs.edit { putInt(KEY_REPEAT, value) }
+        suspend fun setQueueIndex(value: Int) = appPrefs.setQueueIndex(value)
 
-        var playlistContext: String?
-            get() = prefs.getString(KEY_CONTEXT, null)
-            set(value) =
-                prefs.edit {
-                    if (value != null) putString(KEY_CONTEXT, value) else remove(KEY_CONTEXT)
-                }
+        suspend fun getShuffleEnabled(): Boolean = appPrefs.getShuffleEnabled()
+
+        suspend fun setShuffleEnabled(value: Boolean) = appPrefs.setShuffleEnabled(value)
+
+        suspend fun getRepeatMode(): Int = appPrefs.getRepeatMode()
+
+        suspend fun setRepeatMode(value: Int) = appPrefs.setRepeatMode(value)
+
+        suspend fun getPlaylistContext(): String? = appPrefs.getPlaylistContext()
+
+        suspend fun setPlaylistContext(value: String?) = appPrefs.setPlaylistContext(value)
 
         // ------------------------------------------------------------------ interrupted session
 
@@ -99,7 +93,7 @@ class QueuePersistence
          * is open does not lose the music session. Stored as JSON rather than in the queue tables
          * because it must not disturb `current_queue`, which may since have been rewritten.
          */
-        fun saveAudioSession(state: AudioPlayerState) {
+        suspend fun saveAudioSession(state: AudioPlayerState) {
             try {
                 val ids = JSONArray()
                 state.queue.forEach { ids.put(it.id) }
@@ -112,15 +106,13 @@ class QueuePersistence
                         put("shuffle", state.isShuffleEnabled)
                         put("repeat", state.repeatMode)
                     }
-                prefs.edit { putString(KEY_SESSION, json.toString()) }
+                appPrefs.setSavedAudioSession(json.toString())
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to persist saved audio session", e)
             }
         }
 
-        fun clearAudioSession() {
-            prefs.edit { remove(KEY_SESSION) }
-        }
+        suspend fun clearAudioSession() = appPrefs.setSavedAudioSession(null)
 
         /**
          * Reconstructs an interrupted session, resolving ids against the freshly scanned library
@@ -132,8 +124,8 @@ class QueuePersistence
          * that id is gone: tracks deleted from the library shift every later index, so trusting the
          * index alone would silently resume the wrong song.
          */
-        fun loadAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? {
-            val raw = prefs.getString(KEY_SESSION, null) ?: return null
+        suspend fun loadAudioSession(mediaById: Map<Long, MediaFile>): AudioPlayerState? {
+            val raw = appPrefs.getSavedAudioSession() ?: return null
             return try {
                 val json = JSONObject(raw)
                 val idsArray = json.getJSONArray("queueIds")

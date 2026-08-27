@@ -45,6 +45,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             val currentThemeConfig by themeViewModel.currentTheme.collectAsStateWithLifecycle()
             val isDarkTheme by themeViewModel.isDarkTheme.collectAsStateWithLifecycle()
+            val themeLoaded by themeViewModel.isLoaded.collectAsStateWithLifecycle()
+
+            // The stored theme is read from DataStore, which has no synchronous read (P5-C.3).
+            // Composing nothing until it arrives leaves the window's launch background on screen
+            // for those few frames — the same background the system already shows while the
+            // activity starts — instead of painting the default theme and snapping to the user's.
+            if (!themeLoaded) return@setContent
 
             val context = LocalContext.current
             val windowInfoTracker = remember(context) { WindowInfoTracker.getOrCreate(context) }
