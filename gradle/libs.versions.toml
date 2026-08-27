@@ -28,7 +28,7 @@ lifecycleViewmodelCompose = "2.7.0"
 lifecycleRuntimeCompose = "2.7.0"
 # kotlinx.serialization runtime. The compiler plugin ships with Kotlin itself and is version-locked
 # to it (see [plugins]); only this runtime is chosen independently.
-kotlinxSerialization = "1.9.0"
+kotlinxSerialization = "1.11.0"
 window = "1.3.0"
 adaptive = "1.0.0"
 
