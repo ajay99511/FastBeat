@@ -100,9 +100,10 @@ fun PlaylistDetailScreen(
     var showAddSongsDialog by remember { mutableStateOf(false) }
 
     // Sort state — restored from persistence, keyed by playlistId
-    val (persistedSort, persistedAsc) = playlistViewModel.getAudioPlaylistSort(playlistId)
-    var selectedSort by remember { mutableStateOf(persistedSort) }
-    var sortAscending by remember { mutableStateOf(persistedAsc) }
+    // Seeded with the default and hydrated by the LaunchedEffect below: DataStore cannot be
+    // read synchronously during composition (P5-C.2).
+    var selectedSort by remember { mutableStateOf(AudioSortOption.DEFAULT) }
+    var sortAscending by remember { mutableStateOf(true) }
 
     // Persist sort changes immediately
     fun persistSortState(
