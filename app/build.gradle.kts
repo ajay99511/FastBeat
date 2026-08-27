@@ -180,6 +180,10 @@ dependencies {
     // Room Database
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    // Preferences DataStore, not Proto: the sort keys are generated at runtime
+    // (audio_sort_$playlistId and friends), an unbounded key space Proto cannot model
+    // without restructuring into an explicit map. See OQ-3.
+    implementation(libs.androidx.datastore.preferences)
     ksp(libs.room.compiler)
 
     // Adaptive Layouts
