@@ -15,6 +15,7 @@ import com.local.offlinemediaplayer.data.AppPreferencesManager
 import com.local.offlinemediaplayer.data.LibraryLayout
 import com.local.offlinemediaplayer.data.LibrarySort
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.model.UserMessage
 import com.local.offlinemediaplayer.model.VideoFolder
@@ -34,16 +35,6 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
-/** A partially-watched video with its saved resume position. */
-data class ContinueWatchingItem(
-    val media: MediaFile,
-    val position: Long,
-    val duration: Long,
-) {
-    val progress: Float
-        get() = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
-}
-
 @HiltViewModel
 class LibraryViewModel
     @Inject
@@ -53,6 +44,7 @@ class LibraryViewModel
         private val playlistRepository: PlaylistRepository,
         private val mediaDao: MediaDao,
         private val appPrefs: AppPreferencesManager,
+        private val getContinueWatching: GetContinueWatchingUseCase,
     ) : AndroidViewModel(app) {
         private fun <T> saveSortState(
             sort: LibrarySort,
@@ -212,15 +204,8 @@ class LibraryViewModel
 
         // --- Continue Watching (resume) ---
         val continueWatching =
-            combine(videoList, mediaDao.getContinueWatching()) { videos, history ->
-                val byId = videos.associateBy { it.id }
-                history.mapNotNull { h ->
-                    byId[h.mediaId]?.let { media ->
-                        val total = if (h.duration > 0) h.duration else media.duration
-                        ContinueWatchingItem(media, h.position, total)
-                    }
-                }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            combine(videoList, mediaDao.getContinueWatching(), getContinueWatching::invoke)
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         // Map of video mediaId -> resume progress fraction (0f..1f) for thumbnail progress bars.
         val watchProgressMap =

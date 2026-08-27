@@ -63,7 +63,4 @@
     <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/VideoHeader.kt">
         <error line="2" column="9" source="standard:package-name" />
     </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/viewmodel/AnalyticsViewModel.kt">
-        <error line="40" column="21" source="standard:backing-property-naming" />
-    </file>
 </baseline>

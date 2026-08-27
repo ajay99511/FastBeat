@@ -3,6 +3,8 @@ package com.local.offlinemediaplayer.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
+import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,17 +38,19 @@ class AnalyticsViewModel
     constructor(
         private val mediaDao: MediaDao,
         private val mediaRepository: MediaRepository,
+        private val calculateStreak: CalculateStreakUseCase,
+        private val getContinueWatching: GetContinueWatchingUseCase,
     ) : ViewModel() {
-        private val _analyticsUpdateTrigger = MutableStateFlow(System.currentTimeMillis())
+        private val analyticsUpdateTrigger = MutableStateFlow(System.currentTimeMillis())
 
         fun refreshAnalytics() {
-            _analyticsUpdateTrigger.value = System.currentTimeMillis()
+            analyticsUpdateTrigger.value = System.currentTimeMillis()
         }
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val realtimeAnalytics =
             combine(
-                _analyticsUpdateTrigger,
+                analyticsUpdateTrigger,
                 mediaRepository.audioList,
                 mediaRepository.videoList,
             ) { _, audio, videos ->
@@ -76,23 +80,7 @@ class AnalyticsViewModel
 
                     val avgDailyMs = monthMs / 30
 
-                    var currentStreak = 0
-                    if (activeDays.isNotEmpty()) {
-                        val lastActive = activeDays.first()
-                        if (lastActive == today || lastActive == (today - 86400000L)) {
-                            currentStreak = 1
-                            var checkDate = lastActive
-                            for (i in 1 until activeDays.size) {
-                                val prevDate = activeDays[i]
-                                if (checkDate - prevDate == 86400000L) {
-                                    currentStreak++
-                                    checkDate = prevDate
-                                } else {
-                                    break
-                                }
-                            }
-                        }
-                    }
+                    val currentStreak = calculateStreak(activeDays, today)
 
                     val overallFav = allMedia.find { it.id == overallFavId }
                     val recentFav = allMedia.find { it.id == recentFavId }
@@ -126,12 +114,8 @@ class AnalyticsViewModel
             combine(
                 mediaRepository.videoList,
                 mediaDao.getContinueWatching(),
-            ) { videos, historyItems ->
-                historyItems.mapNotNull { history ->
-                    val video = videos.find { it.id == history.mediaId }
-                    video?.let { it to history }
-                }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+                getContinueWatching::invoke,
+            ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         val libraryStats =
             combine(
@@ -150,7 +134,7 @@ class AnalyticsViewModel
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val weeklyActivity =
-            _analyticsUpdateTrigger
+            analyticsUpdateTrigger
                 .flatMapLatest {
                     val cal = Calendar.getInstance()
                     val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
