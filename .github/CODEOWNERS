@@ -1,0 +1,34 @@
+# FastBeat Code Owners
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# These owners will be automatically requested for review
+# when someone opens a pull request that modifies code they own.
+#
+# Owner: Ajay Elika <ajayelika99511@gmail.com>
+
+# ──────────────────────────────────────────────
+# Global owner — all files require review from @ajay99511
+# ──────────────────────────────────────────────
+*       @ajay99511
+
+# ──────────────────────────────────────────────
+# Security-sensitive files — explicit ownership
+# ──────────────────────────────────────────────
+SECURITY.md             @ajay99511
+LICENSE                 @ajay99511
+.github/CODEOWNERS      @ajay99511
+.github/workflows/      @ajay99511
+
+# ──────────────────────────────────────────────
+# Build & dependency configuration
+# ──────────────────────────────────────────────
+build.gradle.kts        @ajay99511
+settings.gradle.kts     @ajay99511
+gradle.properties       @ajay99511
+gradle/                 @ajay99511
+app/build.gradle.kts    @ajay99511
+
+# ──────────────────────────────────────────────
+# App source code
+# ──────────────────────────────────────────────
+app/src/                @ajay99511

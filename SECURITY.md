@@ -1,5 +1,7 @@
 # Security Policy
 
+> **Maintainer:** Ajay Elika ([@ajay99511](https://github.com/ajay99511)) — ajayelika99511@gmail.com
+
 ## Supported Versions
 
 FastBeat (OfflineMediaPlayer) is an actively developed Android app. Security
