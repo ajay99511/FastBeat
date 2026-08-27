@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -174,8 +175,8 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 
-    // Gson for JSON Persistence
-    implementation(libs.gson)
+    // Parses the legacy playlists.json file — see PlaylistRepository.migrateLegacyData
+    implementation(libs.kotlinx.serialization.json)
 
     // Room Database
     implementation(libs.room.runtime)

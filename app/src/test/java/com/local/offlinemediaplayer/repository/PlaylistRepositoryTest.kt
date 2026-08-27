@@ -249,6 +249,82 @@ class PlaylistRepositoryTest {
             assertTrue(repo.playlistsFlow.first().isEmpty())
         }
 
+    // --------------------------------------------- P5-D: Gson → kotlinx.serialization parity
+    //
+    // The file being parsed was written by a build that is no longer in the repository, so the
+    // parser cannot be made stricter than the one that produced it. Each of these pins a
+    // tolerance Gson had that kotlinx.serialization does NOT have by default — remove the
+    // corresponding Json{} setting and exactly one of them fails.
+
+    /**
+     * The decisive one. The old React version wrote fields `LegacyPlaylist` never declared, and
+     * kotlinx throws on unknown keys unless told otherwise. Without `ignoreUnknownKeys` every
+     * real-world legacy file would fail to import and the user would silently lose every playlist.
+     */
+    @Test
+    fun migrateLegacyData_ignoresFieldsTheOldFormatHadButThisModelDoesNot() =
+        runBlocking {
+            writeLegacy(
+                """
+                [{"id":"p1","name":"Mix","items":["10"],"createdAt":1,"isVideo":false,
+                  "colour":"#ff0000","sortOrder":3,"owner":{"name":"me"},"tags":["a","b"]}]
+                """.trimIndent(),
+            )
+
+            repo.migrateLegacyData()
+
+            val playlist = repo.playlistsFlow.first().single()
+            assertEquals("Mix", playlist.name)
+            assertEquals(listOf(10L), playlist.mediaIds)
+            assertFalse("a successful import still removes the file", legacyFile.exists())
+        }
+
+    /** Gson filled a missing number with 0 rather than failing; a file with no timestamp must still import. */
+    @Test
+    fun migrateLegacyData_importsAPlaylistThatHasNoCreatedAtField() =
+        runBlocking {
+            writeLegacy("""[{"id":"p1","name":"Mix","items":["10"]}]""")
+
+            repo.migrateLegacyData()
+
+            val playlist = repo.playlistsFlow.first().single()
+            assertEquals(0L, playlist.createdAt)
+            assertEquals(listOf(10L), playlist.mediaIds)
+        }
+
+    /** An explicit null where a default exists must fall back to the default, as Gson did. */
+    @Test
+    fun migrateLegacyData_treatsAnExplicitNullAsTheDefault() =
+        runBlocking {
+            writeLegacy(
+                """[{"id":"p1","name":"Mix","items":["10"],"createdAt":1,"isVideo":null}]""",
+            )
+
+            repo.migrateLegacyData()
+
+            assertFalse(
+                repo.playlistsFlow
+                    .first()
+                    .single()
+                    .isVideo,
+            )
+        }
+
+    /** A missing `id` is not recoverable, and the file must survive so the user can be helped. */
+    @Test
+    fun migrateLegacyData_keepsTheFileWhenARequiredFieldIsAbsent() =
+        runBlocking {
+            writeLegacy("""[{"name":"Mix","items":["10"],"createdAt":1}]""")
+
+            repo.migrateLegacyData()
+
+            assertTrue(
+                "an unparseable playlist must not destroy the user's only copy",
+                legacyFile.exists(),
+            )
+            assertTrue(repo.playlistsFlow.first().isEmpty())
+        }
+
     // ---------------------------------------------------------------- track updates
 
     @Test
