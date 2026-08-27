@@ -1,0 +1,37 @@
+# Dependabot configuration for FastBeat.
+#
+# Automates dependency update PRs for:
+#   1. Gradle (Kotlin/Java libraries, AGP, etc.)
+#   2. GitHub Actions (keeps SHA-pinned actions up to date)
+#
+# Each ecosystem is checked weekly. Dependabot reads the version comments
+# (e.g. `# v4.2.2`) next to SHA-pinned actions and proposes updated SHAs
+# when new versions are released.
+version: 2
+updates:
+  # Gradle dependencies (app/build.gradle.kts, settings.gradle.kts, etc.)
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions (keeps workflow action SHAs current)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    open-pull-requests-limit: 5

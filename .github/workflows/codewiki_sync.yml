@@ -1,26 +1,35 @@
+# CodeWiki Documentation Sync
+#
+# Generates documentation from code changes via the Gemini API.
+# NOTE: Before enabling, you must:
+#   1. Replace "your-google-cloud-project-id" with the actual project ID.
+#   2. Add GEMINI_API_KEY to the repository secrets.
 name: CodeWiki Documentation Sync
 
 on:
   push:
     branches:
-      - main # Only run on main branch pushes to save Gemini API credits
+      - master  # Was 'main' — FastBeat uses 'master' as its default branch.
+
+permissions:
+  contents: read
 
 jobs:
   codewiki-sync:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0 # Important: Fetch all history for diff generation
-          
+
       - name: CodeWiki Sync Action
-        # Assuming the use of the standard CodeWiki CLI or provided action. 
+        # Assuming the use of the standard CodeWiki CLI or provided action.
         # (Replace with the exact official action repo when the preview goes GA)
         uses: google/codewiki-sync-action@v1 # Placeholder for the official action
         with:
-          project_id: "your-google-cloud-project-id" # Need to configure if using Google Cloud directly
+          project_id: "your-google-cloud-project-id" # TODO: Configure this
           config_path: "codewiki.yaml"
         env:
           # This requires generating a Gemini API key from AI Studio
