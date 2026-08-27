@@ -37,7 +37,7 @@ kotest = "5.9.1"
 mockk = "1.13.13"
 turbine = "1.1.0"
 coroutinesTest = "1.9.0"
-robolectric = "4.14.1"
+robolectric = "4.16.1"
 # Matches the junit-platform 1.8.2 already resolved on the unit-test classpath.
 junitVintage = "5.8.2"
 # 1.23.8 is the latest stable Detekt. Its analysis engine embeds a Kotlin 1.9 compiler,
