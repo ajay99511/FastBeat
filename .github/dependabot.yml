@@ -1,28 +1,133 @@
 # Dependabot configuration for FastBeat.
 #
-# Automates dependency update PRs for:
-#   1. Gradle (Kotlin/Java libraries, AGP, etc.)
-#   2. GitHub Actions (keeps SHA-pinned actions up to date)
+# POSTURE: low-touch. This file is tuned for a small team that reviews dependency
+# PRs deliberately rather than continuously -- roughly 1-2 PRs a month, not 15.
 #
-# Each ecosystem is checked weekly. Dependabot reads the version comments
-# (e.g. `# v4.2.2`) next to SHA-pinned actions and proposes updated SHAs
-# when new versions are released.
+# HOW THE 15-PR FIRST RUN HAPPENED, so it is not mistaken for a bug later: the
+# initial run flushes the entire accumulated backlog of everything already
+# outdated, capped by open-pull-requests-limit. 10 gradle + 5 actions = exactly 15,
+# with both caps hit and more still queued behind them. That is a one-time event.
+#
+# THE ORGANISING IDEA: Dependabot never merges anything here -- there is no
+# auto-merge -- so its only job is to NOTICE drift, which humans reliably fail at.
+# What this file controls is how loudly it does that. Three rules:
+#
+#   1. Majors never nag (see `ignore` on gradle). They are the updates that break
+#      things, and they are handled deliberately, not on Dependabot's schedule.
+#   2. Actions that share a repo AND a pinned SHA are fused into one PR, because
+#      merging half of such a pair is a correctness bug, not a style preference.
+#   3. Runtime-sensitive libraries are isolated from safe ones, because CI cannot
+#      tell you whether they still work. See the gradle-runtime-sensitive group.
+#
+# WHAT CI DOES AND DOES NOT PROVE. build.yml runs assembleDebug, lint,
+# testDebugUnitTest, detekt and ktlint on every PR -- but NO instrumented tests
+# (there is no emulator job, and only 2 files in src/androidTest). So a green check
+# proves the project still compiles and the unit suite passes. It does NOT prove
+# that playback, Room migrations, the Hilt graph or Compose rendering still work.
+# That gap is the whole reason the runtime-sensitive group below exists.
+#
+# For any of this to be trustworthy, `Build` must also be a REQUIRED status check
+# in branch protection for master -- otherwise a red Dependabot PR is still
+# merge-able. A workflow file cannot enforce that itself.
 version: 2
 updates:
-  # Gradle dependencies (app/build.gradle.kts, settings.gradle.kts, etc.)
+  # ---------------------------------------------------------------------------
+  # Gradle -- gradle/libs.versions.toml
+  # ---------------------------------------------------------------------------
   - package-ecosystem: "gradle"
     directory: "/"
+    # Monthly, not weekly. Library churn does not need a weekly decision, and a
+    # cadence nobody keeps up with degrades into a wall of ignored PRs -- which is
+    # strictly worse than no automation, because it also trains you to ignore it.
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
     labels:
       - "dependencies"
     commit-message:
       prefix: "build"
       include: "scope"
-    open-pull-requests-limit: 10
+    # Two groups and no majors means this realistically never exceeds 2.
+    open-pull-requests-limit: 5
 
-  # GitHub Actions (keeps workflow action SHAs current)
+    # Let releases settle. A brand-new version is the one most likely to be yanked
+    # or hot-fixed, and there is no value in being the person who discovers that.
+    # NOTE: cooldown is NOT supported for github-actions, which is why the block
+    # further down has none -- adding it there would be a configuration error.
+    cooldown:
+      default-days: 7
+      semver-patch-days: 3
+      semver-minor-days: 7
+
+    # Majors are silenced on purpose. They are the source of the risk -- kotest
+    # 5->6, compose-bom 2024.09->2026.08 -- and they deserve a dedicated session
+    # with the release notes open, not a drive-by review alongside patch bumps.
+    #
+    # KNOWN TRADEOFF, stated rather than hidden: `ignore` suppresses SECURITY
+    # update PRs as well as version-update PRs. Dependabot ALERTS are unaffected --
+    # those come from the advisory database, not from this file -- so a CVE still
+    # reaches you. But if fixing it requires a major bump, no PR is opened
+    # automatically and you must action it by hand. Keep Dependabot alerts enabled
+    # in repository settings; that is what makes this tradeoff acceptable.
+    #
+    # To do a major sweep deliberately: comment this block out, let Dependabot run,
+    # then restore it.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+    groups:
+      # Listed FIRST, because a dependency joins the first group it matches.
+      #
+      # These are the libraries whose breakage is INVISIBLE to this project's CI:
+      # media3 (playback), room (migrations), hilt (DI graph at startup), compose
+      # (rendering and recomposition), datastore (preference persistence), coil
+      # (image loading). A green build says nothing about any of them.
+      #
+      # Isolating them is the cheap half of closing that gap: it adds no test, but
+      # it tells you exactly which PR needs a manual smoke test on a device before
+      # merge. The other half -- a connectedAndroidTest job -- is the real fix and
+      # is still outstanding.
+      #
+      # Patterns are matched leniently and in both forms on purpose. For a version
+      # catalog, Dependabot names a dependency after its CATALOG KEY when several
+      # libraries share one version key (hence the bare `room` and `agp` in the
+      # first run's PR titles) and after `group:artifact` otherwise.
+      gradle-runtime-sensitive:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*media3*"
+          - "*room*"
+          - "*hilt*"
+          - "*dagger*"
+          - "*compose*"
+          - "*datastore*"
+          - "*coil*"
+          - "*navigation*"
+          - "*lifecycle*"
+          - "*activity*"
+
+      # Everything else: build tooling, serialization, and the whole test stack.
+      # These fail loudly in CI when they break and ship nothing when they do, so
+      # this group is merge-on-green with far less scrutiny.
+      gradle-safe:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions -- keeps the pinned SHAs (and their `# vX.Y.Z` comments) current
+  # ---------------------------------------------------------------------------
+  # Deliberately kept on a WEEKLY cadence and WITHOUT the major-ignore above.
+  # Opposite risk profile to the libraries: actions carry real supply-chain weight,
+  # they are fully exercised by the very CI run that reviews them, and a bad one
+  # fails the build immediately rather than shipping to a user's device.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -34,4 +139,35 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
-    open-pull-requests-limit: 5
+    # Must leave headroom for several concurrent MAJOR bumps, which stay ungrouped
+    # here on purpose (upload-artifact 4->7, setup-java 4->6, wrapper-validation
+    # 4->6 were all outstanding at once). At the previous limit of 5 they would
+    # have been silently withheld.
+    open-pull-requests-limit: 8
+
+    groups:
+      # codeql.yml pins init and analyze to the SAME commit of the SAME repo, so
+      # they are only correct when bumped as a unit -- yet the first run proposed
+      # them as two separate PRs (#27, #26). This group intentionally omits
+      # `update-types` so they stay fused even across a major.
+      codeql-action:
+        applies-to: version-updates
+        patterns:
+          - "github/codeql-action*"
+
+      # Same hazard, second instance. build.yml uses gradle/actions/wrapper-validation
+      # AND gradle/actions/setup-gradle at the same pinned commit, but the first run
+      # proposed bumping only wrapper-validation (#18) -- which would have left the
+      # two halves of one release on different SHAs. Also unfiltered on purpose.
+      gradle-actions:
+        applies-to: version-updates
+        patterns:
+          - "gradle/actions*"
+
+      github-actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
