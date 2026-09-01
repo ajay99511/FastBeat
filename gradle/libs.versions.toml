@@ -1,11 +1,11 @@
 [versions]
-agp = "9.3.1"
-kotlin = "2.2.10"
-ksp = "2.3.6"
-coreKtx = "1.10.1"
+agp = "9.3.2"
+kotlin = "2.4.10"
+ksp = "2.3.11"
+coreKtx = "1.19.0"
 junit = "4.13.2"
-junitVersion = "1.1.5"
-espressoCore = "3.5.1"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 composeBom = "2024.09.00"
@@ -18,7 +18,7 @@ room = "2.7.2"
 datastore = "1.2.1"
 
 # --- New: previously hardcoded in build.gradle.kts ---
-material = "1.11.0"
+material = "1.14.0"
 materialIconsExtended = "1.7.8"
 hiltNavigationCompose = "1.1.0"
 navigationCompose = "2.7.7"
@@ -28,18 +28,18 @@ lifecycleViewmodelCompose = "2.7.0"
 lifecycleRuntimeCompose = "2.7.0"
 # kotlinx.serialization runtime. The compiler plugin ships with Kotlin itself and is version-locked
 # to it (see [plugins]); only this runtime is chosen independently.
-kotlinxSerialization = "1.9.0"
+kotlinxSerialization = "1.11.0"
 window = "1.3.0"
 adaptive = "1.0.0"
 
 # --- Testing ---
 kotest = "5.9.1"
-mockk = "1.13.13"
-turbine = "1.1.0"
-coroutinesTest = "1.9.0"
-robolectric = "4.14.1"
+mockk = "1.14.11"
+turbine = "1.2.1"
+coroutinesTest = "1.11.0"
+robolectric = "4.16.1"
 # Matches the junit-platform 1.8.2 already resolved on the unit-test classpath.
-junitVintage = "5.8.2"
+junitVintage = "5.14.4"
 # 1.23.8 is the latest stable Detekt. Its analysis engine embeds a Kotlin 1.9 compiler,
 # so it parses this Kotlin 2.2 source without type resolution (see the detekt {} block).
 detekt = "1.23.8"
@@ -47,14 +47,14 @@ detekt = "1.23.8"
 ktlint = "14.2.0"
 kotestRobolectric = "0.5.0"
 hilt = "2.60.1"
-androidxTestCore = "1.6.1"
-androidxTestRunner = "1.6.2"
-androidxTestRules = "1.6.1"
+androidxTestCore = "1.7.0"
+androidxTestRunner = "1.7.0"
+androidxTestRules = "1.7.0"
 archCoreTesting = "2.2.0"
 # The `androidx.baselineprofile` Gradle plugin and `benchmark-macro-junit4` are released together
 # and must share a version — the plugin drives the rule at runtime.
 benchmark = "1.5.0-rc02"
-uiautomator = "2.3.0"
+uiautomator = "2.4.0"
 # Installs the generated profile on devices that do not get it from Play. Without this artifact the
 # profile ships in the APK and is never applied, which looks like the profile simply not working.
 profileinstaller = "1.4.1"
