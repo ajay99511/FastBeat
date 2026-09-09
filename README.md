@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Android](https://img.shields.io/badge/Platform-Android-green.svg?logo=android&logoColor=white)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-7F52FF.svg?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF.svg?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose-4285F4.svg?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
@@ -36,7 +36,7 @@ Whether you're watching high-definition movies with advanced gesture controls an
 
 ### 🎬 Advanced Video Player
 - **High-Performance Playback** — Smooth offline video playback powered by AndroidX Media3 (ExoPlayer).
-- **Intuitive Gestures** — Swipe left/right for brightness/volume, swipe horizontally to seek.
+- **Intuitive Gestures** — Swipe up/down on the left for brightness and on the right for volume; swipe horizontally to seek.
 - **Picture-in-Picture (PiP)** — Continue watching in a floating window while using other apps.
 - **Multi-Track Support** — Easily switch between audio tracks and subtitle tracks.
 
@@ -150,9 +150,14 @@ Ensure you have the following installed:
 # Generate Debug APK
 ./gradlew assembleDebug
 
-# Generate Release APK
+# Generate Release APK (R8 minification + resource shrinking)
 ./gradlew assembleRelease
 ```
+
+> **The release APK is only installable if signing credentials are configured.** Without them the
+> build still succeeds but emits `FastBeat-release-unsigned.apk`, which no device will install and
+> Play will not accept — the build prints why. See
+> [Building a release APK](CONTRIBUTING.md#-building-a-release-apk) for the one-time keystore setup.
 
 ---
 
@@ -217,9 +222,11 @@ Comprehensive documentation is available in the `docs/` directory:
 | Document | Description |
 |----------|-------------|
 | [Getting Started](docs/GETTING_STARTED.md) | Detailed installation and developer onboarding. |
+| [Engineering Playbook](docs/ENGINEERING_PLAYBOOK.md) | **The quality bar.** Kotlin and Android practices, architecture, data safety, testing, accessibility — plus the skill map for mobile engineers. |
 | [Features Guide](docs/FEATURES.md) | Deep dive into all available features and roadmap. |
+| [Engineering Audit](docs/ENGINEERING_AUDIT.md) | 2026-08-21 standards audit and its [addendum](docs/AUDIT_ADDENDUM.md). |
 | [Contributing](CONTRIBUTING.md) | Guidelines for contributing to the project. |
-| [License](LICENSE) | MIT License details. |
+| [License](LICENSE) | Apache License 2.0. |
 
 ---
 
@@ -257,7 +264,7 @@ app/src/main/java/com/local/offlinemediaplayer/
 ./gradlew clean assembleDebug
 ```
 
-> The output APK is named **`FastBeat-debug.apk`** / **`FastBeat-release.apk`** (configured via `base { archivesName }` in [`app/build.gradle.kts`](app/build.gradle.kts)), located at `app/build/outputs/apk/debug/` or `app/build/outputs/apk/release/`.
+> The output APK is named **`FastBeat-debug.apk`** / **`FastBeat-release.apk`** (configured via `base { archivesName }` in [`app/build.gradle.kts`](app/build.gradle.kts)), located at `app/build/outputs/apk/debug/` or `app/build/outputs/apk/release/`. An unconfigured release build produces **`FastBeat-release-unsigned.apk`** instead — see [Building a release APK](CONTRIBUTING.md#-building-a-release-apk).
 
 ---
 
@@ -450,7 +457,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 

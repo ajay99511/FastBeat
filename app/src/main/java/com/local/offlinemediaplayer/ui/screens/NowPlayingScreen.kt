@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +48,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
@@ -352,9 +355,9 @@ fun NowPlayingScreen(
                             ).clip(RoundedCornerShape(28.dp)),
                 ) {
                     AsyncImage(
-                        model =
-                            currentTrack?.albumArtUri
-                                ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                        model = currentTrack?.albumArtUri,
+                        error = painterResource(fallbackArtwork),
+                        fallback = painterResource(fallbackArtwork),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                         contentScale = ContentScale.Crop,
@@ -892,13 +895,6 @@ fun QueueSheetContent(
     }
 }
 
-private fun formatDuration(millis: Long): String {
-    val totalSeconds = millis / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
-}
-
 @Composable
 fun PlaybackControlsWithProgress(
     currentPositionFlow: kotlinx.coroutines.flow.StateFlow<Long>,
@@ -959,12 +955,12 @@ fun PlaybackControlsWithProgress(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = formatDuration(currentPosition),
+                text = FormatUtils.formatDuration(currentPosition),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                text = formatDuration(duration),
+                text = FormatUtils.formatDuration(duration),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )

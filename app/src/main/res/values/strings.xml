@@ -51,4 +51,131 @@
     <string name="eq_virtualizer">Virtualizer</string>
     <string name="eq_unavailable">Audio effects aren\'t available on this device, or nothing has played yet this session. Start playback and reopen to adjust the equalizer.</string>
     <string name="eq_strength_percent">%1$d%%</string>
+
+    <!--
+      Accessibility Guide (ui/screens/AccessibilityGuideScreen.kt), reachable from Me.
+
+      This screen is the walkthrough disabled users are most likely to open first, so its strings
+      live here rather than inline: hardcoded text cannot be translated, and a screen reader feeding
+      English into a non-English TTS engine produces gibberish. See docs/ENGINEERING_PLAYBOOK.md §7.
+
+      Rows built from a label/detail pair are announced as one sentence by the screen, so each
+      label reads naturally when followed by its detail.
+    -->
+    <string name="guide_title">Accessibility Guide</string>
+    <string name="guide_back">Back</string>
+    <string name="guide_welcome_title">Welcome to FastBeat</string>
+    <string name="guide_welcome_body">A walkthrough of what the app can do and how to reach it — by touch, by screen reader, or by switch. Everything here works fully offline.</string>
+
+    <!-- Screen-reader and display section. -->
+    <string name="guide_a11y_section_title">Screen readers and display</string>
+    <string name="guide_a11y_labels_label">Labelled controls</string>
+    <string name="guide_a11y_labels_detail">Playback controls announce the action they perform — Play, Pause, Next, Previous, Shuffle, Repeat, Favourite.</string>
+    <string name="guide_a11y_headings_label">Section headings</string>
+    <string name="guide_a11y_headings_detail">Titles on this screen are marked as headings, so you can jump between sections instead of swiping through every item.</string>
+    <string name="guide_a11y_text_size_label">Text size</string>
+    <string name="guide_a11y_text_size_detail">FastBeat follows your system text size. Change it in Android Settings, under Display then Font size.</string>
+    <string name="guide_a11y_theme_label">Colour and contrast</string>
+    <string name="guide_a11y_theme_detail">Light and dark modes and the accent colour are in the Me tab. Pick whichever is easiest for you to read.</string>
+    <string name="guide_a11y_gestures_label">Alternatives to gestures</string>
+    <string name="guide_a11y_gestures_detail">Every video swipe gesture has a button equivalent except brightness. Tap once to show the controls, then use the on-screen buttons. Volume also responds to your device\'s volume keys.</string>
+
+    <!-- Main tabs. -->
+    <string name="guide_videos_title">Videos</string>
+    <string name="guide_videos_body">Browse videos grouped by the folder they live in. Tap one to play it full screen, with on-screen controls for play, skip, and jumping ten seconds either way. Bookmarks, subtitle and audio track selection, playback speed, screen rotation, aspect ratio, and Picture-in-Picture are all in the top control bar.</string>
+    <string name="guide_music_title">Music</string>
+    <string name="guide_music_body">Your library organised by tracks, albums, artists, decades, and playlists. Tap a track to start playing. The mini-player stays at the bottom so you can keep browsing while it plays.</string>
+    <string name="guide_images_title">Images</string>
+    <string name="guide_images_body">Every image on your device in a scrolling grid. Tap one to open it full screen and swipe between images from there.</string>
+    <string name="guide_me_title">Me — stats and settings</string>
+    <string name="guide_me_body">Your listening time, daily streak, most played tracks, and recent history. Themes, light and dark mode, and this guide live here too.</string>
+
+    <!-- Now Playing. -->
+    <string name="guide_now_playing_title">Now Playing</string>
+    <string name="guide_now_playing_intro">Open the full player by tapping the mini-player. Alongside play, skip, and seek you will find:</string>
+    <string name="guide_now_playing_shuffle_label">Shuffle and repeat</string>
+    <string name="guide_now_playing_shuffle_detail">Toggle either from the main control row. The current state is announced when focused.</string>
+    <string name="guide_now_playing_favorite_label">Favourite</string>
+    <string name="guide_now_playing_favorite_detail">Mark the current track so it shows up in your Me tab.</string>
+    <string name="guide_now_playing_speed_label">Playback speed</string>
+    <string name="guide_now_playing_speed_detail">In the overflow menu. The current speed is shown next to the option.</string>
+    <string name="guide_now_playing_eq_label">Equalizer</string>
+    <string name="guide_now_playing_eq_detail">Presets, bass boost, and virtualizer, in the overflow menu. Some devices do not support audio effects — the sheet will say so.</string>
+    <string name="guide_now_playing_sleep_label">Sleep timer</string>
+    <string name="guide_now_playing_sleep_detail">Appears in the overflow menu between 10 PM and 5 AM, or any time a timer is already running. Playback pauses when it ends.</string>
+    <string name="guide_now_playing_playlist_label">Add to playlist</string>
+    <string name="guide_now_playing_playlist_detail">Save the current track into any playlist from the overflow menu.</string>
+
+    <!-- Queue. -->
+    <string name="guide_queue_title">The queue</string>
+    <string name="guide_queue_intro">Open the queue from the Now Playing screen to see what is coming up.</string>
+    <string name="guide_queue_reorder_label">Reorder</string>
+    <string name="guide_queue_reorder_detail">Drag a track by its handle to move it. Reordering is unavailable while shuffle is on — turn shuffle off first.</string>
+    <string name="guide_queue_remove_label">Remove</string>
+    <string name="guide_queue_remove_detail">Take a single track out of the queue without stopping playback.</string>
+    <string name="guide_queue_save_label">Save as playlist</string>
+    <string name="guide_queue_save_detail">Turn the queue you are listening to into a permanent playlist.</string>
+    <string name="guide_queue_next_label">Play next</string>
+    <string name="guide_queue_next_detail">From any track\'s menu, queue it immediately after the current one instead of at the end.</string>
+    <string name="guide_queue_persist_label">It survives restarts</string>
+    <string name="guide_queue_persist_detail">Your queue and position are saved, so closing the app and reopening it picks up where you left off.</string>
+
+    <!-- Video gestures. -->
+    <string name="guide_gestures_title">Video gestures</string>
+    <string name="guide_gestures_intro">These work anywhere on the video surface. Each one shows an on-screen indicator as you drag.</string>
+    <string name="guide_gesture_brightness_label">Swipe up or down on the left</string>
+    <string name="guide_gesture_brightness_action">Adjust brightness</string>
+    <string name="guide_gesture_volume_label">Swipe up or down on the right</string>
+    <string name="guide_gesture_volume_action">Adjust volume</string>
+    <string name="guide_gesture_seek_label">Swipe left or right</string>
+    <string name="guide_gesture_seek_action">Seek backward or forward</string>
+    <string name="guide_gesture_double_left_label">Double tap on the left</string>
+    <string name="guide_gesture_double_left_action">Rewind 10 seconds</string>
+    <string name="guide_gesture_double_right_label">Double tap on the right</string>
+    <string name="guide_gesture_double_right_action">Forward 10 seconds</string>
+    <string name="guide_gesture_tap_label">Single tap</string>
+    <string name="guide_gesture_tap_action">Show or hide the controls</string>
+    <string name="guide_gesture_lock_label">Lock button</string>
+    <string name="guide_gesture_lock_action">Ignore all gestures so a stray touch cannot interrupt playback</string>
+
+    <!-- Mini-player. -->
+    <string name="guide_miniplayer_title">Mini-player</string>
+    <string name="guide_miniplayer_body">While something is playing, a compact bar sits at the bottom of the screen with previous and next controls. Tap it to open the full player. It stays put as you move between tabs, so you never lose what is playing.</string>
+
+    <!-- Library management. -->
+    <string name="guide_library_title">Finding and managing media</string>
+    <string name="guide_library_search_label">Search</string>
+    <string name="guide_library_search_detail">Filter tracks, albums, and playlists as you type.</string>
+    <string name="guide_library_sort_label">Sort</string>
+    <string name="guide_library_sort_detail">Change the order of any list; your choice is remembered for next time.</string>
+    <string name="guide_library_refresh_label">Pull to refresh</string>
+    <string name="guide_library_refresh_detail">Drag down on any media list to rescan your device for new files.</string>
+    <string name="guide_library_rename_label">Rename and delete</string>
+    <string name="guide_library_rename_detail">Available from a file\'s menu. On Android 11 and newer the system asks you to confirm; if only some files in a selection can be changed, FastBeat tells you which.</string>
+
+    <!-- Smart playlists. -->
+    <string name="guide_smart_title">Smart playlists</string>
+    <string name="guide_smart_body">Built automatically from how you listen, in the Music tab: Most Played, Recently Added, Forgotten, Never Played, and Most Skipped. They update themselves — there is nothing to maintain.</string>
+
+    <!-- Privacy closing note. -->
+    <string name="guide_privacy_title">Your data stays on your device</string>
+    <string name="guide_privacy_body">FastBeat has no network access. Your library, listening history, streaks, and playlists never leave your phone — which also means there is no cloud backup, so keep your own copies of anything irreplaceable.</string>
+
+    <!-- Announced as a single sentence for label/detail rows. %1$s is the label, %2$s the detail. -->
+    <string name="guide_row_description">%1$s: %2$s</string>
+
+    <!--
+      Video player accessibility labels.
+
+      The rest of VideoPlayerScreen.kt still carries hardcoded English; these are here rather than
+      inline because a screen reader reads them aloud, and an untranslated announcement fed to a
+      non-English TTS engine is worse than an untranslated label a sighted user can ignore. New
+      user-facing text in that file should follow these here rather than the older inline strings.
+    -->
+    <!-- %1$s is the current speed multiplier, e.g. "1.5". -->
+    <string name="video_speed_description">Playback speed, %1$sx</string>
+    <string name="video_speed_click_label">Change playback speed</string>
+    <!-- Read after "double tap to", so each states the outcome of tapping, not the current state. -->
+    <string name="video_time_show_remaining">Show remaining time</string>
+    <string name="video_time_show_total">Show total duration</string>
 </resources>

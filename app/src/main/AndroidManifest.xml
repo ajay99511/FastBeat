@@ -15,6 +15,28 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      NETWORK ACCESS IS DELIBERATELY IMPOSSIBLE.
+
+      README.md, SECURITY.md and the in-app Accessibility Guide all promise that nothing leaves the
+      device. Until now that promise held only by luck: no dependency happened to declare INTERNET,
+      and nothing would have objected if one later did. A transitive manifest entry needs no code
+      change and shows up in no diff of ours.
+
+      tools:node="remove" turns the promise into something the build enforces. The manifest merger
+      strips INTERNET no matter which dependency contributes it, so the shipped APK cannot hold the
+      permission and the claim stays verifiable from the merged manifest alone.
+
+      IF YOU EVER NEED NETWORK ACCESS: deleting this line is the smallest part of that change. The
+      privacy claim is made in three user-facing places and in the Play listing; all of them have to
+      change with it. That is the point of putting the tripwire here.
+
+      ACCESS_NETWORK_STATE still arrives transitively from Coil's network observer and is left
+      alone: without INTERNET it grants the ability to observe connectivity and nothing else, and
+      removing it would push Coil onto an untested fallback path for no privacy gain.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
     <!-- Application Configuration -->
     <application
         android:name=".MediaPlayerApp"
@@ -41,10 +63,28 @@
         </activity>
 
         <!-- Media Playback Service -->
+        <!--
+          EXPORTED ON PURPOSE, and lint's ExportedService warning is accepted here rather than left
+          unexplained.
+
+          A Media3 MediaSessionService has to be exported and unguarded by a permission to be
+          reachable at all: the media notification, Bluetooth and headset controls, Android Auto,
+          Assistant and the system media output switcher all bind to it as external controllers.
+          Adding a permission would not harden anything meaningful: it would break every one of
+          those and leave the app controllable only by itself.
+
+          What an arbitrary app can do by binding is transport control of local playback: play,
+          pause, skip, seek. It cannot read the library and cannot reach any stored data, because
+          the session exposes only the current queue. PlaybackService.onGetSession accepts every
+          controller deliberately, because that is what the integrations above require. If a future change
+          ever exposes more than transport control through the session, this decision has to be
+          revisited and onGetSession must start filtering by package.
+        -->
         <service
             android:name=".service.PlaybackService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>

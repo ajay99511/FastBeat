@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,7 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.Decade
 import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
 import com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
@@ -150,9 +152,9 @@ private fun DecadeCard(
                         .clip(RoundedCornerShape(12.dp)),
             ) {
                 AsyncImage(
-                    model =
-                        decade.albumArtUri
-                            ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                    model = decade.albumArtUri,
+                    error = painterResource(fallbackArtwork),
+                    fallback = painterResource(fallbackArtwork),
                     contentDescription = decade.label,
                     modifier =
                         Modifier

@@ -77,8 +77,26 @@ git push origin feature/your-feature-name
 
 ## 📝 Coding Guidelines
 
+> **The full standard lives in [docs/ENGINEERING_PLAYBOOK.md](docs/ENGINEERING_PLAYBOOK.md).**
+> Read it before your first non-trivial PR. It covers Kotlin idioms, architecture, data safety,
+> testing, accessibility, performance, and what "done" actually means here. What follows is the
+> short version.
+
+### The rules you cannot skip
+
+1. **Never risk user data.** FastBeat is offline — there is no server backup for someone's
+   playlists or listening history. `fallbackToDestructiveMigration()` is banned, and every schema
+   change ships a migration plus a migration test.
+2. **No silent failure.** An empty `catch` is a defect. Log or propagate; never swallow.
+3. **Evidence, not assertion.** "It works" needs a command and its output. Say what you did *not*
+   verify rather than implying coverage you don't have.
+4. **Match the surrounding code.** Two dialects cost more than either dialect saves.
+5. **Accessibility is a requirement**, not polish — see [playbook §7](docs/ENGINEERING_PLAYBOOK.md#7-accessibility).
+
 ### Kotlin Style Guide
-Follow the [Official Kotlin Style Guide](https://kotlinlang.org/docs/coding-conventions.html):
+
+Follow the [Official Kotlin Style Guide](https://kotlinlang.org/docs/coding-conventions.html);
+`ktlint` enforces the mechanical parts, so let it do that work for you.
 
 ```kotlin
 // ✅ DO: Use descriptive names and clear structure
@@ -89,13 +107,76 @@ fun playMedia(media: MediaFile) {
 }
 
 // ❌ DON'T: Use obscure names or complex one-liners
-fun p(m: MediaFile) = if(m.v) v.p(m) else null
+fun p(m: MediaFile) = if (m.v) v.p(m) else null
 ```
 
+Beyond formatting: `val` over `var`, sealed types over boolean pairs, no `!!`, no `GlobalScope`,
+injected dispatchers rather than hardcoded ones, and named arguments once a call takes more than two
+parameters.
+
 ### UI Component Guidelines
-- Use `@Composable` functions for UI elements.
-- Keep UI components stateless whenever possible.
+
+- Use `@Composable` functions for UI elements; state goes down, events come up.
+- Keep UI components stateless wherever possible — a composable that takes a ViewModel belongs only
+  at a screen root.
 - Use `LocalAppTheme` for consistent styling.
+- `collectAsStateWithLifecycle()`, never `collectAsState()` — the latter keeps working while the app
+  is backgrounded, which costs real battery on a media app.
+- Every async surface renders **four** states: loading, empty, error with a retry, and success.
+- Icon-only controls need a `contentDescription` naming the action; decorative icons need
+  `contentDescription = null`. Touch targets are at least 48dp.
+
+---
+
+## 📦 Building a release APK
+
+`./gradlew assembleDebug` is what you want for day-to-day work. The **release** variant is a
+different build: R8 minification and resource shrinking are on, and it is the only variant that
+ships. CI now builds it on every push, so R8 breakage surfaces in a PR rather than on release day.
+
+### Signing
+
+The release build is signed only if credentials are available. Without them it still succeeds and
+produces `FastBeat-release-unsigned.apk`, which **cannot be installed on a device or uploaded to
+Play** — the build prints why. That fallback exists so forks and secret-less CI runs can still
+prove the release variant compiles.
+
+To produce an installable APK, create a keystore once:
+
+```bash
+keytool -genkeypair -v -keystore fastbeat-release.jks   -alias fastbeat -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Then create `keystore.properties` in the repo root:
+
+```properties
+storeFile=/absolute/path/to/fastbeat-release.jks
+storePassword=...
+keyAlias=fastbeat
+keyPassword=...
+```
+
+`.gitignore` covers `keystore.properties`, `*.jks` and `*.keystore`. **Never commit any of them.**
+A leaked keystore lets anyone publish an update that Android accepts as genuine, and it cannot be
+rotated for an app already installed on devices — the only recovery is a new application ID, which
+every existing user has to install by hand.
+
+In CI, set the same four values as secrets instead: `FASTBEAT_KEYSTORE_FILE`,
+`FASTBEAT_KEYSTORE_PASSWORD`, `FASTBEAT_KEY_ALIAS`, `FASTBEAT_KEY_PASSWORD`. All four must be
+present; a partial configuration is reported rather than silently ignored.
+
+### Keep the mapping file
+
+Every release you distribute must be archived with the `mapping.txt` produced by **that exact
+build** (`app/build/outputs/mapping/release/`). It is the only thing that turns an obfuscated
+production stack trace back into source lines, and rebuilding generates a different one. CI uploads
+it as an artifact for 90 days.
+
+### Versions are derived, never edited
+
+`versionCode` is the commit count and `versionName` comes from `git describe`. Do not hand-edit
+either — see the comment block at the top of `app/build.gradle.kts`, and `release.yml` for how the
+tags they read get created.
 
 ---
 
