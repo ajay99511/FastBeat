@@ -62,3 +62,13 @@ build_info_output.txt
 build_stacktrace.txt
 output.md
 *.tmp
+
+# --- Release signing (NEVER commit these) ---
+# A committed keystore permanently compromises the app's signing identity: anyone holding it can
+# publish an update that Android and Play will accept as genuine, and the key cannot be rotated
+# for an app already installed on devices. keystore.properties additionally holds the passwords
+# in plaintext. Both are resolved by app/build.gradle.kts and documented in CONTRIBUTING.md.
+keystore.properties
+/keystore.properties
+*.jks
+*.keystore

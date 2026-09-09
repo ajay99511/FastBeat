@@ -1,3 +1,8 @@
+// Imported rather than fully qualified: inside a Gradle Kotlin DSL script `java` resolves to
+// the JavaPluginExtension accessor, which shadows the java.* package and makes
+// `java.util.Properties()` fail to compile. Used by the release signing block below.
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -67,6 +72,70 @@ val derivedVersionCode: Int =
         ?.takeIf { it > fallbackVersionCode }
         ?: fallbackVersionCode
 
+// ---------------------------------------------------------------------------------------------
+// Release signing.
+//
+// WHY THIS EXISTS: `assembleRelease` produced FastBeat-release-unsigned.apk. An unsigned APK
+// cannot be installed on any device and cannot be uploaded to Play, so the release variant -- the
+// only one that ships -- had no path to a usable artifact. Everything else in this file was
+// release-ready; this was the missing last step.
+//
+// Credentials resolve from two places, in order, and NEVER from a committed file:
+//   1. keystore.properties in the repo root -- gitignored, alongside local.properties. The
+//      maintainer's local path.
+//   2. FASTBEAT_KEYSTORE_FILE / _PASSWORD, FASTBEAT_KEY_ALIAS / _PASSWORD environment variables.
+//      The CI path, fed from repository secrets.
+//
+// If neither resolves the release build still SUCCEEDS, unsigned. That is deliberate: a fork, or a
+// CI run without secrets, must still be able to prove the release variant compiles and survives R8
+// -- which is the whole reason release is now built in CI at all. What it must not do is fail
+// SILENTLY, so packageRelease prints why the artifact is unsigned. An unsigned APK is then a
+// logged decision, not a discovery made while trying to install it.
+//
+// `providers.environmentVariable` rather than `System.getenv` for the same configuration-cache
+// reason documented on the version block above.
+// ---------------------------------------------------------------------------------------------
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+// Property name in keystore.properties -> environment variable carrying the same value in CI.
+val signingKeys =
+    mapOf(
+        "storeFile" to "FASTBEAT_KEYSTORE_FILE",
+        "storePassword" to "FASTBEAT_KEYSTORE_PASSWORD",
+        "keyAlias" to "FASTBEAT_KEY_ALIAS",
+        "keyPassword" to "FASTBEAT_KEY_PASSWORD",
+    )
+
+val releaseSigning: Map<String, String>? =
+    run {
+        // All four values or none. A half-filled configuration is a mistake worth reporting, not a
+        // fallback worth silently accepting -- it fails much later, at signing, with a worse message.
+        fun complete(values: Map<String, String?>): Map<String, String>? =
+            values
+                .mapValues { (_, value) -> value?.trim().orEmpty() }
+                .takeIf { trimmed -> trimmed.values.none(String::isEmpty) }
+
+        val fromFile =
+            if (keystorePropertiesFile.exists()) {
+                val props = Properties()
+                keystorePropertiesFile.inputStream().use { props.load(it) }
+                complete(signingKeys.keys.associateWith { props.getProperty(it) })
+                    ?: run {
+                        logger.warn(
+                            "keystore.properties is present but incomplete (needs " +
+                                signingKeys.keys.joinToString() + "); falling back to the environment.",
+                        )
+                        null
+                    }
+            } else {
+                null
+            }
+
+        fromFile
+            ?: complete(signingKeys.mapValues { (_, name) -> providers.environmentVariable(name).orNull })
+    }
+
 android {
     namespace = "com.local.offlinemediaplayer"
     compileSdk = 36
@@ -81,8 +150,32 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Created only when credentials actually resolved. buildTypes.release below uses
+        // findByName, so its absence degrades to an unsigned build rather than a configuration
+        // failure -- see the rationale above.
+        releaseSigning?.let { credentials ->
+            create("release") {
+                // rootProject.file() leaves an absolute path alone and resolves a relative one
+                // against the repo root, so keystore.properties may use either form.
+                storeFile = rootProject.file(credentials.getValue("storeFile"))
+                storePassword = credentials.getValue("storePassword")
+                keyAlias = credentials.getValue("keyAlias")
+                keyPassword = credentials.getValue("keyPassword")
+                // minSdk is 26, and v2 signing covers API 24+. The v1 (JAR) scheme adds nothing
+                // here and is the slower, weaker verification path.
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // null when no credentials resolved -> unsigned APK, reported by the doFirst below.
+            signingConfig = signingConfigs.findByName("release")
+
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -197,6 +290,26 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 configurations.named("androidTestImplementation") {
     exclude(group = "org.junit.jupiter")
     exclude(group = "org.junit.platform")
+}
+
+// An unsigned release APK is a legitimate outcome (fork, or CI without secrets) but never a
+// desirable one, so it is announced at the moment it happens rather than left to be discovered
+// when `adb install` rejects the file. Captured as a Boolean, not the credential map, so nothing
+// secret can reach a task action or a build scan.
+val releaseIsSigned = releaseSigning != null
+
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    doFirst {
+        if (!releaseIsSigned) {
+            logger.lifecycle(
+                "\nFastBeat: no signing credentials found -- this release APK will be UNSIGNED " +
+                    "and cannot be installed or uploaded.\n" +
+                    "Provide keystore.properties in the repo root, or set FASTBEAT_KEYSTORE_FILE, " +
+                    "FASTBEAT_KEYSTORE_PASSWORD, FASTBEAT_KEY_ALIAS and FASTBEAT_KEY_PASSWORD.\n" +
+                    "See CONTRIBUTING.md > Building a release APK.\n",
+            )
+        }
+    }
 }
 
 dependencies {

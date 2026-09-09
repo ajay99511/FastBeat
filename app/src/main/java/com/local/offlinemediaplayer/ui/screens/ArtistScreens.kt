@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.Artist
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
@@ -399,9 +401,9 @@ private fun ArtistSongRow(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         ) {
             AsyncImage(
-                model =
-                    song.albumArtUri
-                        ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                model = song.albumArtUri,
+                error = painterResource(fallbackArtwork),
+                fallback = painterResource(fallbackArtwork),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

@@ -1,6 +1,5 @@
 package com.local.offlinemediaplayer.ui.screens
 
-import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -27,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +35,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
@@ -234,9 +236,9 @@ fun AlbumDetailScreen(
                             modifier = Modifier.size(140.dp),
                         ) {
                             AsyncImage(
-                                model =
-                                    album.albumArtUri
-                                        ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                                model = album.albumArtUri,
+                                error = painterResource(fallbackArtwork),
+                                fallback = painterResource(fallbackArtwork),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
@@ -576,7 +578,7 @@ fun AlbumSongRow(
 
         // Duration (Hide if menu is shown? No, just keep it)
         Text(
-            text = formatDuration(song.duration),
+            text = FormatUtils.formatDuration(song.duration),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )
@@ -647,12 +649,4 @@ fun AlbumSongRow(
             }
         }
     }
-}
-
-@SuppressLint("DefaultLocale")
-private fun formatDuration(millis: Long): String {
-    val totalSeconds = millis / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
 }

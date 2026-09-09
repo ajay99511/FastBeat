@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.Album
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
@@ -368,9 +370,9 @@ fun AlbumListItem(
                     .clip(RoundedCornerShape(8.dp)),
         ) {
             AsyncImage(
-                model =
-                    album.albumArtUri
-                        ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                model = album.albumArtUri,
+                error = painterResource(fallbackArtwork),
+                fallback = painterResource(fallbackArtwork),
                 contentDescription = album.name,
                 modifier =
                     Modifier
@@ -476,9 +478,9 @@ fun AlbumItemStyled(
                         .clip(RoundedCornerShape(12.dp)),
             ) {
                 AsyncImage(
-                    model =
-                        album.albumArtUri
-                            ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                    model = album.albumArtUri,
+                    error = painterResource(fallbackArtwork),
+                    fallback = painterResource(fallbackArtwork),
                     contentDescription = album.name,
                     modifier =
                         Modifier

@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.ui.components.MediaPropertiesDialog
@@ -483,9 +486,9 @@ private fun AudioListItemStyled(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         ) {
             AsyncImage(
-                model =
-                    song.albumArtUri
-                        ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                model = song.albumArtUri,
+                error = painterResource(fallbackArtwork),
+                fallback = painterResource(fallbackArtwork),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -506,7 +509,7 @@ private fun AudioListItemStyled(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${song.artist ?: "Unknown"} • ${formatDuration(song.duration)}",
+                text = "${song.artist ?: "Unknown"} • ${FormatUtils.formatDuration(song.duration)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -602,16 +605,4 @@ private fun AudioListItemStyled(
         thickness = 0.5.dp,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
-}
-
-private fun formatDuration(millis: Long): String {
-    val seconds = (millis / 1000) % 60
-    val minutes = (millis / (1000 * 60)) % 60
-    val hours = millis / (1000 * 60 * 60)
-
-    return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format("%d:%02d", minutes, seconds)
-    }
 }

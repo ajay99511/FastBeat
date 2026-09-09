@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +50,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -68,6 +70,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.local.offlinemediaplayer.R
 import com.local.offlinemediaplayer.ui.common.FormatUtils
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
@@ -1177,7 +1180,20 @@ private fun PlayerBottomControls(
                 },
                 color = Color.White,
                 style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.clickable { onToggleRemaining() },
+                modifier =
+                    Modifier
+                        .minimumInteractiveComponentSize()
+                        .clickable(
+                            onClickLabel =
+                                stringResource(
+                                    if (showRemainingTime) {
+                                        R.string.video_time_show_total
+                                    } else {
+                                        R.string.video_time_show_remaining
+                                    },
+                                ),
+                            onClick = onToggleRemaining,
+                        ),
             )
         }
 
@@ -1222,7 +1238,7 @@ private fun PlayerBottomControls(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                IconButton(onClick = onPrevious, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onPrevious) {
                     Icon(
                         Icons.Default.SkipPrevious,
                         "Previous",
@@ -1230,7 +1246,7 @@ private fun PlayerBottomControls(
                         modifier = Modifier.size(28.dp),
                     )
                 }
-                IconButton(onClick = onRewind, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onRewind) {
                     Icon(
                         Icons.Default.Replay10,
                         "Rewind 10 seconds",
@@ -1263,7 +1279,7 @@ private fun PlayerBottomControls(
                         modifier = Modifier.size(30.dp),
                     )
                 }
-                IconButton(onClick = onForward, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onForward) {
                     Icon(
                         Icons.Default.Forward10,
                         "Forward 10 seconds",
@@ -1271,7 +1287,7 @@ private fun PlayerBottomControls(
                         modifier = Modifier.size(26.dp),
                     )
                 }
-                IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onNext) {
                     Icon(
                         Icons.Default.SkipNext,
                         "Next",
@@ -1286,13 +1302,28 @@ private fun PlayerBottomControls(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 // Speed (with current-speed text overlay)
+                val speedDescription =
+                    stringResource(R.string.video_speed_description, playbackSpeed.toString())
+                val cycleSpeedLabel = stringResource(R.string.video_speed_click_label)
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(44.dp).clickable { onCycleSpeed() },
+                    modifier =
+                        Modifier
+                            .minimumInteractiveComponentSize()
+                            .size(44.dp)
+                            .semantics(mergeDescendants = true) {
+                                role = Role.Button
+                                contentDescription = speedDescription
+                            }.clickable(
+                                onClickLabel = cycleSpeedLabel,
+                                onClick = onCycleSpeed,
+                            ),
                 ) {
                     Icon(
                         Icons.Outlined.Speed,
-                        "Speed",
+                        // Labelled by the merged Box above; a second description here would be
+                        // announced twice and would omit the current speed.
+                        null,
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
@@ -1308,7 +1339,7 @@ private fun PlayerBottomControls(
                         )
                     }
                 }
-                IconButton(onClick = onRotate, modifier = Modifier.size(44.dp)) {
+                IconButton(onClick = onRotate) {
                     Icon(Icons.Outlined.ScreenRotation, "Rotate", tint = Color.White)
                 }
             }

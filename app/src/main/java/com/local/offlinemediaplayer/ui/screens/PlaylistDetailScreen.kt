@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
 import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
@@ -641,9 +643,9 @@ fun AudioPlaylistItemCard(
                         .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 AsyncImage(
-                    model =
-                        song.albumArtUri
-                            ?: "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground",
+                    model = song.albumArtUri,
+                    error = painterResource(fallbackArtwork),
+                    fallback = painterResource(fallbackArtwork),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,

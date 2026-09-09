@@ -20,12 +20,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import kotlinx.coroutines.flow.StateFlow
@@ -139,7 +141,9 @@ fun MiniPlayerContent(
                         elevation = CardDefaults.cardElevation(2.dp),
                     ) {
                         AsyncImage(
-                            model = track.albumArtUri ?: FALLBACK_ARTWORK,
+                            model = track.albumArtUri,
+                            error = painterResource(fallbackArtwork),
+                            fallback = painterResource(fallbackArtwork),
                             contentDescription = track.title,
                             modifier =
                                 Modifier
@@ -290,6 +294,3 @@ fun MiniPlayerProgressBar(
         )
     }
 }
-
-private const val FALLBACK_ARTWORK =
-    "android.resource://com.local.offlinemediaplayer/drawable/ic_launcher_foreground"
