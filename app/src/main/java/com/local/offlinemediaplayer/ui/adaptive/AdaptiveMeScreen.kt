@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.local.offlinemediaplayer.model.MediaFile
-import com.local.offlinemediaplayer.ui.screens.MeScreen
+import com.local.offlinemediaplayer.ui.screens.me.MeScreen
 import com.local.offlinemediaplayer.viewmodel.AnalyticsViewModel
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel

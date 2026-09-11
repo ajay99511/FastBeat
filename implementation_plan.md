@@ -35,6 +35,16 @@
 | 🟨 Medium | Modifies existing code; behavior should be identical | Build + tests + manual smoke |
 | 🟥 High | Changes data flow, architecture, or persistence | Build + tests + targeted manual QA plan |
 
+**Companion plans.** This document is the *remediation* record (Phases 0–5) and is closed to new
+feature work, so that what was wrong and how it was fixed stays readable. Additive work lives in its
+own plan under `docs/plans/`, using a task-ID namespace that cannot collide with `P0`–`P5`, and
+follows the same one-task-per-session protocol and the same §9-style tracker.
+
+| Plan | IDs | Covers | Status |
+|---|---|---|---|
+| [Data portability and Material You](./docs/plans/data-portability-and-material-you.md) | `FA-*`, `FB-*` | Local export/import via SAF; the `allowBackup` decision; Material You accent | Draft — `FA-0` blocked on OQ-A1 |
+| [Decompose the large UI files](./docs/plans/ui-decomposition.md) | `UI-*` | The mega-composable split §3 deferred until Phases 0–4 closed. Package layout, naming and visibility conventions for `ui/screens/` | In progress — `UI-1` ✅ |
+
 ---
 
 ## 1. What changed in Revision 2
