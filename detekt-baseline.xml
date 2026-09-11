@@ -11,7 +11,6 @@
     <ID>CyclomaticComplexMethod:DecadeScreens.kt$@Composable fun DecadeDetailScreen( decadeStart: Int, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:MainScreen.kt$@Composable fun MainScreen( viewModel: PlaybackViewModel = hiltViewModel(), widthClass: AppWidthClass = AppWidthClass.Compact, devicePosture: DevicePosture = DevicePosture.Normal, )</ID>
     <ID>CyclomaticComplexMethod:MainScreen.kt$@OptIn(ExperimentalAnimationApi::class) @Composable fun MediaPlayerAppContent(viewModel: PlaybackViewModel)</ID>
-    <ID>CyclomaticComplexMethod:MeScreen.kt$@Composable fun MeScreen( viewModel: PlaybackViewModel, themeViewModel: ThemeViewModel = hiltViewModel(), analyticsViewModel: AnalyticsViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onPlayMedia: (MediaFile) -&gt; Unit, onNavigateToAccessibilityGuide: () -&gt; Unit, isSearchVisible: Boolean, )</ID>
     <ID>CyclomaticComplexMethod:ActivityTrendsSection.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
     <ID>CyclomaticComplexMethod:MediaPropertiesDialog.kt$@Composable fun MediaPropertiesDialog( mediaFile: MediaFile, onDismiss: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
@@ -41,7 +40,6 @@
     <ID>LongMethod:DecadeScreens.kt$@Composable fun DecadeDetailScreen( decadeStart: Int, viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel = hiltViewModel(), playlistViewModel: PlaylistViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>LongMethod:EqualizerSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun EqualizerSheet( viewModel: PlaybackViewModel, onDismiss: () -&gt; Unit, )</ID>
     <ID>LongMethod:MainScreen.kt$@OptIn(ExperimentalAnimationApi::class) @Composable fun MediaPlayerAppContent(viewModel: PlaybackViewModel)</ID>
-    <ID>LongMethod:MeScreen.kt$@Composable fun MeScreen( viewModel: PlaybackViewModel, themeViewModel: ThemeViewModel = hiltViewModel(), analyticsViewModel: AnalyticsViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onPlayMedia: (MediaFile) -&gt; Unit, onNavigateToAccessibilityGuide: () -&gt; Unit, isSearchVisible: Boolean, )</ID>
     <ID>LongMethod:ActivityTrendsSection.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:MediaRepository.kt$MediaRepository$private fun queryMedia(isVideo: Boolean): List&lt;MediaFile&gt;</ID>
     <ID>LongMethod:NowPlayingScreen.kt$@Composable fun QueueSheetContent( queue: List&lt;MediaFile&gt;, currentIndex: Int, isReorderEnabled: Boolean, onTrackClick: (MediaFile) -&gt; Unit, onRemove: (MediaFile) -&gt; Unit, onReorder: (track: MediaFile, fromIndex: Int, toIndex: Int) -&gt; Unit, onClear: () -&gt; Unit, onSaveAsPlaylist: () -&gt; Unit, )</ID>
@@ -234,11 +232,6 @@
     <ID>WildcardImport:ImageListScreen.kt$import androidx.compose.runtime.*</ID>
     <ID>WildcardImport:MainScreen.kt$import androidx.compose.material3.*</ID>
     <ID>WildcardImport:MainScreen.kt$import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:MeScreen.kt$import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:MeScreen.kt$import androidx.compose.material.icons.filled.*</ID>
-    <ID>WildcardImport:MeScreen.kt$import androidx.compose.material.icons.outlined.*</ID>
-    <ID>WildcardImport:MeScreen.kt$import androidx.compose.material3.*</ID>
-    <ID>WildcardImport:MeScreen.kt$import androidx.compose.runtime.*</ID>
     <ID>WildcardImport:MediaPropertiesDialog.kt$import androidx.compose.foundation.layout.*</ID>
     <ID>WildcardImport:MediaPropertiesDialog.kt$import androidx.compose.material3.*</ID>
     <ID>WildcardImport:MiniPlayer.kt$import androidx.compose.foundation.layout.*</ID>

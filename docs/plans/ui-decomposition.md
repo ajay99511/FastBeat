@@ -2,7 +2,7 @@
 
 **Tier:** Standard per slice, Consequential in aggregate — no behaviour change is intended anywhere, but the work touches every screen the user sees.
 **Author / date:** 2026-09-08
-**Status:** In progress — `UI-1` complete
+**Status:** In progress — `UI-1`, `UI-2`, `UI-7` complete
 **Companion:** `implementation_plan.md`. This is the work its §3 triage deferred as *"Rewriting the mega-composables … stays on the backlog until Phases 0–4 are done."* Phases 0–4 closed (40 of 43 tracker rows ✅), so it is now unblocked rather than jumping the queue. Task IDs use the `UI-*` namespace.
 
 ---
@@ -67,16 +67,18 @@ One folder per screen-level feature, holding the screen and only the composables
 
 ```
 ui/screens/
-  me/                       ← UI-1 ✅
-    MeScreen.kt             the entry point: state, and the vertical order of sections
-    ThemeSwitcherRow.kt     ThemeSwitcherRow + ThemeButton
-    ListeningActivitySection.kt
-    ContinueWatchingSection.kt
-    SuggestedTracksSection.kt
-    LibrarySummarySection.kt   LibraryStatsSection + StatCard
-    ActivityTrendsSection.kt   ActivityTrendsSection + ActivityBarChart
-    MeSettingsCards.kt         DarkModeToggleCard + AccessibilityGuideCard
-    ShuffleAllButton.kt
+  me/                            ← UI-1, UI-2 ✅  (1 848 L in one file → 2 213 L across 9)
+    MeScreen.kt              240   state + the vertical order of ten sections, nothing else
+    ThemeSwitcherRow.kt      100   ThemeSwitcherRow, ThemeButton
+    ContinueWatchingSection.kt 210 ContinueWatchingSection, ContinueWatchingCard
+    ListeningActivitySection.kt 429 …Section, FavoritesCard, NowPlayingSummaryRow,
+                                   FavoriteTrackRow, AnalyticsCard
+    SuggestedTracksSection.kt  496 …Section, FeaturedTrackCard, PlayActionsRow,
+                                   GradientDivider, SuggestedTrackRow, SuggestedTrackArtwork
+    LibrarySummarySection.kt   181 LibraryStatsSection, StatCard
+    ActivityTrendsSection.kt   343 ActivityTrendsSection, ActivityBarChart
+    MeSettingsCards.kt         155 DarkModeToggleCard, AccessibilityGuideCard
+    ShuffleAllButton.kt         59 ShuffleAllButton
   video/                    ← UI-3, UI-4
   player/                   ← UI-5
   audio/  playlist/  image/  onboarding/    ← UI-6, once the large files are done
@@ -103,7 +105,7 @@ Ordered by size of prize against risk. One per session.
 | ID | Target | Before | Risk | Status |
 |---|---|---|---|---|
 | UI-1 | `MeScreen.kt` → `ui/screens/me/`, moving the already-standalone composables and extracting the two settings cards | 1 848 L | 🟩 | ✅ |
-| UI-2 | Extract `MeScreen`'s three remaining inline blocks — continue-watching (144 L), listening-activity (411 L), suggested-tracks (417 L) | 1 145 L | 🟨 | ⬜ |
+| UI-2 | Extract `MeScreen`'s three remaining inline blocks — continue-watching (144 L), listening-activity (411 L), suggested-tracks (417 L) | 1 145 L | 🟨 | ✅ |
 | UI-3 | `VideoPlayerScreen.kt` → `ui/screens/video/`; overlays, controls and dialogs are already separate functions | 1 580 L | 🟨 | ⬜ |
 | UI-4 | `VideoListScreen.kt` + `VideoFolderScreen.kt` → `ui/screens/video/`; `VideoListItem` / `VideoCardItem` are shared by both and belong in one file | 1 215 / 821 L | 🟨 | ⬜ |
 | UI-5 | `NowPlayingScreen.kt` → `ui/screens/player/` | 969 L | 🟨 | ⬜ |
@@ -160,9 +162,29 @@ Plus, because none of the above can see the screen: **open the affected tab on a
 | ID | Task | Risk | Status | Evidence |
 |---|---|---|---|---|
 | UI-1 | `MeScreen.kt` → `ui/screens/me/` (7 files) | 🟩 | ✅ | 1 848 L → 1 145 L entry + 6 files, largest new file 344 L. `compileDebugKotlin` BUILD SUCCESSFUL; `detekt` + `ktlintCheck` + `testDebugUnitTest` BUILD SUCCESSFUL, **249 tests, 0 failures, 0 errors, 0 skipped**. 3 detekt baseline entries relocated `MeScreen.kt` → `ActivityTrendsSection.kt` (not regenerated). `ThemeButton` narrowed `public`→`private`; `AnalyticsCard`, `ShuffleAllButton`, `LibraryStatsSection`, `ActivityTrendsSection` → `internal`. One dead commented-out line (`// onCheckedChange = { viewModel.toggleThemeMode() }`) deleted. Single importer `AdaptiveMeScreen.kt:12` repointed. |
-| UI-2 | Extract `MeScreen`'s three inline blocks | 🟨 | ⬜ | Dependency surface measured — see §4 |
+| UI-2 | Extract `MeScreen`'s three inline blocks | 🟨 | ✅ | 1 145 L → **240 L**; `MeScreen` itself is now 100 lines of state plus the vertical order of ten sections. 3 new files, 23 composables in the package, **every one under the 120-line gate**. `assembleDebug` + `lint` + `detekt` + `ktlintCheck` BUILD SUCCESSFUL; **249 tests, 0 failures, 0 errors, 0 skipped**. See the note below on what this removed from the baseline. |
 | UI-3 | `VideoPlayerScreen.kt` → `video/` | 🟨 | ⬜ | |
 | UI-4 | `VideoListScreen` + `VideoFolderScreen` → `video/` | 🟨 | ⬜ | |
 | UI-5 | `NowPlayingScreen.kt` → `player/` | 🟨 | ⬜ | |
 | UI-6 | Group the remaining flat screens | 🟩 | ⬜ | |
-| UI-7 | Retire `MeScreen.kt`'s wildcard imports | 🟩 | ⬜ | |
+| UI-7 | Retire `MeScreen.kt`'s wildcard imports | 🟩 | ✅ | Done as part of UI-2 — once `MeScreen.kt` was 240 lines its 5 wildcard imports were trivially expandable, so the 5 `WildcardImport` baseline entries were **deleted, not relocated**. |
+
+### What UI-2 removed from `detekt-baseline.xml`
+
+Seven entries, all deleted rather than moved, each verified by removing it and re-running detekt:
+
+| Entry | Why it is gone |
+|---|---|
+| `LongMethod:MeScreen.kt$@Composable fun MeScreen(…)` | 1 220 lines → 100. Under the 120 gate with no suppression. |
+| `CyclomaticComplexMethod:MeScreen.kt$@Composable fun MeScreen(…)` | The branching moved into the sections that own it. |
+| `WildcardImport:MeScreen.kt$…` × 5 | Explicit imports throughout the package. |
+
+Three entries were **relocated** in UI-1 (`ComplexCondition`, `CyclomaticComplexMethod`, `LongMethod` on `ActivityBarChart` → `ActivityTrendsSection.kt`). `MeScreen.kt` now has **zero** baseline entries.
+
+Getting `MeScreen` under the gate took one genuine extraction beyond the three carded blocks: at 127 lines it was 7 over, so the suggestion-pool derivation became `rememberSuggestions()` returning a `SuggestionState(pool, visible)`. The `remember(audioList)` key is unchanged, so the sample is still drawn once per library rather than re-shuffling on every keystroke.
+
+### Deduplication found during UI-2
+
+The "Current Obsession" and "All Time #1" rows in the listening-activity card were **two 91-line blocks whose diff was 13 lines, all of them data** — track, icon, accent colour, label, play count. They are now one `FavoriteTrackRow` with five parameters.
+
+This was checked against the Abstraction Decision Procedure before merging, not assumed: Gate 1 two existing cases; Gate 2 they vary for the same reason (both are "a favourite track row" — a layout change should hit both); Gate 3 the volatile axis is the data, not the structure; Gate 4 182 lines become ~70 plus two 8-line call sites; Gate 5 a third case ("forgotten gem") fits with no boolean flag. **The diff was produced and read before the merge** — had the rows differed in behaviour anywhere, this would have been two composables.
