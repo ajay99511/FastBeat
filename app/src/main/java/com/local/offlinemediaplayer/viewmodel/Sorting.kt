@@ -65,3 +65,37 @@ enum class AlbumSortField(
     YEAR("Year", false),
     SONG_COUNT("Song Count", false),
 }
+
+/**
+ * Sort options for the audio playlist detail screen.
+ *
+ * Declared here rather than in the screen that renders the menu because `SortPreferencesManager`
+ * persists the selected ordinal: a `data` class must not have to import from `ui`. Unlike
+ * [SortField] these do not carry a default direction — the playlist screens sort in one direction
+ * only — so they deliberately do not implement [SortableField].
+ */
+enum class AudioSortOption(
+    val label: String,
+) {
+    DEFAULT("Default"),
+    TITLE("Title"),
+    ARTIST("Artist"),
+    DURATION("Duration"),
+    SIZE("Size"),
+    DATE_MODIFIED("Date Modified"),
+    MOST_PLAYED("Most Played"),
+    LATEST("Latest"),
+}
+
+/** Sort options for the video playlist detail screen. See [AudioSortOption] for why this lives here. */
+enum class VideoSortOption(
+    val label: String,
+) {
+    DEFAULT("Default"),
+    TITLE("Title"),
+    DURATION("Duration"),
+    SIZE("Size"),
+    DATE_MODIFIED("Date Modified"),
+    MOST_PLAYED("Most Played"),
+    LATEST("Latest"),
+}

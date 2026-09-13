@@ -120,7 +120,7 @@ class PlaylistViewModel
 
         fun saveAudioPlaylistSort(
             playlistId: String,
-            option: com.local.offlinemediaplayer.ui.screens.AudioSortOption,
+            option: AudioSortOption,
             ascending: Boolean,
         ) {
             // Writes stay fire-and-forget so the composable callback signature is unchanged.
@@ -132,7 +132,7 @@ class PlaylistViewModel
 
         fun saveVideoPlaylistSort(
             playlistId: String,
-            option: com.local.offlinemediaplayer.ui.screens.VideoSortOption,
+            option: VideoSortOption,
             ascending: Boolean,
         ) {
             viewModelScope.launch { sortPrefsManager.saveVideoPlaylistSort(playlistId, option, ascending) }
