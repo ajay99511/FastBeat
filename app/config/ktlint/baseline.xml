@@ -6,38 +6,9 @@
     <file name="src/main/java/com/local/offlinemediaplayer/repository/MediaRepository.kt">
         <error line="160" column="121" source="standard:max-line-length" />
     </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AlbumDetailScreen.kt">
-        <error line="168" column="121" source="standard:max-line-length" />
-        <error line="547" column="121" source="standard:max-line-length" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AlbumListScreen.kt">
-        <error line="163" column="121" source="standard:max-line-length" />
-        <error line="359" column="121" source="standard:max-line-length" />
-        <error line="464" column="121" source="standard:max-line-length" />
-        <error line="500" column="121" source="standard:max-line-length" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/AudioListScreen.kt">
-        <error line="309" column="121" source="standard:max-line-length" />
-        <error line="310" column="121" source="standard:max-line-length" />
-        <error line="476" column="121" source="standard:max-line-length" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/ImageListScreen.kt">
-        <error line="151" column="121" source="standard:max-line-length" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/MeScreen.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/NowPlayingScreen.kt">
-        <error line="436" column="121" source="standard:max-line-length" />
-        <error line="848" column="121" source="standard:max-line-length" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/PermissionScreens.kt">
+    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/onboarding/PermissionScreens.kt">
         <error line="83" column="121" source="standard:max-line-length" />
         <error line="135" column="121" source="standard:max-line-length" />
-    </file>
-    <file name="src/main/java/com/local/offlinemediaplayer/ui/screens/VideoListScreen.kt">
-        <error line="431" column="121" source="standard:max-line-length" />
-        <error line="432" column="121" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/com/local/offlinemediaplayer/ui/theme/Headers/AppHeader.kt">
         <error line="2" column="9" source="standard:package-name" />
