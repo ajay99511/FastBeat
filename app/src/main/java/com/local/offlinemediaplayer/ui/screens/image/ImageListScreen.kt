@@ -1,5 +1,5 @@
 
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.image
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
@@ -148,7 +148,12 @@ fun ImageListScreen(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                text = if (searchQuery.isNotEmpty()) "No images match search" else "No images found on device",
+                                text =
+                                    if (searchQuery.isNotEmpty()) {
+                                        "No images match search"
+                                    } else {
+                                        "No images found on device"
+                                    },
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

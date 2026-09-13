@@ -1,5 +1,5 @@
 
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.audio
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
@@ -306,8 +306,18 @@ fun AudioListScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Icon(
-                                            imageVector = if (sortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                                            contentDescription = if (sortState.ascending) "Sorted ascending" else "Sorted descending",
+                                            imageVector =
+                                                if (sortState.ascending) {
+                                                    Icons.Default.ArrowUpward
+                                                } else {
+                                                    Icons.Default.ArrowDownward
+                                                },
+                                            contentDescription =
+                                                if (sortState.ascending) {
+                                                    "Sorted ascending"
+                                                } else {
+                                                    "Sorted descending"
+                                                },
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(16.dp),
                                         )
@@ -473,7 +483,12 @@ private fun AudioListItemStyled(
             Icon(
                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 modifier = Modifier.padding(end = 16.dp).size(24.dp),
             )
         }

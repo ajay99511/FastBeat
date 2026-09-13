@@ -1,4 +1,4 @@
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.audio
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
+import com.local.offlinemediaplayer.ui.screens.playlist.AudioPlaylistItemCard
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.SmartPlaylistType

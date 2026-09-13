@@ -1,4 +1,4 @@
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.onboarding
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons

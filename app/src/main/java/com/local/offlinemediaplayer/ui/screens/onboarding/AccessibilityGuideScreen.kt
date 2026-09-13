@@ -1,4 +1,4 @@
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background

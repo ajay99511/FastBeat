@@ -1,4 +1,4 @@
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.audio
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

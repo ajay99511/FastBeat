@@ -11,9 +11,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.local.offlinemediaplayer.model.MediaFile
-import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
-import com.local.offlinemediaplayer.ui.screens.VideoListScreen
-import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
+import com.local.offlinemediaplayer.ui.screens.playlist.VideoPlaylistDetailScreen
+import com.local.offlinemediaplayer.ui.screens.video.VideoFolderScreen
+import com.local.offlinemediaplayer.ui.screens.video.VideoListScreen
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 

@@ -16,9 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.local.offlinemediaplayer.model.MediaFile
-import com.local.offlinemediaplayer.ui.screens.VideoFolderScreen
-import com.local.offlinemediaplayer.ui.screens.VideoListScreen
-import com.local.offlinemediaplayer.ui.screens.VideoPlaylistDetailScreen
+import com.local.offlinemediaplayer.ui.screens.playlist.VideoPlaylistDetailScreen
+import com.local.offlinemediaplayer.ui.screens.video.VideoFolderScreen
+import com.local.offlinemediaplayer.ui.screens.video.VideoListScreen
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 

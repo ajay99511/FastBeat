@@ -1,4 +1,4 @@
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.playlist
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,20 +32,8 @@ import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
+import com.local.offlinemediaplayer.viewmodel.VideoSortOption
 import java.io.File
-
-// Sort options for video playlist
-enum class VideoSortOption(
-    val label: String,
-) {
-    DEFAULT("Default"),
-    TITLE("Title"),
-    DURATION("Duration"),
-    SIZE("Size"),
-    DATE_MODIFIED("Date Modified"),
-    MOST_PLAYED("Most Played"),
-    LATEST("Latest"),
-}
 
 @Composable
 fun VideoPlaylistDetailScreen(

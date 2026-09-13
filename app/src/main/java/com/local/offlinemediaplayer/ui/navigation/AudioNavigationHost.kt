@@ -9,7 +9,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.local.offlinemediaplayer.ui.screens.*
+import com.local.offlinemediaplayer.ui.screens.audio.AlbumDetailScreen
+import com.local.offlinemediaplayer.ui.screens.audio.ArtistDetailScreen
+import com.local.offlinemediaplayer.ui.screens.audio.AudioLibraryScreen
+import com.local.offlinemediaplayer.ui.screens.audio.DecadeDetailScreen
+import com.local.offlinemediaplayer.ui.screens.audio.SmartPlaylistDetailScreen
+import com.local.offlinemediaplayer.ui.screens.playlist.PlaylistDetailScreen
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 @Composable

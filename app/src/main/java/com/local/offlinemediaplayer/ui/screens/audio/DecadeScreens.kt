@@ -1,20 +1,56 @@
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.audio
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Shuffle
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,87 +59,190 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.local.offlinemediaplayer.model.MediaFile
-import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.model.Decade
+import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
+import com.local.offlinemediaplayer.ui.adaptive.adaptiveGridColumns
 import com.local.offlinemediaplayer.ui.common.fallbackArtwork
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
-import com.local.offlinemediaplayer.ui.components.RenamePlaylistDialog
+import com.local.offlinemediaplayer.ui.screens.playlist.AudioPlaylistItemCard
 import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
+import com.local.offlinemediaplayer.viewmodel.AudioSortOption
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
 
-// Sort options for audio playlist
-enum class AudioSortOption(
-    val label: String,
+/**
+ * Browse songs grouped into decade buckets (derived from MediaFile.year). Tapping a decade
+ * opens [DecadeDetailScreen], which lists the songs of that era.
+ */
+@Composable
+fun DecadeListScreen(
+    viewModel: PlaybackViewModel,
+    libraryViewModel: LibraryViewModel,
+    onDecadeClick: (Int) -> Unit,
 ) {
-    DEFAULT("Default"),
-    TITLE("Title"),
-    ARTIST("Artist"),
-    DURATION("Duration"),
-    SIZE("Size"),
-    DATE_MODIFIED("Date Modified"),
-    MOST_PLAYED("Most Played"),
-    LATEST("Latest"),
+    val decades by libraryViewModel.decades.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
+    val widthClass = LocalWindowSizeClass.current
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+    ) {
+        Text(
+            text = "${decades.size} DECADE${if (decades.size != 1) "S" else ""}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+
+        if (decades.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "No songs found",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(adaptiveGridColumns(widthClass)),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(decades, key = { it.startYear }) { decade ->
+                    DecadeCard(decade = decade, onClick = { onDecadeClick(decade.startYear) })
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun PlaylistDetailScreen(
-    playlistId: String,
+private fun DecadeCard(
+    decade: Decade,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(12.dp)),
+            ) {
+                AsyncImage(
+                    model = decade.albumArtUri,
+                    error = painterResource(fallbackArtwork),
+                    fallback = painterResource(fallbackArtwork),
+                    contentDescription = decade.label,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.DarkGray),
+                    contentScale = ContentScale.Crop,
+                )
+                // Dark scrim + decade label so the era reads clearly over any art.
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
+                                ),
+                            ),
+                )
+                Text(
+                    text = decade.label,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "${decade.songCount} song${if (decade.songCount != 1) "s" else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
+ * Songs for a single decade, following the PlaylistDetailScreen pattern: search, a sort menu
+ * whose active option toggles ascending/descending on re-tap (persisted per decade), a reset
+ * chip, and Play All / Shuffle actions.
+ */
+@Composable
+fun DecadeDetailScreen(
+    decadeStart: Int,
     viewModel: PlaybackViewModel,
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onNavigateToPlayer: () -> Unit,
 ) {
-    val playlists by playlistViewModel.audioPlaylists.collectAsStateWithLifecycle()
     val allAudio by libraryViewModel.audioList.collectAsStateWithLifecycle()
-
+    val playCountMap by libraryViewModel.playCountMap.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
     val bottomPadding = if (isMiniPlayerVisible) 120.dp else 16.dp
 
-    // Show loading state if playlists haven't hydrated from DB yet
-    if (playlists.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        }
-        return
-    }
+    val title = remember(decadeStart) { if (decadeStart <= 0) "Unknown" else "${decadeStart}s" }
 
-    val playlist = playlists.find { it.id == playlistId }
-
-    // Safety check if playlist was deleted
-    if (playlist == null) {
-        LaunchedEffect(Unit) { onBack() }
-        return
-    }
-
-    val audioById = remember(allAudio) { allAudio.associateBy { it.id } }
+    // Default order: chronological within the decade, then by title.
     val songs =
-        remember(playlist.mediaIds, audioById) {
-            playlist.mediaIds.mapNotNull { audioById[it] }
+        remember(allAudio, decadeStart) {
+            allAudio
+                .filter { (it.year ?: 0) / 10 * 10 == decadeStart }
+                .sortedWith(compareBy({ it.year ?: 0 }, { it.title.lowercase() }))
         }
+
+    // If the underlying library no longer has songs for this decade, return.
+    LaunchedEffect(allAudio, decadeStart) {
+        if (allAudio.isNotEmpty() && songs.isEmpty()) onBack()
+    }
 
     // Colors
     val primaryAccent = LocalAppTheme.current.primaryColor
 
     // UI States
     var searchQuery by remember { mutableStateOf("") }
-    var showMenu by remember { mutableStateOf(false) }
-    var showRenameDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
-    var showAddSongsDialog by remember { mutableStateOf(false) }
 
-    // Sort state — restored from persistence, keyed by playlistId
-    // Seeded with the default and hydrated by the LaunchedEffect below: DataStore cannot be
-    // read synchronously during composition (P5-C.2).
+    // Sort state — restored from persistence, keyed per decade
+    val sortKey = "decade_$decadeStart"
+    // Seeded with the default and hydrated by the LaunchedEffect below (P5-C.2).
     var selectedSort by remember { mutableStateOf(AudioSortOption.DEFAULT) }
     var sortAscending by remember { mutableStateOf(true) }
 
@@ -114,23 +253,14 @@ fun PlaylistDetailScreen(
     ) {
         selectedSort = sort
         sortAscending = ascending
-        playlistViewModel.saveAudioPlaylistSort(playlistId, sort, ascending)
+        playlistViewModel.saveAudioPlaylistSort(sortKey, sort, ascending)
     }
 
-    // Reset sort state when playlistId changes
-    LaunchedEffect(playlistId) {
-        val (sort, asc) = playlistViewModel.getAudioPlaylistSort(playlistId)
+    // Reset sort state when the decade changes
+    LaunchedEffect(decadeStart) {
+        val (sort, asc) = playlistViewModel.getAudioPlaylistSort(sortKey)
         selectedSort = sort
         sortAscending = asc
-    }
-
-    // Fetch analytics for Most Played sort
-    var playCountMap by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
-    LaunchedEffect(songs) {
-        if (songs.isNotEmpty()) {
-            val analytics = playlistViewModel.getAnalyticsForIds(songs.map { it.id })
-            playCountMap = analytics.associate { it.mediaId to it.playCount }
-        }
     }
 
     // Sort + Filter
@@ -140,7 +270,10 @@ fun PlaylistDetailScreen(
                 if (searchQuery.isEmpty()) {
                     songs
                 } else {
-                    songs.filter { it.title.contains(searchQuery, ignoreCase = true) }
+                    songs.filter {
+                        it.title.contains(searchQuery, ignoreCase = true) ||
+                            (it.artist?.contains(searchQuery, ignoreCase = true) == true)
+                    }
                 }
 
             val sorted =
@@ -181,9 +314,8 @@ fun PlaylistDetailScreen(
                     ),
         )
 
-        // CONTENT
         Column(modifier = Modifier.fillMaxSize()) {
-            // ── Top Bar: Back + Search + Sort + Options Menu ──
+            // ── Top Bar: Back + Search + Sort ──
             Row(
                 modifier =
                     Modifier
@@ -218,7 +350,7 @@ fun PlaylistDetailScreen(
                     onValueChange = { searchQuery = it },
                     placeholder = {
                         Text(
-                            "Search ${playlist.name}...",
+                            "Search $title...",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -330,92 +462,9 @@ fun PlaylistDetailScreen(
                         }
                     }
                 }
-
-                // Options Menu (Rename / Delete)
-                Box {
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier =
-                            Modifier
-                                .size(40.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    CircleShape,
-                                ),
-                    ) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = "Options",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(MaterialTheme.colorScheme.surface),
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Add songs",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                showAddSongsDialog = true
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Add,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Rename",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                showRenameDialog = true
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Outlined.Edit,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text("Delete", color = MaterialTheme.colorScheme.error)
-                            },
-                            onClick = {
-                                showMenu = false
-                                playlistViewModel.deletePlaylist(playlistId)
-                                onBack()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                        )
-                    }
-                }
             }
 
-            // ── Header Row: Playlist Name + Count + Play/Shuffle ──
+            // ── Header Row: Decade + Count + Play/Shuffle ──
             Row(
                 modifier =
                     Modifier
@@ -426,7 +475,7 @@ fun PlaylistDetailScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = playlist.name,
+                        text = title,
                         style =
                             MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
@@ -480,7 +529,7 @@ fun PlaylistDetailScreen(
                     FilledIconButton(
                         onClick = {
                             if (sortedAndFilteredSongs.isNotEmpty()) {
-                                viewModel.playPlaylist(playlist, sortedAndFilteredSongs, false)
+                                viewModel.setQueue(sortedAndFilteredSongs, 0, false)
                             }
                         },
                         modifier = Modifier.size(42.dp),
@@ -501,7 +550,7 @@ fun PlaylistDetailScreen(
                     FilledIconButton(
                         onClick = {
                             if (sortedAndFilteredSongs.isNotEmpty()) {
-                                viewModel.playPlaylist(playlist, sortedAndFilteredSongs, true)
+                                viewModel.playAll(sortedAndFilteredSongs, shuffle = true)
                             }
                         },
                         modifier = Modifier.size(42.dp),
@@ -529,29 +578,15 @@ fun PlaylistDetailScreen(
                             .weight(1f),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text =
-                                if (searchQuery.isNotEmpty()) {
-                                    "No results found"
-                                } else {
-                                    "No songs yet.\nAdd some tracks from the library!"
-                                },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
-                        if (searchQuery.isEmpty()) {
-                            Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = { showAddSongsDialog = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = primaryAccent),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Add songs", color = Color.White)
-                            }
-                        }
-                    }
+                    Text(
+                        text =
+                            if (searchQuery.isNotEmpty()) {
+                                "No results found"
+                            } else {
+                                "No songs in this decade"
+                            },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else {
                 LazyColumn(
@@ -570,10 +605,7 @@ fun PlaylistDetailScreen(
                             song = song,
                             accentColor = primaryAccent,
                             onClick = {
-                                viewModel.playFromPlaylist(playlistId, sortedAndFilteredSongs, index)
-                            },
-                            onRemove = {
-                                playlistViewModel.removeSongFromPlaylist(playlistId, song.id)
+                                viewModel.setQueue(sortedAndFilteredSongs, index, false)
                             },
                             onPlayNext = { viewModel.playNext(song) },
                             onAddToQueue = { viewModel.addToQueue(song) },
@@ -583,225 +615,10 @@ fun PlaylistDetailScreen(
             }
         }
 
-        if (showRenameDialog) {
-            RenamePlaylistDialog(
-                currentName = playlist.name,
-                onDismiss = { showRenameDialog = false },
-                onRename = { newName -> playlistViewModel.renamePlaylist(playlistId, newName) },
-            )
-        }
-
-        if (showAddSongsDialog) {
-            com.local.offlinemediaplayer.ui.components.AddSongsToPlaylistDialog(
-                allSongs = allAudio,
-                existingIds = playlist.mediaIds.toSet(),
-                onConfirm = { ids -> playlistViewModel.addSongsToPlaylist(playlistId, ids) },
-                onDismiss = { showAddSongsDialog = false },
-            )
-        }
-
         MiniPlayer(
             viewModel = viewModel,
             onTap = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
-    }
-}
-
-@Composable
-fun AudioPlaylistItemCard(
-    song: MediaFile,
-    accentColor: Color,
-    onClick: () -> Unit,
-    onPlayNext: () -> Unit,
-    onAddToQueue: () -> Unit,
-    onRemove: (() -> Unit)? = null,
-) {
-    var showMenu by remember { mutableStateOf(false) }
-
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Album art with play overlay
-            Box(
-                modifier =
-                    Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                AsyncImage(
-                    model = song.albumArtUri,
-                    error = painterResource(fallbackArtwork),
-                    fallback = painterResource(fallbackArtwork),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-
-                // Play icon overlay
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .background(
-                                    Color.Black.copy(alpha = 0.5f),
-                                    CircleShape,
-                                ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Info column
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                // Title in accent color
-                Text(
-                    text = song.title,
-                    style =
-                        MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                    color = accentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Artist + File size row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = song.artist ?: "Unknown",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-
-                    if (song.size > 0) {
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = FormatUtils.formatSize(song.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
-            // 3-dot menu
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface),
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "Play Next",
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            onPlayNext()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.PlayArrow,
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "Add to Queue",
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            onAddToQueue()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.QueuePlayNext,
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        },
-                    )
-                    if (onRemove != null) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Remove from Playlist",
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                            onClick = {
-                                showMenu = false
-                                onRemove()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-        }
     }
 }

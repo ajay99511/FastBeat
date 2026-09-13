@@ -1,5 +1,5 @@
 
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.audio
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -160,7 +160,12 @@ fun AlbumListScreen(
                         Icon(
                             Icons.Default.SelectAll,
                             contentDescription = "Select All",
-                            tint = if (allSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            tint =
+                                if (allSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
                         )
                     }
                     // Add to Playlist
@@ -356,7 +361,12 @@ fun AlbumListItem(
             Icon(
                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = "Select",
-                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -461,7 +471,12 @@ fun AlbumItemStyled(
         shape = RoundedCornerShape(16.dp),
         colors =
             CardDefaults.cardColors(
-                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                containerColor =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
             ),
         elevation = CardDefaults.cardElevation(0.dp),
         border = null,
@@ -497,7 +512,12 @@ fun AlbumItemStyled(
                                 .padding(8.dp),
                     ) {
                         Icon(
-                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            imageVector =
+                                if (isSelected) {
+                                    Icons.Default.CheckCircle
+                                } else {
+                                    Icons.Default.RadioButtonUnchecked
+                                },
                             contentDescription = "Select",
                             tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
                             modifier = Modifier.size(24.dp),

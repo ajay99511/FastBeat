@@ -1,5 +1,5 @@
 
-package com.local.offlinemediaplayer.ui.screens
+package com.local.offlinemediaplayer.ui.screens.audio
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -29,6 +29,7 @@ import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
 import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
 import com.local.offlinemediaplayer.ui.components.MiniPlayer
+import com.local.offlinemediaplayer.ui.screens.playlist.PlaylistListScreen
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
