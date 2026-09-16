@@ -3,18 +3,18 @@ package com.local.offlinemediaplayer.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.domain.AnalyticsDays
 import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
 import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
+import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import java.util.Calendar
 import javax.inject.Inject
 
 // --- Data classes for UI consumption ---
@@ -40,23 +40,28 @@ class AnalyticsViewModel
         private val mediaRepository: MediaRepository,
         private val calculateStreak: CalculateStreakUseCase,
         private val getContinueWatching: GetContinueWatchingUseCase,
+        observeCurrentDay: ObserveCurrentDayUseCase,
     ) : ViewModel() {
-        private val analyticsUpdateTrigger = MutableStateFlow(System.currentTimeMillis())
-
-        fun refreshAnalytics() {
-            analyticsUpdateTrigger.value = System.currentTimeMillis()
-        }
+        /**
+         * The day every window below is measured in, re-emitted at each midnight.
+         *
+         * This replaces a `MutableStateFlow` seeded once at construction plus a public
+         * `refreshAnalytics()` that nothing ever called. The trigger's only real job was to make the
+         * day-dependent windows recompute, and it could not do it: resubscribing already recomputed
+         * them, so the sole case it was needed for — the screen staying subscribed across midnight —
+         * was the one case it never covered. See [ObserveCurrentDayUseCase].
+         */
+        private val currentDay = observeCurrentDay()
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val realtimeAnalytics =
             combine(
-                analyticsUpdateTrigger,
+                currentDay,
                 mediaRepository.audioList,
                 mediaRepository.videoList,
-            ) { _, audio, videos ->
-                audio + videos
-            }.flatMapLatest { allMedia ->
-                val today = getNormalizedToday()
+            ) { today, audio, videos ->
+                today to (audio + videos)
+            }.flatMapLatest { (today, allMedia) ->
                 val weekStart = today - (6L * 24 * 60 * 60 * 1000)
                 val monthStart = today - (29L * 24 * 60 * 60 * 1000)
 
@@ -134,52 +139,37 @@ class AnalyticsViewModel
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val weeklyActivity =
-            analyticsUpdateTrigger
-                .flatMapLatest {
-                    val cal = Calendar.getInstance()
-                    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-                    val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+            currentDay
+                .flatMapLatest { today ->
+                    // Day keys, not an arithmetic span: the week is stepped a calendar day at a
+                    // time so the keys still match the table's across a DST shift. See AnalyticsDays.
+                    val week = AnalyticsDays.weekOf(today)
 
-                    cal.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
-                    cal.set(Calendar.HOUR_OF_DAY, 0)
-                    cal.set(Calendar.MINUTE, 0)
-                    cal.set(Calendar.SECOND, 0)
-                    cal.set(Calendar.MILLISECOND, 0)
-                    val mondayMs = cal.timeInMillis
-                    val sundayMs = mondayMs + (6L * 24 * 60 * 60 * 1000)
+                    mediaDao.getWeekDailyPlaytimes(week.first(), week.last()).map { records ->
+                        val playtimeByDay = records.associate { it.date to it.totalPlaytimeMs }
 
-                    mediaDao.getWeekDailyPlaytimes(mondayMs, sundayMs).map { records ->
-                        val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-                        val todayMs = getNormalizedToday()
-                        val playtimeMap = records.associate { it.date to it.totalPlaytimeMs }
-
-                        labels.mapIndexed { index, label ->
-                            val dayMs = mondayMs + (index.toLong() * 24 * 60 * 60 * 1000)
+                        week.mapIndexed { index, dayKey ->
                             DailyActivity(
-                                dayLabel = label,
-                                playtimeMinutes = ((playtimeMap[dayMs] ?: 0L) / 60000).toInt(),
-                                isToday = dayMs == todayMs,
+                                dayLabel = DAY_LABELS[index],
+                                playtimeMinutes = ((playtimeByDay[dayKey] ?: 0L) / MS_PER_MINUTE).toInt(),
+                                isToday = dayKey == today,
                             )
                         }
                     }
-                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), generateEmptyWeek())
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EMPTY_WEEK)
 
-        private fun generateEmptyWeek(): List<DailyActivity> {
-            val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-            val cal = Calendar.getInstance()
-            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-            val todayIndex = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
-            return labels.mapIndexed { index, label ->
-                DailyActivity(dayLabel = label, isToday = index == todayIndex)
-            }
-        }
+        private companion object {
+            val DAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
-        private fun getNormalizedToday(): Long {
-            val c = Calendar.getInstance()
-            c.set(Calendar.HOUR_OF_DAY, 0)
-            c.set(Calendar.MINUTE, 0)
-            c.set(Calendar.SECOND, 0)
-            c.set(Calendar.MILLISECOND, 0)
-            return c.timeInMillis
+            const val MS_PER_MINUTE = 60_000L
+
+            /**
+             * Placeholder shown until [currentDay] emits, which it does on first collection.
+             *
+             * No day is marked as today on purpose: the alternative is a second, independent read
+             * of the clock whose only job is to be replaced microseconds later, and a placeholder
+             * that highlights the wrong bar is worse than one that highlights none.
+             */
+            val EMPTY_WEEK = DAY_LABELS.map { DailyActivity(dayLabel = it) }
         }
     }
