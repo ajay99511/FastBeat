@@ -743,6 +743,107 @@ than substituting a weaker check. An unverified migration is worse than no migra
 | **P5-G.1** | Compose UI test: `MiniPlayer` renders title, play/pause toggles, tap navigates to Now Playing. | 🟩 | P4-G | |
 | **P5-G.2** | Compose UI test: permission flow — rationale shows, grant triggers request, deny shows settings redirect. | 🟩 | P4-G | |
 
+### Phase 6 — Statistics
+
+**Tier: Standard**, with two deliberate downgrades to *Trivial* (copy) and one refusal to enter
+*Consequential* (see DS-6.2). Scope is the stats surface only: `AnalyticsViewModel`, the three Me-tab
+sections that render it (`LibrarySummarySection`, `ActivityTrendsSection`, `ListeningActivitySection`),
+and the DAO queries that feed them. No other screen changes.
+
+#### What the screen measures today, and what it does not
+
+Everything on the stats surface is derived from four tables that are **already written on every
+play**: `daily_playtime` (one total per day), `play_events` (one row per counted play, with a
+wall-clock timestamp), `media_analytics` (`playCount` / `skipCount` / `lastPlayed`), and
+`playback_history`. The screen reads a small fraction of what is banked there: a single day, a single
+rolling week, a single 30-day average, and exactly two tracks. Phase 6 spends the rest of that data.
+**No new tracking, and no schema change** — see DS-6.3.
+
+#### Decision records
+
+##### DS-6.1 — Stats stay inside the Me tab; no new navigation destination
+
+A dedicated Stats screen is the natural home for everything below, and it was considered first. It is
+**not** being built here: a new destination touches `MainScreen`, both navigation hosts and
+`AdaptiveNavigation`, which is a structural change that would dominate the diff and force feature work
+to be reviewed through it.
+
+The seam already exists and is being preserved rather than built: every section is its own file taking
+data and callbacks, with no ViewModel reference except the flows `MeScreen` hands it, and
+`AdaptiveMeScreen` wraps `MeScreen` rather than re-composing sections. Hoisting the sections onto a
+dedicated screen later is therefore a *move*, not a rewrite. Each Phase 6 task keeps that property.
+
+##### DS-6.2 — Do **not** split audio playtime from video playtime
+
+`daily_playtime` is one scalar per day, and `PlaybackAnalyticsTracker.onPositionUpdate` credits it on
+every playing tick regardless of media type. That is not an oversight: the 500 ms position loop in
+`PlaybackViewModel` drives audio and video through the same `MediaController`, and P4-E.2 preserved
+type-blind accrual deliberately (*"restricting accrual to known tracks would have quietly changed the
+numbers"*). So the tile labelled *Active Listening* has always included video.
+
+Splitting it needs a schema v6 and a new column, and **the backfill is impossible** — no historical row
+records which share of a day was audio. The result would be a metric that means one thing before the
+migration date and another after it, silently, with the streak, the daily average and the whole chart
+inheriting the ambiguity. Weighed against the non-negotiable *correctness of data over everything*,
+that is not a trade worth making for a labelling improvement.
+
+**What is done instead (Trivial tier):** the labels stop claiming more than the data supports —
+"Active Listening" becomes "Audio + video". Truthful copy costs nothing and cannot corrupt history.
+**Recorded as a future task, not a follow-up defect:** if the split is ever wanted, it is
+expand, then write-both, then relabel, with pre-migration days shown as "all playback" and never
+retroactively attributed.
+
+##### DS-6.3 — Read-only phase: no new writes, no new tables, no new dependency
+
+Every metric added in Phase 6 is a `SELECT` over data already banked. This is what makes the phase
+*Standard* rather than *Consequential*: it is fully reversible (revert the commit and the numbers
+disappear; nothing on disk changed), it cannot corrupt persisted state, and it needs nothing from the
+version catalog. Any Phase 6 task that finds itself wanting a migration must stop and be re-planned.
+
+**One semantic to state plainly rather than discover later:** `cleanupDeletedMedia` deletes a track
+row from `play_events` and `media_analytics`, so lifetime *play counts* fall when media is deleted,
+while `daily_playtime` — keyed by date, not by media — does not. Totals derived from the two therefore
+disagree after a deletion, by design. Phase 6 sources each number from the table whose semantics match
+the label: time-based numbers from `daily_playtime`, count-based numbers from `play_events`.
+
+#### Essentialism triage
+
+**Must be right now** — wrong numbers are worse than absent ones:
+- The day boundary. Every window on the screen (`today`, the rolling week, the 30-day average, the
+  Mon–Sun chart) is computed from a value captured once per subscription. S-6.1.
+- A storage total that matches its label. S-6.2.
+- Sourcing each metric from the table whose deletion semantics match it. DS-6.3.
+
+**Should be there at ship:**
+- Unit coverage at the level the arithmetic lives — pure functions on the JVM, DAO queries against
+  in-memory Room, per the precedent set by P4-A and P4-G.1.
+- An empty state that explains how the numbers accrue, rather than five zeroes.
+- Chart semantics for TalkBack. The app ships an accessibility guide screen; a `Canvas` with no
+  content description contradicts it.
+
+**Defer, leave a seam:**
+- A dedicated Stats destination (DS-6.1) — the section-per-file boundary is the seam.
+- Per-item stats on track/album detail screens — out of scope, other screens.
+- A shareable "year in review" card — wants an export/render path nothing else in the app has yet.
+
+**Explicitly not doing:**
+- The audio/video playtime split (DS-6.2).
+- Genre breakdowns. `MediaFile` has no genre and `MediaRepository` never queries `MediaStore` for one,
+  so this is a repository change wearing a stats costume.
+- Any cloud, sync or social comparison feature. The app is offline by design.
+
+#### Tasks
+
+| ID | Task | Risk | Depends on | Invariant to hold | Verification |
+|---|---|---|---|---|---|
+| **S-6.1** | Day-boundary correctness. The window every stat is measured in must follow the clock, not the subscription. Make it explicit and testable instead of an inline `Calendar` call inside a `flatMapLatest`. | 🟨 | — | Windows recompute when the day changes, and nothing recomputes when it has not | Pure-function unit tests over a fake clock; no device run needed |
+| **S-6.2** | `LibraryStats` counts what its labels claim: images included in the storage total, and an image tile so the total is explained. | 🟩 | — | The storage figure equals the sum of every indexed media list | Unit test over the three lists |
+| **S-6.3** | Lifetime totals and momentum: all-time playtime, total plays, listening-since, and this-week-vs-previous-week. | 🟩 | S-6.1 | Time totals come from `daily_playtime`, count totals from `play_events` (DS-6.3) | DAO tests against in-memory Room; pure-function test for the delta |
+| **S-6.4** | Range selector on Activity Trends — Week / Month / Year, replacing the hardcoded current Mon–Sun window. | 🟨 | S-6.1 | Bucketing is total-preserving: the sum of the buckets equals the range total | Pure-function bucketing tests; DAO range test |
+| **S-6.5** | Top lists: most-played tracks, artists and albums for the selected range, replacing the two-track ceiling. | 🟨 | S-6.3, S-6.4 | Ranking is stable and ties break deterministically | DAO test for the ranking query; pure-function test for the in-memory grouping |
+| **S-6.6** | Records: longest streak ever, best single day, most-active weekday. | 🟩 | S-6.1 | Longest-streak agrees with `CalculateStreakUseCase` on any run that is still current | Pure-function tests, including agreement with the existing use case |
+| **S-6.7** | Empty state and chart accessibility. | 🟩 | S-6.4 | Every stat surface is reachable and describable without sight or touch precision | Compose UI tests, per the P5-G precedent |
+
 ---
 
 ## 9. Progress tracker
@@ -794,6 +895,13 @@ Update the status cell as the **last step** of each task, in the same commit.
 | P5-F | Crash reporting | 🟩 | P1-E, OQ-1 | ⬜ | |
 | P5-G.1 | `MiniPlayer` Compose test | 🟩 | P4-G | ✅ | `MiniPlayerTest.kt` [NEW] — **10 tests, 10/10 green**. **Required the state hoisting F-7 predicted**: `MiniPlayer(viewModel: PlaybackViewModel, …)` cannot be driven from a test at all, so it was split into a thin ViewModel-bound wrapper and a stateless `MiniPlayerContent` taking data + callbacks. No call site changed. Covers title/artist rendering, the `Unknown Artist` fallback, the play↔pause control swap, tap-to-navigate firing `onTap` **and not** `onPlayPause`, the skip callbacks, and that a skip control is *disabled* rather than merely inert at the end of a queue. Also pins the "MiniPlayer never shows video" rule, which existed only as a source comment. Incidentally split the transport-control cluster out and removed two now-obsolete detekt/ktlint baseline entries rather than leaving them stale. |
 | P5-G.2 | Permission flow Compose test | 🟩 | P4-G | ✅ | `PermissionScreensTest.kt` [NEW] — **7 tests, 7/7 green**, no production change needed: the three screens already take callbacks. Covers all three states the card names and the transitions between them: the first ask explains itself and offers **no** Settings escape (the system dialog has not been spent yet); the rationale offers *both* retry and Settings **on separate callbacks** — a copy-paste edit wiring them together would pass a naive test and strand the user; and the permanent-denial screen offers Settings and **must not** show "Try Again", because Android will no longer show the dialog and that button would silently do nothing. These use real `performClick()` — they draw no artwork, see F-44. |
+| S-6.1 | Day-boundary correctness | 🟨 | — | ⬜ | |
+| S-6.2 | `LibraryStats` matches its labels | 🟩 | — | ⬜ | |
+| S-6.3 | Lifetime totals and momentum | 🟩 | S-6.1 | ⬜ | |
+| S-6.4 | Activity Trends range selector | 🟨 | S-6.1 | ⬜ | |
+| S-6.5 | Top tracks / artists / albums | 🟨 | S-6.3, S-6.4 | ⬜ | |
+| S-6.6 | Records: longest streak, best day | 🟩 | S-6.1 | ⬜ | |
+| S-6.7 | Empty state and chart accessibility | 🟩 | S-6.4 | ⬜ | |
 
 ### Follow-ups discovered during execution
 *(Append here rather than expanding a task's scope. Empty is fine.)*
