@@ -60,6 +60,7 @@ fun MeScreen(
     val libraryStats by analyticsViewModel.libraryStats.collectAsStateWithLifecycle()
     val activityBuckets by analyticsViewModel.activityBuckets.collectAsStateWithLifecycle()
     val activityRange by analyticsViewModel.activityRange.collectAsStateWithLifecycle()
+    val topLists by analyticsViewModel.topLists.collectAsStateWithLifecycle()
 
     // Lifetime totals and week-over-week momentum
     val listeningTotals by analyticsViewModel.listeningTotals.collectAsStateWithLifecycle()
@@ -128,6 +129,16 @@ fun MeScreen(
             selectedRange = activityRange,
             onRangeSelected = analyticsViewModel::selectActivityRange,
             primaryColor = theme.primaryColor,
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Top tracks / artists / albums, over the range the chart above is showing
+        TopListsSection(
+            lists = topLists,
+            range = activityRange,
+            primaryColor = theme.primaryColor,
+            onPlayMedia = onPlayMedia,
         )
 
         Spacer(modifier = Modifier.height(24.dp))

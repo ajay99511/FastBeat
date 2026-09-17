@@ -10,6 +10,8 @@ import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
 import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
 import com.local.offlinemediaplayer.domain.PeriodChange
 import com.local.offlinemediaplayer.domain.StatsRange
+import com.local.offlinemediaplayer.domain.TopLists
+import com.local.offlinemediaplayer.domain.TopListsSnapshot
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -256,6 +258,31 @@ class AnalyticsViewModel
         fun selectActivityRange(range: StatsRange) {
             selectedRange.value = range
         }
+
+        /**
+         * Top tracks, artists and albums over the same window the chart is showing.
+         *
+         * Deliberately governed by [activityRange] rather than by a control of its own. The two
+         * answer the same question at different resolutions — *when* did I listen, and *to what* —
+         * and a screen with two independent period pickers invites exactly one mistake: reading a
+         * chart of this year beside a top list of this week and believing they agree.
+         *
+         * `play_events.timestamp` is wall-clock, while the range start is a midnight day key. A day
+         * key is a valid `>=` bound on wall-clock times, so the window opens at the first instant of
+         * its first day — the same instant the chart's first bar opens at.
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val topLists =
+            combine(currentDay, selectedRange) { today, range -> today to range }
+                .flatMapLatest { (today, range) ->
+                    combine(
+                        mediaDao.getPlayCountsSince(ActivityChart.rangeStart(range, today)),
+                        mediaRepository.audioList,
+                        mediaRepository.videoList,
+                    ) { counts, audio, videos ->
+                        TopLists.from(counts.map { it.mediaId to it.plays }, audio + videos)
+                    }
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TopListsSnapshot())
 
         /**
          * The bars for the selected range.

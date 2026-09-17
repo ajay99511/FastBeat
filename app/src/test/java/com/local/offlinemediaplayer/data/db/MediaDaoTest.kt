@@ -445,6 +445,49 @@ class MediaDaoTest {
         }
 
     @Test
+    fun getPlayCountsSince_groupsByTrackAndExcludesOlderPlays() =
+        runBlocking {
+            dao.logPlayEvent(PlayEvent(mediaId = 1, timestamp = 100))
+            dao.logPlayEvent(PlayEvent(mediaId = 1, timestamp = 200))
+            dao.logPlayEvent(PlayEvent(mediaId = 2, timestamp = 200))
+            // Before the window.
+            dao.logPlayEvent(PlayEvent(mediaId = 2, timestamp = 50))
+
+            val counts = dao.getPlayCountsSince(100).first()
+
+            assertEquals(listOf(1L to 2, 2L to 1), counts.map { it.mediaId to it.plays })
+        }
+
+    /** The bound is inclusive, so a play at the very first instant of the window counts. */
+    @Test
+    fun getPlayCountsSince_includesAPlayExactlyOnTheBound() =
+        runBlocking {
+            dao.logPlayEvent(PlayEvent(mediaId = 1, timestamp = 100))
+
+            assertEquals(
+                1,
+                dao
+                    .getPlayCountsSince(100)
+                    .first()
+                    .single()
+                    .plays,
+            )
+            assertTrue(dao.getPlayCountsSince(101).first().isEmpty())
+        }
+
+    /**
+     * Ties break by `mediaId` so the ordering is total. Without it SQLite may return equal-count
+     * rows in any order, and the top list would reshuffle itself between emissions.
+     */
+    @Test
+    fun getPlayCountsSince_breaksTiesDeterministically() =
+        runBlocking {
+            listOf(3L, 1L, 2L).forEach { dao.logPlayEvent(PlayEvent(mediaId = it, timestamp = 100)) }
+
+            assertEquals(listOf(1L, 2L, 3L), dao.getPlayCountsSince(0).first().map { it.mediaId })
+        }
+
+    @Test
     fun getActiveDays_dropsDaysUnderThresholdAndOrdersNewestFirst() =
         runBlocking {
             // Just under the threshold — must be excluded.

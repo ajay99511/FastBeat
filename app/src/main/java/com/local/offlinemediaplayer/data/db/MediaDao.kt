@@ -153,6 +153,24 @@ interface MediaDao {
     @Insert
     suspend fun logPlayEvent(event: PlayEvent)
 
+    /**
+     * Play counts per track since [sinceTimestamp], busiest first.
+     *
+     * Unlimited on purpose. The top *tracks* could be a `LIMIT 10`, but the top artists and albums
+     * are sums over their tracks, and a track outside the track top ten can still belong to the
+     * busiest artist — cutting the list here would quietly rank artists by their best song rather
+     * than by their total. The result is bounded by the number of distinct tracks played in the
+     * window, never by library size.
+     *
+     * `mediaId` breaks ties so the ordering is total and the list does not reshuffle between
+     * emissions for rows SQLite happens to visit in a different order.
+     */
+    @Query(
+        "SELECT mediaId, COUNT(*) AS plays FROM play_events WHERE timestamp >= :sinceTimestamp " +
+            "GROUP BY mediaId ORDER BY plays DESC, mediaId ASC",
+    )
+    fun getPlayCountsSince(sinceTimestamp: Long): Flow<List<MediaPlayCount>>
+
     // Most played in range (Current Favorite)
     @Query(
         "SELECT mediaId FROM play_events WHERE timestamp >= :sinceTimestamp GROUP BY mediaId ORDER BY COUNT(*) DESC LIMIT 1",
