@@ -4,8 +4,10 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Speed
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -37,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -45,23 +50,34 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.local.offlinemediaplayer.domain.ActivityBucket
+import com.local.offlinemediaplayer.domain.StatsRange
 import com.local.offlinemediaplayer.ui.common.FormatUtils
-import com.local.offlinemediaplayer.viewmodel.DailyActivity
 
 /**
- * "ACTIVITY TRENDS" — the seven-day playtime bar chart on the Me tab.
+ * "ACTIVITY TRENDS" — the playtime bar chart on the Me tab, over the selected [StatsRange].
  *
- * Moved out of `MeScreen.kt` unchanged. [ActivityBarChart] does the Canvas drawing and is the one
- * genuinely long composable here; its pre-existing detekt baseline entries moved with it.
+ * The chart is deliberately ignorant of what a bar *is*. It draws whatever [ActivityBucket]s it is
+ * handed — seven days, thirty days or twelve months — which is what let the range selector be added
+ * without touching the Canvas drawing at all. Deciding what a bucket covers and what it is called
+ * belongs to `ActivityChart`, where it can be tested without a renderer.
+ *
+ * [ActivityBarChart] does the Canvas drawing and is the one genuinely long composable here; its
+ * pre-existing detekt baseline entries moved with it out of `MeScreen.kt`.
  */
 @Composable
 internal fun ActivityTrendsSection(
-    weeklyActivity: List<DailyActivity>,
+    buckets: List<ActivityBucket>,
+    selectedRange: StatsRange,
+    onRangeSelected: (StatsRange) -> Unit,
     primaryColor: Color,
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         // Header
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Icon(
                 Icons.Outlined.Speed,
                 null,
@@ -77,7 +93,15 @@ internal fun ActivityTrendsSection(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        RangeSelector(
+            selected = selectedRange,
+            onSelect = onRangeSelected,
+            primaryColor = primaryColor,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Chart Card
         Card(
@@ -96,7 +120,7 @@ internal fun ActivityTrendsSection(
             ) {
                 // Bar Chart
                 ActivityBarChart(
-                    data = weeklyActivity,
+                    data = buckets,
                     primaryColor = primaryColor,
                     modifier =
                         Modifier
@@ -106,18 +130,23 @@ internal fun ActivityTrendsSection(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Day Labels
+                // One weighted cell per bar, whether or not it carries a label. Rendering only the
+                // labelled ones would space them evenly among themselves and detach every label
+                // from the bar it names — the failure gets worse the more bars there are, which is
+                // exactly when labels are sparse.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    weeklyActivity.forEach { day ->
+                    buckets.forEach { bucket ->
                         Text(
-                            text = day.dayLabel,
+                            text = bucket.label,
                             fontSize = 11.sp,
-                            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                            softWrap = false,
+                            fontWeight = if (bucket.isCurrent) FontWeight.Bold else FontWeight.Normal,
                             color =
-                                if (day.isToday) {
+                                if (bucket.isCurrent) {
                                     primaryColor
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
@@ -132,9 +161,53 @@ internal fun ActivityTrendsSection(
     }
 }
 
+/**
+ * The Week / Month / Year switch.
+ *
+ * Three buttons rather than a dropdown: with this few options the cost of showing them all is one
+ * row, and it makes the fact that other ranges exist discoverable — which was the actual problem,
+ * since the chart previously gave no hint that anything but this week was available.
+ */
+@Composable
+private fun RangeSelector(
+    selected: StatsRange,
+    onSelect: (StatsRange) -> Unit,
+    primaryColor: Color,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StatsRange.entries.forEach { range ->
+            val isSelected = range == selected
+            Box(
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isSelected) {
+                                primaryColor.copy(alpha = 0.15f)
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                        ).selectable(
+                            selected = isSelected,
+                            role = Role.RadioButton,
+                            onClick = { onSelect(range) },
+                        ).padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = range.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color =
+                        if (isSelected) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ActivityBarChart(
-    data: List<DailyActivity>,
+    data: List<ActivityBucket>,
     primaryColor: Color,
     modifier: Modifier = Modifier,
 ) {
@@ -245,12 +318,12 @@ private fun ActivityBarChart(
         }
 
         // Draw Bars
-        data.forEachIndexed { index, day ->
+        data.forEachIndexed { index, bucket ->
             val x = spacing + index * (barWidth + spacing)
 
             val targetHeight =
                 if (maxMinutes > 0) {
-                    val ratio = day.playtimeMinutes.toFloat() / maxMinutes
+                    val ratio = bucket.playtimeMinutes.toFloat() / maxMinutes
                     (ratio * (chartHeight - minBarHeight)) + minBarHeight
                 } else {
                     minBarHeight
@@ -267,7 +340,7 @@ private fun ActivityBarChart(
             val alphaMultiplier = if (hasSelection && !isSelected) 0.3f else 1.0f
 
             val brush =
-                if (day.playtimeMinutes > 0) {
+                if (bucket.playtimeMinutes > 0) {
                     Brush.verticalGradient(
                         colors =
                             listOf(
@@ -297,9 +370,9 @@ private fun ActivityBarChart(
 
             // Draw Tooltip for selected bar OR always show value if it's today
             if (isSelected ||
-                (day.isToday && !hasSelection && day.playtimeMinutes > 0 && animationProgress > 0.9f)
+                (bucket.isCurrent && !hasSelection && bucket.playtimeMinutes > 0 && animationProgress > 0.9f)
             ) {
-                val text = FormatUtils.formatMinutesToHours(day.playtimeMinutes)
+                val text = FormatUtils.formatMinutesToHours(bucket.playtimeMinutes)
                 val textLayoutResult =
                     textMeasurer.measure(
                         text = AnnotatedString(text),

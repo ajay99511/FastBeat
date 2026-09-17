@@ -67,6 +67,60 @@ object AnalyticsDays {
             .timeInMillis
 
     /**
+     * [count] consecutive day keys ending at [dayKey], oldest first.
+     *
+     * Stepped a calendar day at a time for the same reason [weekOf] is: these are lookup keys, and
+     * a key an hour out matches no row.
+     */
+    fun daysEnding(
+        dayKey: Long,
+        count: Int,
+    ): List<Long> {
+        if (count <= 0) return emptyList()
+
+        val cursor = normalizedCalendar(dayKey)
+        cursor.add(Calendar.DAY_OF_YEAR, -(count - 1))
+
+        val days = ArrayList<Long>(count)
+        repeat(count) {
+            days += cursor.timeInMillis
+            cursor.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return days
+    }
+
+    /** The day key of the first of the month [dayKey] falls in. */
+    fun startOfMonth(dayKey: Long): Long =
+        normalizedCalendar(dayKey)
+            .apply { set(Calendar.DAY_OF_MONTH, 1) }
+            .timeInMillis
+
+    /**
+     * [count] consecutive month-start keys ending with the month [dayKey] falls in, oldest first.
+     *
+     * `Calendar.add(MONTH, 1)` is what makes this safe on the days a naive implementation breaks:
+     * months are 28 to 31 days long, so stepping by a day count drifts immediately, and starting
+     * from the 31st would land the cursor on the 1st of the following month in any short month.
+     * Normalising to the first of the month before stepping removes that class of bug entirely.
+     */
+    fun monthsEnding(
+        dayKey: Long,
+        count: Int,
+    ): List<Long> {
+        if (count <= 0) return emptyList()
+
+        val cursor = normalizedCalendar(startOfMonth(dayKey))
+        cursor.add(Calendar.MONTH, -(count - 1))
+
+        val months = ArrayList<Long>(count)
+        repeat(count) {
+            months += cursor.timeInMillis
+            cursor.add(Calendar.MONTH, 1)
+        }
+        return months
+    }
+
+    /**
      * Tolerates a timestamp that has not been normalised yet, so a caller cannot produce keys with
      * a time-of-day component that will match nothing in the table.
      */

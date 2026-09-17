@@ -2,9 +2,9 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComplexCondition:ActivityTrendsSection.kt$isSelected || (day.isToday &amp;&amp; !hasSelection &amp;&amp; day.playtimeMinutes &gt; 0 &amp;&amp; animationProgress &gt; 0.9f)</ID>
+    <ID>ComplexCondition:ActivityTrendsSection.kt$isSelected || (bucket.isCurrent &amp;&amp; !hasSelection &amp;&amp; bucket.playtimeMinutes &gt; 0 &amp;&amp; animationProgress &gt; 0.9f)</ID>
     <ID>ComplexCondition:DragDropState.kt$DragDropState$key != null &amp;&amp; startIndex &gt;= 0 &amp;&amp; endIndex &gt;= 0 &amp;&amp; startIndex != endIndex</ID>
-    <ID>CyclomaticComplexMethod:ActivityTrendsSection.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:ActivityTrendsSection.kt$@Composable private fun ActivityBarChart( data: List&lt;ActivityBucket&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
     <ID>CyclomaticComplexMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:AlbumListScreen.kt$@Composable fun AlbumListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel, onAlbumClick: (Long) -&gt; Unit, onAddMultipleToPlaylist: (List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean, )</ID>
     <ID>CyclomaticComplexMethod:AudioLibraryScreen.kt$@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) @Composable fun AudioLibraryScreen( viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onNavigateToPlayer: () -&gt; Unit, onNavigateToPlaylist: (String) -&gt; Unit, onNavigateToAlbum: (Long) -&gt; Unit, onNavigateToArtist: (String) -&gt; Unit, onNavigateToSmartPlaylist: (String) -&gt; Unit, onNavigateToDecade: (Int) -&gt; Unit, isSearchVisible: Boolean, )</ID>
@@ -26,7 +26,7 @@
     <ID>InstanceOfCheckForException:LibraryViewModel.kt$LibraryViewModel$e is RecoverableSecurityException</ID>
     <ID>LargeClass:PlaybackViewModel.kt$PlaybackViewModel : ViewModel</ID>
     <ID>LongMethod:AccessibilityGuideScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccessibilityGuideScreen(onBack: () -&gt; Unit)</ID>
-    <ID>LongMethod:ActivityTrendsSection.kt$@Composable private fun ActivityBarChart( data: List&lt;DailyActivity&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:ActivityTrendsSection.kt$@Composable private fun ActivityBarChart( data: List&lt;ActivityBucket&gt;, primaryColor: Color, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@Composable fun AlbumDetailScreen( albumId: Long, viewModel: PlaybackViewModel, playlistViewModel: PlaylistViewModel = hiltViewModel(), libraryViewModel: LibraryViewModel = hiltViewModel(), onBack: () -&gt; Unit, onNavigateToPlayer: () -&gt; Unit, )</ID>
     <ID>LongMethod:AlbumDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun AlbumSongRow( index: Int, song: MediaFile, isPlaying: Boolean = false, isSelectionMode: Boolean = false, isSelected: Boolean = false, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onPlayNext: () -&gt; Unit, onAddToQueue: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit, )</ID>
     <ID>LongMethod:AlbumListScreen.kt$@Composable fun AlbumListScreen( viewModel: PlaybackViewModel, libraryViewModel: LibraryViewModel, onAlbumClick: (Long) -&gt; Unit, onAddMultipleToPlaylist: (List&lt;MediaFile&gt;) -&gt; Unit, isSearchVisible: Boolean, )</ID>
@@ -61,17 +61,10 @@
     <ID>LongParameterList:VideoListItems.kt$( video: MediaFile, onVideoClick: () -&gt; Unit, onLongClick: () -&gt; Unit, onAddToPlaylist: () -&gt; Unit, isSelectionMode: Boolean, isSelected: Boolean, onDelete: () -&gt; Unit, onProperties: () -&gt; Unit, onRename: () -&gt; Unit = {}, progress: Float = 0f, )</ID>
     <ID>LongParameterList:VideoPlayerControls.kt$( isPlaying: Boolean, position: Long, duration: Long, playbackSpeed: Float, showRemainingTime: Boolean, onToggleRemaining: () -&gt; Unit, primaryAccent: Color, onSeek: (Long) -&gt; Unit, onPrevious: () -&gt; Unit, onRewind: () -&gt; Unit, onTogglePlay: () -&gt; Unit, onForward: () -&gt; Unit, onNext: () -&gt; Unit, onCycleSpeed: () -&gt; Unit, onRotate: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongParameterList:VideoPlayerControls.kt$( title: String, isLandscape: Boolean, onBack: () -&gt; Unit, onResize: () -&gt; Unit, onShowBookmarks: () -&gt; Unit, onShowSubtitleTracks: () -&gt; Unit, onShowAudioTracks: () -&gt; Unit, onPip: () -&gt; Unit, onShowAddToPlaylist: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$1000</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$24</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$29L</ID>
     <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$3</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$30</ID>
     <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$4</ID>
     <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$5</ID>
     <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$5000</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$6</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$60</ID>
-    <ID>MagicNumber:AnalyticsViewModel.kt$AnalyticsViewModel$6L</ID>
     <ID>MagicNumber:AudioEffectsManager.kt$AudioEffectsManager$1000</ID>
     <ID>MagicNumber:DatabaseModule.kt$DatabaseModule$3</ID>
     <ID>MagicNumber:DatabaseModule.kt$DatabaseModule$4</ID>

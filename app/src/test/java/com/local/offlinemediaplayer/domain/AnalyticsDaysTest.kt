@@ -246,6 +246,57 @@ class AnalyticsDaysTest {
         )
     }
 
+    // ------------------------------------------------------------------ daysEnding / months
+
+    @Test
+    fun daysEndingReturnsThatManyDaysOldestFirst() {
+        val days = AnalyticsDays.daysEnding(midnight(2026, 9, 15), 30)
+
+        assertEquals(30, days.size)
+        assertEquals(midnight(2026, 8, 17), days.first())
+        assertEquals(midnight(2026, 9, 15), days.last())
+        assertEquals(days.sorted(), days)
+    }
+
+    @Test
+    fun daysEndingIsEmptyForANonPositiveCount() {
+        assertTrue(AnalyticsDays.daysEnding(midnight(2026, 9, 15), 0).isEmpty())
+        assertTrue(AnalyticsDays.daysEnding(midnight(2026, 9, 15), -1).isEmpty())
+    }
+
+    @Test
+    fun startOfMonthIsTheFirstOfTheMonth() {
+        assertEquals(midnight(2026, 9, 1), AnalyticsDays.startOfMonth(midnight(2026, 9, 15)))
+        assertEquals(midnight(2026, 9, 1), AnalyticsDays.startOfMonth(midnight(2026, 9, 1)))
+        assertEquals(midnight(2026, 9, 1), AnalyticsDays.startOfMonth(midnight(2026, 9, 30)))
+    }
+
+    @Test
+    fun monthsEndingReturnsMonthStartsOldestFirst() {
+        val months = AnalyticsDays.monthsEnding(midnight(2026, 9, 15), 12)
+
+        assertEquals(12, months.size)
+        assertEquals(midnight(2025, 10, 1), months.first())
+        assertEquals(midnight(2026, 9, 1), months.last())
+    }
+
+    /**
+     * The case a day-count implementation gets wrong. Stepping back a month from the 31st has to
+     * land on the 1st of the previous month, not on whatever the 31st minus 30 days happens to be —
+     * which in a 28-day February is the 3rd of the month you started in.
+     */
+    @Test
+    fun monthsEndingIsStableWhenStartedFromA31stBeforeAShortMonth() {
+        val months = AnalyticsDays.monthsEnding(midnight(2026, 3, 31), 3)
+
+        assertEquals(listOf(midnight(2026, 1, 1), midnight(2026, 2, 1), midnight(2026, 3, 1)), months)
+    }
+
+    @Test
+    fun monthsEndingIsEmptyForANonPositiveCount() {
+        assertTrue(AnalyticsDays.monthsEnding(midnight(2026, 9, 15), 0).isEmpty())
+    }
+
     // ------------------------------------------------------------------ robustness
 
     /** A caller that forgets to normalise must not be able to produce keys that match no row. */

@@ -3,16 +3,21 @@ package com.local.offlinemediaplayer.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.domain.ActivityChart
 import com.local.offlinemediaplayer.domain.AnalyticsDays
 import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
 import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
 import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
 import com.local.offlinemediaplayer.domain.PeriodChange
+import com.local.offlinemediaplayer.domain.StatsRange
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -41,12 +46,6 @@ data class LibraryStats(
     val totalStorageBytes: Long
         get() = audioStorageBytes + videoStorageBytes + imageStorageBytes
 }
-
-data class DailyActivity(
-    val dayLabel: String,
-    val playtimeMinutes: Int = 0,
-    val isToday: Boolean = false,
-)
 
 /**
  * The long-window numbers: everything ever recorded, and how the current week compares with the one
@@ -241,30 +240,43 @@ class AnalyticsViewModel
                     }
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ListeningTotals())
 
+        private val selectedRange = MutableStateFlow(StatsRange.WEEK)
+
+        /**
+         * The range the activity chart is showing.
+         *
+         * Held here rather than as `remember` state in the composable so it survives the Me tab
+         * scrolling out of composition — picking "Year", scrolling down to the settings cards and
+         * back would otherwise silently reset the chart to "Week" and look like a bug.
+         */
+        val activityRange: StateFlow<StatsRange> = selectedRange.asStateFlow()
+
+        fun selectActivityRange(range: StatsRange) {
+            selectedRange.value = range
+        }
+
+        /**
+         * The bars for the selected range.
+         *
+         * The query bounds and the buckets come from the same pair of functions, which is what
+         * makes the bucketing total-preserving: there is no window the query covers and the buckets
+         * do not, or the reverse. Grouping happens in Kotlin rather than SQL because month
+         * boundaries are a local-timezone question and SQLite would have to be told the offset for
+         * every row — including the rows on either side of a DST shift, where it differs.
+         */
         @OptIn(ExperimentalCoroutinesApi::class)
-        val weeklyActivity =
-            currentDay
-                .flatMapLatest { today ->
-                    // Day keys, not an arithmetic span: the week is stepped a calendar day at a
-                    // time so the keys still match the table's across a DST shift. See AnalyticsDays.
-                    val week = AnalyticsDays.weekOf(today)
+        val activityBuckets =
+            combine(currentDay, selectedRange) { today, range -> today to range }
+                .flatMapLatest { (today, range) ->
+                    val start = ActivityChart.rangeStart(range, today)
+                    val end = ActivityChart.rangeEnd(range, today)
 
-                    mediaDao.getWeekDailyPlaytimes(week.first(), week.last()).map { records ->
-                        val playtimeByDay = records.associate { it.date to it.totalPlaytimeMs }
-
-                        week.mapIndexed { index, dayKey ->
-                            DailyActivity(
-                                dayLabel = DAY_LABELS[index],
-                                playtimeMinutes = ((playtimeByDay[dayKey] ?: 0L) / MS_PER_MINUTE).toInt(),
-                                isToday = dayKey == today,
-                            )
-                        }
+                    mediaDao.getDailyPlaytimes(start, end).map { records ->
+                        ActivityChart.bucketsFor(range, today, records.associate { it.date to it.totalPlaytimeMs })
                     }
-                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), EMPTY_WEEK)
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         private companion object {
-            val DAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-
             const val MS_PER_MINUTE = 60_000L
 
             /**
@@ -278,14 +290,5 @@ class AnalyticsViewModel
 
             /** Length of the rolling window behind the daily average. */
             const val DAYS_IN_MONTH_WINDOW = 30
-
-            /**
-             * Placeholder shown until [currentDay] emits, which it does on first collection.
-             *
-             * No day is marked as today on purpose: the alternative is a second, independent read
-             * of the clock whose only job is to be replaced microseconds later, and a placeholder
-             * that highlights the wrong bar is worse than one that highlights none.
-             */
-            val EMPTY_WEEK = DAY_LABELS.map { DailyActivity(dayLabel = it) }
         }
     }

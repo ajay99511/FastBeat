@@ -136,9 +136,15 @@ interface MediaDao {
     @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
     fun getActiveDays(): Flow<List<Long>>
 
-    // Get daily playtime records for a date range (Activity Trends)
+    /**
+     * Daily playtime rows in a closed day-key range, oldest first — the raw material the activity
+     * chart buckets.
+     *
+     * Was `getWeekDailyPlaytimes`, which the query never was: nothing here is week-shaped, and the
+     * name was the only thing suggesting the chart could not show anything else.
+     */
     @Query("SELECT * FROM daily_playtime WHERE date >= :startDate AND date <= :endDate ORDER BY date ASC")
-    fun getWeekDailyPlaytimes(
+    fun getDailyPlaytimes(
         startDate: Long,
         endDate: Long,
     ): Flow<List<DailyPlaytime>>

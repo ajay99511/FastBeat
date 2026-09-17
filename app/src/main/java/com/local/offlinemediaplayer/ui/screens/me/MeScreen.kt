@@ -58,7 +58,8 @@ fun MeScreen(
 
     // Library Stats & Activity Trends
     val libraryStats by analyticsViewModel.libraryStats.collectAsStateWithLifecycle()
-    val weeklyActivity by analyticsViewModel.weeklyActivity.collectAsStateWithLifecycle()
+    val activityBuckets by analyticsViewModel.activityBuckets.collectAsStateWithLifecycle()
+    val activityRange by analyticsViewModel.activityRange.collectAsStateWithLifecycle()
 
     // Lifetime totals and week-over-week momentum
     val listeningTotals by analyticsViewModel.listeningTotals.collectAsStateWithLifecycle()
@@ -123,7 +124,9 @@ fun MeScreen(
 
         // Activity trends
         ActivityTrendsSection(
-            weeklyActivity = weeklyActivity,
+            buckets = activityBuckets,
+            selectedRange = activityRange,
+            onRangeSelected = analyticsViewModel::selectActivityRange,
             primaryColor = theme.primaryColor,
         )
 
