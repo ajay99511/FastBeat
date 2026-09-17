@@ -7,6 +7,7 @@ import com.local.offlinemediaplayer.domain.AnalyticsDays
 import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
 import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
 import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
+import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,18 +20,56 @@ import javax.inject.Inject
 
 // --- Data classes for UI consumption ---
 
+/**
+ * The counts-and-storage summary at the top of the stats surface.
+ *
+ * [totalStorageBytes] is derived rather than stored, so the headline figure cannot drift away from
+ * the breakdown printed underneath it — the previous shape accepted a total as a constructor
+ * argument, and the one it was given left images out entirely while the card called itself
+ * "Total Storage Used".
+ */
 data class LibraryStats(
     val songCount: Int = 0,
     val videoCount: Int = 0,
+    val imageCount: Int = 0,
     val playlistCount: Int = 0,
-    val totalStorageBytes: Long = 0,
-)
+    val audioStorageBytes: Long = 0,
+    val videoStorageBytes: Long = 0,
+    val imageStorageBytes: Long = 0,
+) {
+    val totalStorageBytes: Long
+        get() = audioStorageBytes + videoStorageBytes + imageStorageBytes
+}
 
 data class DailyActivity(
     val dayLabel: String,
     val playtimeMinutes: Int = 0,
     val isToday: Boolean = false,
 )
+
+/**
+ * Folds the indexed media lists and the playlist count into [LibraryStats].
+ *
+ * Top-level and `internal` rather than a lambda inside the `combine` so that the one rule this has
+ * actually got wrong — *every* indexed media type is counted — is pinned by a test rather than by
+ * reading a flow declaration. The bug it replaces was invisible for exactly that reason: the fold
+ * summed two of the three lists and nothing said so out loud.
+ */
+internal fun libraryStatsOf(
+    audio: List<MediaFile>,
+    videos: List<MediaFile>,
+    images: List<MediaFile>,
+    playlistCount: Int,
+): LibraryStats =
+    LibraryStats(
+        songCount = audio.size,
+        videoCount = videos.size,
+        imageCount = images.size,
+        playlistCount = playlistCount,
+        audioStorageBytes = audio.sumOf { it.size },
+        videoStorageBytes = videos.sumOf { it.size },
+        imageStorageBytes = images.sumOf { it.size },
+    )
 
 @HiltViewModel
 class AnalyticsViewModel
@@ -126,16 +165,10 @@ class AnalyticsViewModel
             combine(
                 mediaRepository.audioList,
                 mediaRepository.videoList,
+                mediaRepository.imageList,
                 mediaDao.getPlaylistCountFlow(),
-            ) { audio, videos, playlistCount ->
-                val totalStorage = audio.sumOf { it.size } + videos.sumOf { it.size }
-                LibraryStats(
-                    songCount = audio.size,
-                    videoCount = videos.size,
-                    playlistCount = playlistCount,
-                    totalStorageBytes = totalStorage,
-                )
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryStats())
+                ::libraryStatsOf,
+            ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryStats())
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val weeklyActivity =

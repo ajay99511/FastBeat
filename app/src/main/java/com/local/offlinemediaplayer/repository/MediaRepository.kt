@@ -348,7 +348,14 @@ class MediaRepository
                 } else {
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                 }
-            val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME)
+            // SIZE is read so images can be counted in the library's storage total. Without it
+            // every image carries size = 0 and the total silently under-reports.
+            val projection =
+                arrayOf(
+                    MediaStore.Images.Media._ID,
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    MediaStore.Images.Media.SIZE,
+                )
             try {
                 context.contentResolver
                     .query(
@@ -360,6 +367,7 @@ class MediaRepository
                     )?.use { cursor ->
                         val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                         val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+                        val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
                         while (cursor.moveToNext()) {
                             val id = cursor.getLong(idColumn)
                             val name = cursor.getString(nameColumn) ?: "Unknown Image"
@@ -375,6 +383,7 @@ class MediaRepository
                                     isImage = true,
                                     albumArtUri = null,
                                     albumId = -1,
+                                    size = cursor.getLong(sizeColumn),
                                 ),
                             )
                         }
