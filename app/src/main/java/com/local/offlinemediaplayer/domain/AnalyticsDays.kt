@@ -48,6 +48,25 @@ object AnalyticsDays {
     }
 
     /**
+     * The day key [days] calendar days before [dayKey].
+     *
+     * Window starts were previously written inline as `today - 6L * 24 * 60 * 60 * 1000`. The range
+     * queries compare with `date >= :start`, and walking back across a 25-hour day leaves that
+     * expression an hour *past* the midnight it meant to land on. The intended first day's own key
+     * then fails the predicate, and "Last 7 Days" quietly becomes six.
+     *
+     * Walking back across a 23-hour day drifts the other way and is harmless, which is why this
+     * survived: it loses data in one direction only, once a year.
+     */
+    fun daysBefore(
+        dayKey: Long,
+        days: Int,
+    ): Long =
+        normalizedCalendar(dayKey)
+            .apply { add(Calendar.DAY_OF_YEAR, -days) }
+            .timeInMillis
+
+    /**
      * Tolerates a timestamp that has not been normalised yet, so a caller cannot produce keys with
      * a time-of-day component that will match nothing in the table.
      */

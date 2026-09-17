@@ -345,6 +345,105 @@ class MediaDaoTest {
             assertEquals(12_000L, dao.getPlaytimeForDay(DAY_MS).first())
         }
 
+    /**
+     * `SUM` over no rows is NULL, not 0. Every caller of the lifetime aggregates has to handle it,
+     * so the null is pinned here rather than left as a surprise at the first launch after install —
+     * the one run where it is guaranteed to happen and the least likely to be tested by hand.
+     */
+    @Test
+    fun getTotalPlaytime_isNullWhenNothingHasEverBeenPlayed() =
+        runBlocking {
+            assertNull(dao.getTotalPlaytimeFlow().first())
+        }
+
+    @Test
+    fun getTotalPlaytime_sumsEveryDayEverRecorded() =
+        runBlocking {
+            dao.initDailyPlaytime(1 * DAY_MS)
+            dao.addToDailyPlaytime(1 * DAY_MS, 5_000)
+            dao.initDailyPlaytime(400 * DAY_MS)
+            dao.addToDailyPlaytime(400 * DAY_MS, 7_000)
+
+            assertEquals(
+                "a lifetime total is not windowed — a day from over a year ago still counts",
+                12_000L,
+                dao.getTotalPlaytimeFlow().first(),
+            )
+        }
+
+    /**
+     * `initDailyPlaytime` seeds a row at 0 whenever a session starts, so rows with no playtime are
+     * routine. "Listening since" must skip them, or opening the app on a day you never played
+     * anything would move the start of your history forward.
+     */
+    @Test
+    fun getFirstActiveDay_ignoresDaysThatRecordedNoPlaytime() =
+        runBlocking {
+            dao.initDailyPlaytime(1 * DAY_MS) // seeded, never played
+            dao.initDailyPlaytime(2 * DAY_MS)
+            dao.addToDailyPlaytime(2 * DAY_MS, 1)
+
+            assertEquals(2 * DAY_MS, dao.getFirstActiveDayFlow().first())
+        }
+
+    /**
+     * Deliberately a lower bar than [getActiveDays]. The streak ignores a day with only seconds on
+     * it; this answers a different question — when the history starts — and a day the user did play
+     * on belongs to that history however briefly.
+     */
+    @Test
+    fun getFirstActiveDay_countsADayBelowTheStreakThreshold() =
+        runBlocking {
+            dao.initDailyPlaytime(1 * DAY_MS)
+            dao.addToDailyPlaytime(1 * DAY_MS, ACTIVE_DAY_THRESHOLD_MS - 1)
+
+            assertEquals(1 * DAY_MS, dao.getFirstActiveDayFlow().first())
+            assertTrue(
+                "the same day is not active enough to extend a streak",
+                dao.getActiveDays().first().isEmpty(),
+            )
+        }
+
+    @Test
+    fun getFirstActiveDay_isNullBeforeAnythingIsPlayed() =
+        runBlocking {
+            assertNull(dao.getFirstActiveDayFlow().first())
+        }
+
+    @Test
+    fun getTotalPlayCount_countsEveryLoggedPlay() =
+        runBlocking {
+            assertEquals("COUNT over no rows is 0, not null", 0, dao.getTotalPlayCountFlow().first())
+
+            dao.logPlayEvent(PlayEvent(mediaId = 1, timestamp = 10))
+            dao.logPlayEvent(PlayEvent(mediaId = 1, timestamp = 20))
+            dao.logPlayEvent(PlayEvent(mediaId = 2, timestamp = 30))
+
+            assertEquals(
+                "the same track played twice is two plays, not one",
+                3,
+                dao.getTotalPlayCountFlow().first(),
+            )
+        }
+
+    /**
+     * The asymmetry recorded in DS-6.3, pinned so it is a documented property rather than a bug
+     * report waiting to happen: deleting media takes its plays with it, while the time those plays
+     * accrued stays in `daily_playtime`, which is keyed by date and knows nothing about media.
+     */
+    @Test
+    fun deletingMediaDropsItsPlaysButNotTheTimeTheyAccrued() =
+        runBlocking {
+            dao.initDailyPlaytime(DAY_MS)
+            dao.addToDailyPlaytime(DAY_MS, 9_000)
+            dao.logPlayEvent(PlayEvent(mediaId = 1, timestamp = 10))
+
+            dao.deletePlayEvents(listOf(1))
+
+            assertEquals(0, dao.getTotalPlayCountFlow().first())
+            assertEquals(9_000L, dao.getTotalPlaytimeFlow().first())
+        }
+
     @Test
     fun getActiveDays_dropsDaysUnderThresholdAndOrdersNewestFirst() =
         runBlocking {

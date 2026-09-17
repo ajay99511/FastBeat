@@ -103,6 +103,35 @@ interface MediaDao {
         endDate: Long,
     ): Flow<Long?>
 
+    /**
+     * Every millisecond ever recorded. Null when the table is empty — `SUM` over no rows is NULL,
+     * not 0, which is why every caller of these aggregates must handle a null.
+     */
+    @Query("SELECT SUM(totalPlaytimeMs) FROM daily_playtime")
+    fun getTotalPlaytimeFlow(): Flow<Long?>
+
+    /**
+     * The first day that recorded any playback at all, or null before anything has been played.
+     *
+     * The predicate is `> 0`, not the `> 60000` that [getActiveDays] uses. The streak deliberately
+     * ignores a day with only a few seconds on it; "listening since" is answering a different
+     * question — when the history starts — and a day the user did play on is part of that history
+     * however briefly.
+     */
+    @Query("SELECT MIN(date) FROM daily_playtime WHERE totalPlaytimeMs > 0")
+    fun getFirstActiveDayFlow(): Flow<Long?>
+
+    /**
+     * Lifetime play count.
+     *
+     * Sourced from `play_events` rather than summing `media_analytics.playCount` because the two
+     * genuinely differ: both are cleared for deleted media, but only this one is a row-per-play log
+     * that the range queries also read, so a total taken from here can never disagree with the
+     * per-period numbers shown beside it.
+     */
+    @Query("SELECT COUNT(*) FROM play_events")
+    fun getTotalPlayCountFlow(): Flow<Int>
+
     // Get all dates with activity to calculate streak in code
     @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
     fun getActiveDays(): Flow<List<Long>>

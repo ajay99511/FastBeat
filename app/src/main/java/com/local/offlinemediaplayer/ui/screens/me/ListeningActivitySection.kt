@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Today
@@ -40,10 +41,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.domain.PeriodChange
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.viewmodel.ListeningTotals
 import com.local.offlinemediaplayer.viewmodel.RealtimeAnalytics
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.abs
+
+/** `FormatUtils.formatDate` takes epoch *seconds*; day keys are epoch milliseconds. */
+private const val MILLIS_PER_SECOND = 1000L
+
+/** Display clamp for the week-over-week chip. See [TrendChip] for why the true value is not shown. */
+private const val MAX_DISPLAYED_PERCENT = 999
 
 /**
  * "LISTENING ACTIVITY" — the four stat tiles and the favourites card on the Me tab.
@@ -56,6 +66,7 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 internal fun ListeningActivitySection(
     analytics: RealtimeAnalytics,
+    totals: ListeningTotals,
     currentTrack: StateFlow<MediaFile?>,
     lastPlayedAudio: StateFlow<MediaFile?>,
     primaryColor: Color,
@@ -91,7 +102,11 @@ internal fun ListeningActivitySection(
                     FormatUtils.formatMinutesToHours(
                         analytics.todayPlaytimeMinutes,
                     ),
-                subtext = "Active Listening",
+                // Not "Active Listening". PlaybackAnalyticsTracker credits every playing tick,
+                // video included, and always has — the position loop drives both through the same
+                // controller. Splitting the two is a schema change whose backfill is impossible, so
+                // the label is what gets corrected rather than the data. See DS-6.2.
+                subtext = "Audio + video",
             )
 
             AnalyticsCard(
@@ -119,6 +134,7 @@ internal fun ListeningActivitySection(
                         analytics.weekPlaytimeMinutes,
                     ),
                 subtext = "Total Playtime",
+                trend = totals.weekOverWeek,
             )
 
             AnalyticsCard(
@@ -133,6 +149,10 @@ internal fun ListeningActivitySection(
                 subtext = "Last 30 Days",
             )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        AllTimeCard(totals = totals, primaryColor = primaryColor)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -225,6 +245,132 @@ private fun FavoritesCard(
             )
         }
     }
+}
+
+/**
+ * Everything ever recorded: total time, total plays, and the date the history starts.
+ *
+ * Every other number on this screen is a window — today, seven days, thirty days — so a library
+ * with years of listening in it had nothing to show for any of it. The data was always there;
+ * `daily_playtime` and `play_events` are never pruned except when their media is deleted.
+ *
+ * A null [ListeningTotals.firstActiveDay] means nothing has been played yet, and is rendered as its
+ * own line rather than as a zero or a fallback date, because "no history" and "history starting at
+ * the epoch" look identical once you print them.
+ */
+@Composable
+private fun AllTimeCard(
+    totals: ListeningTotals,
+    primaryColor: Color,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.Insights,
+                    null,
+                    tint = primaryColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "ALL TIME",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                AllTimeFigure(
+                    modifier = Modifier.weight(1f),
+                    value = FormatUtils.formatMinutesToHours(totals.lifetimeMinutes),
+                    label = "Played",
+                )
+                AllTimeFigure(
+                    modifier = Modifier.weight(1f),
+                    value = "${totals.lifetimePlays}",
+                    label = if (totals.lifetimePlays == 1) "Track played" else "Tracks played",
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text =
+                    totals.firstActiveDay
+                        ?.let { "Listening since ${FormatUtils.formatDate(it / MILLIS_PER_SECOND)}" }
+                        ?: "Play something and this starts filling in",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AllTimeFigure(
+    modifier: Modifier = Modifier,
+    value: String,
+    label: String,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = value,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The week-over-week chip.
+ *
+ * Draws nothing for [PeriodChange.NoBaseline]. There is no honest way to render "compared with a
+ * week that recorded nothing" — a 0% reads as *unchanged*, a dash reads as *missing*, and a large
+ * percentage reads as a comparison that was never made — so the chip is simply absent, and the
+ * card's other numbers stand on their own.
+ *
+ * Percentages past 999 are clamped for display only: a rise from two minutes to three hours is a
+ * true +8900%, and printing it would make the tile look broken rather than impressive.
+ */
+@Composable
+private fun TrendChip(change: PeriodChange) {
+    if (change !is PeriodChange.Changed) return
+
+    val isUp = change.percent >= 0
+    val magnitude = abs(change.percent)
+    val text =
+        when {
+            change.percent == 0 -> "no change"
+            magnitude > MAX_DISPLAYED_PERCENT -> "${if (isUp) "+" else "-"}$MAX_DISPLAYED_PERCENT%+"
+            else -> "${if (isUp) "+" else ""}${change.percent}%"
+        }
+    val tint =
+        when {
+            change.percent == 0 -> MaterialTheme.colorScheme.onSurfaceVariant
+            isUp -> Color(0xFF22C55E) // Green, matching the card's own accent
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = tint,
+    )
 }
 
 /** The "Current Playing" / "Last Played" row at the top of [FavoritesCard]. */
@@ -374,6 +520,7 @@ internal fun AnalyticsCard(
     label: String,
     value: String,
     subtext: String,
+    trend: PeriodChange? = null,
 ) {
     Card(
         modifier = modifier,
@@ -419,11 +566,19 @@ internal fun AnalyticsCard(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = subtext,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = subtext,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+                if (trend != null) {
+                    TrendChip(change = trend)
+                }
+            }
         }
     }
 }

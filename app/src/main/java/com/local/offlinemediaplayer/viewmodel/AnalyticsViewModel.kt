@@ -7,6 +7,7 @@ import com.local.offlinemediaplayer.domain.AnalyticsDays
 import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
 import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
 import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
+import com.local.offlinemediaplayer.domain.PeriodChange
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,6 +46,27 @@ data class DailyActivity(
     val dayLabel: String,
     val playtimeMinutes: Int = 0,
     val isToday: Boolean = false,
+)
+
+/**
+ * The long-window numbers: everything ever recorded, and how the current week compares with the one
+ * before it.
+ *
+ * Lifetime and momentum share one flow because they share one question — *is this going anywhere?*
+ * — and because computing them together is what keeps [weekOverWeek] consistent with the week total
+ * it is drawn beside. Splitting them would leave the percentage free to describe a week the screen
+ * is no longer showing.
+ *
+ * [firstActiveDay] is null until something has been played. That is a real state with a real
+ * rendering, not a missing value to paper over with a zero.
+ */
+data class ListeningTotals(
+    val lifetimeMinutes: Int = 0,
+    val lifetimePlays: Int = 0,
+    val firstActiveDay: Long? = null,
+    val thisWeekMinutes: Int = 0,
+    val previousWeekMinutes: Int = 0,
+    val weekOverWeek: PeriodChange = PeriodChange.NoBaseline,
 )
 
 /**
@@ -101,8 +123,11 @@ class AnalyticsViewModel
             ) { today, audio, videos ->
                 today to (audio + videos)
             }.flatMapLatest { (today, allMedia) ->
-                val weekStart = today - (6L * 24 * 60 * 60 * 1000)
-                val monthStart = today - (29L * 24 * 60 * 60 * 1000)
+                // Calendar days, not millisecond arithmetic. `date >= :start` against a bound that
+                // has drifted an hour excludes the day it was meant to include, so the rolling
+                // "last 7 days" silently becomes six. See AnalyticsDays.daysBefore.
+                val weekStart = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW - 1)
+                val monthStart = AnalyticsDays.daysBefore(today, DAYS_IN_MONTH_WINDOW - 1)
 
                 // Using vararg combine for > 5 flows
                 combine(
@@ -122,7 +147,7 @@ class AnalyticsViewModel
                     val overallFavId = args[4] as Long?
                     val recentFavId = args[5] as Long?
 
-                    val avgDailyMs = monthMs / 30
+                    val avgDailyMs = monthMs / DAYS_IN_MONTH_WINDOW
 
                     val currentStreak = calculateStreak(activeDays, today)
 
@@ -170,6 +195,52 @@ class AnalyticsViewModel
                 ::libraryStatsOf,
             ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryStats())
 
+        /**
+         * Lifetime totals and week-over-week momentum.
+         *
+         * Five flows, so this is the *typed* `combine` rather than the vararg one — no `args[i] as
+         * Long?` casting, which is the only part of `realtimeAnalytics` the compiler cannot check.
+         *
+         * The window boundaries are calendar days from [AnalyticsDays], not millisecond arithmetic:
+         * the range predicate is `date >= :start`, so a start that lands an hour off excludes the
+         * day it was meant to include and silently shortens the window.
+         *
+         * Both week totals are read here rather than reusing the one in `realtimeAnalytics`. It is
+         * the same query against the same table, and paying for it twice is what guarantees the
+         * percentage and the two totals it was computed from can never describe different weeks.
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val listeningTotals =
+            currentDay
+                .flatMapLatest { today ->
+                    val thisWeekStart = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW - 1)
+                    val previousWeekEnd = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW)
+                    val previousWeekStart = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW * 2 - 1)
+
+                    combine(
+                        mediaDao.getTotalPlaytimeFlow(),
+                        mediaDao.getTotalPlayCountFlow(),
+                        mediaDao.getFirstActiveDayFlow(),
+                        mediaDao.getPlaytimeRange(thisWeekStart, today),
+                        mediaDao.getPlaytimeRange(previousWeekStart, previousWeekEnd),
+                    ) { lifetimeMs, plays, firstDay, thisWeekMs, previousWeekMs ->
+                        val thisWeek = thisWeekMs ?: 0L
+                        val previousWeek = previousWeekMs ?: 0L
+
+                        ListeningTotals(
+                            lifetimeMinutes = ((lifetimeMs ?: 0L) / MS_PER_MINUTE).toInt(),
+                            lifetimePlays = plays,
+                            firstActiveDay = firstDay,
+                            thisWeekMinutes = (thisWeek / MS_PER_MINUTE).toInt(),
+                            previousWeekMinutes = (previousWeek / MS_PER_MINUTE).toInt(),
+                            // Compared in milliseconds, before the truncation to minutes, so the
+                            // percentage describes what was actually listened to rather than what
+                            // survived rounding.
+                            weekOverWeek = PeriodChange.between(previousWeek, thisWeek),
+                        )
+                    }
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ListeningTotals())
+
         @OptIn(ExperimentalCoroutinesApi::class)
         val weeklyActivity =
             currentDay
@@ -195,6 +266,18 @@ class AnalyticsViewModel
             val DAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
             const val MS_PER_MINUTE = 60_000L
+
+            /**
+             * Length of the rolling "last 7 days" window, and of the week it is compared against.
+             *
+             * Named because the two windows must agree: comparing a 7-day total against a 6-day one
+             * would produce a percentage that looks like a behaviour change and is an arithmetic
+             * artefact. Both are derived from this one constant so they cannot drift apart.
+             */
+            const val DAYS_IN_WINDOW = 7
+
+            /** Length of the rolling window behind the daily average. */
+            const val DAYS_IN_MONTH_WINDOW = 30
 
             /**
              * Placeholder shown until [currentDay] emits, which it does on first collection.

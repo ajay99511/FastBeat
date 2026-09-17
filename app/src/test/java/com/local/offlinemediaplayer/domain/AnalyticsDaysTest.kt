@@ -198,6 +198,54 @@ class AnalyticsDaysTest {
         assertNotEquals(week.last(), naive.last())
     }
 
+    // ------------------------------------------------------------------ daysBefore
+
+    @Test
+    fun daysBeforeZeroIsTheDayItself() {
+        val day = midnight(2026, 9, 15)
+
+        assertEquals(day, AnalyticsDays.daysBefore(day, 0))
+    }
+
+    @Test
+    fun daysBeforeWalksBackwardsByCalendarDays() {
+        assertEquals(midnight(2026, 9, 9), AnalyticsDays.daysBefore(midnight(2026, 9, 15), 6))
+    }
+
+    @Test
+    fun daysBeforeCrossesMonthAndYearBoundaries() {
+        assertEquals(midnight(2026, 8, 31), AnalyticsDays.daysBefore(midnight(2026, 9, 1), 1))
+        assertEquals(midnight(2025, 12, 31), AnalyticsDays.daysBefore(midnight(2026, 1, 1), 1))
+    }
+
+    /**
+     * The window-start defect this fixes, in the direction that actually loses data.
+     *
+     * Range queries compare with `date >= :start`. Walking back across a *fall-back* — the 25-hour
+     * day — leaves `today - n * 86_400_000` an hour **after** the midnight it meant to land on, so
+     * that day's own key fails the predicate and "last 7 days" quietly becomes six.
+     *
+     * (Walking back across a spring-forward drifts the other way and is harmless, which is exactly
+     * why this was never noticed: the bug only bites in one direction, once a year.)
+     */
+    @Test
+    fun daysBeforeSurvivesADstShiftThatFixedArithmeticWouldNot() {
+        TimeZone.setDefault(midWeekDstZone())
+
+        val today = midnight(2026, 11, 6)
+        val windowStart = AnalyticsDays.daysBefore(today, 6)
+        val naive = today - 6 * MS_PER_DAY
+
+        assertEquals(midnight(2026, 10, 31), windowStart)
+        assertEquals(0, fieldOf(windowStart, Calendar.HOUR_OF_DAY))
+
+        assertEquals(MS_PER_HOUR, naive - windowStart)
+        assertTrue(
+            "the naive bound sits past the first day's key, so `date >= :start` drops that day",
+            naive > windowStart,
+        )
+    }
+
     // ------------------------------------------------------------------ robustness
 
     /** A caller that forgets to normalise must not be able to produce keys that match no row. */

@@ -60,6 +60,9 @@ fun MeScreen(
     val libraryStats by analyticsViewModel.libraryStats.collectAsStateWithLifecycle()
     val weeklyActivity by analyticsViewModel.weeklyActivity.collectAsStateWithLifecycle()
 
+    // Lifetime totals and week-over-week momentum
+    val listeningTotals by analyticsViewModel.listeningTotals.collectAsStateWithLifecycle()
+
     // Simple local search state for MeScreen
     var searchQuery by remember { mutableStateOf("") }
 
@@ -129,6 +132,7 @@ fun MeScreen(
         // Listening activity
         ListeningActivitySection(
             analytics = analytics,
+            totals = listeningTotals,
             currentTrack = viewModel.currentTrack,
             lastPlayedAudio = viewModel.lastPlayedAudio,
             primaryColor = theme.primaryColor,
