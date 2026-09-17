@@ -42,6 +42,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -125,7 +127,8 @@ internal fun ActivityTrendsSection(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(180.dp), // Adjusted height for tooltips and grid
+                            .height(180.dp) // Adjusted height for tooltips and grid
+                            .semantics { contentDescription = chartDescription(buckets, selectedRange) },
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -159,6 +162,35 @@ internal fun ActivityTrendsSection(
             }
         }
     }
+}
+
+/**
+ * What the chart says to a screen reader.
+ *
+ * A `Canvas` has no semantics of its own, so before this the chart was simply absent to TalkBack —
+ * in an app that ships an accessibility guide screen. The tooltip made it worse than absent: the
+ * per-bar values existed only behind a tap on a bar a few pixels wide.
+ *
+ * It summarises rather than enumerating. Reading out thirty daily values is technically complete
+ * and practically useless; the range, the total and the busiest bucket are what the chart is
+ * actually *for*, and they are three sentences instead of thirty numbers. A user who needs a
+ * specific day has the top lists and the tiles, which are real text.
+ */
+internal fun chartDescription(
+    buckets: List<ActivityBucket>,
+    range: StatsRange,
+): String {
+    val window = "${range.label.lowercase()} activity chart"
+    if (buckets.isEmpty()) return "$window, no data"
+
+    val total = buckets.sumOf { it.playtimeMinutes }
+    if (total == 0) return "$window, nothing played in this period"
+
+    val busiest = buckets.maxBy { it.playtimeMinutes }
+    val busiestLabel = busiest.label.ifEmpty { "the busiest period" }
+
+    return "$window, ${FormatUtils.formatMinutesToHours(total)} in total. " +
+        "Most played: $busiestLabel, ${FormatUtils.formatMinutesToHours(busiest.playtimeMinutes)}."
 }
 
 /**

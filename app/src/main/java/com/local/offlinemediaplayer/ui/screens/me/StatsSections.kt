@@ -46,12 +46,21 @@ internal fun StatsSections(
     val records by analyticsViewModel.records.collectAsStateWithLifecycle()
 
     Column {
+        // The library summary stays whatever the history looks like: it counts files on the device,
+        // which are there before anything has ever been played.
         LibraryStatsSection(
             stats = libraryStats,
             primaryColor = primaryColor,
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        if (hasNoListeningHistory(listeningTotals)) {
+            // Everything below measures listening, so with no history all of it would render as
+            // zeroes and placeholders — five of them — explaining nothing about why.
+            EmptyStatsCard(primaryColor = primaryColor)
+            return@Column
+        }
 
         ActivityTrendsSection(
             buckets = activityBuckets,
