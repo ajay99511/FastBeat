@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.data.db.MediaDao
 import com.local.offlinemediaplayer.domain.ActivityChart
 import com.local.offlinemediaplayer.domain.AnalyticsDays
+import com.local.offlinemediaplayer.domain.CalculateRecordsUseCase
 import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
 import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
+import com.local.offlinemediaplayer.domain.ListeningRecords
 import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
 import com.local.offlinemediaplayer.domain.PeriodChange
 import com.local.offlinemediaplayer.domain.StatsRange
@@ -101,6 +103,7 @@ class AnalyticsViewModel
         private val mediaDao: MediaDao,
         private val mediaRepository: MediaRepository,
         private val calculateStreak: CalculateStreakUseCase,
+        calculateRecords: CalculateRecordsUseCase,
         private val getContinueWatching: GetContinueWatchingUseCase,
         observeCurrentDay: ObserveCurrentDayUseCase,
     ) : ViewModel() {
@@ -258,6 +261,20 @@ class AnalyticsViewModel
         fun selectActivityRange(range: StatsRange) {
             selectedRange.value = range
         }
+
+        /**
+         * Personal bests, over all history rather than a window.
+         *
+         * Both inputs are flows, so a record updates the moment it is beaten rather than at the
+         * next launch. `activeDays` is the same list the current streak is built from — sharing it
+         * is what stops the record and the streak disagreeing about which days count.
+         */
+        val records =
+            combine(
+                mediaDao.getActiveDays(),
+                mediaDao.getAllDailyPlaytimes(),
+                calculateRecords::invoke,
+            ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ListeningRecords())
 
         /**
          * Top tracks, artists and albums over the same window the chart is showing.

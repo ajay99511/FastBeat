@@ -1,18 +1,41 @@
 package com.local.offlinemediaplayer.domain
 
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
+import java.util.Calendar
+import java.util.SimpleTimeZone
+import java.util.TimeZone
 
 /**
  * The streak arithmetic, which had no coverage before P5-A.1 because it lived inside a `combine`
  * inside a `stateIn` inside `AnalyticsViewModel`.
  *
  * Plain JVM: no Robolectric, no Android, no Room — the point of having pulled it out.
+ *
+ * The timezone is pinned to UTC. Consecutiveness is a calendar question as of S-6.6, and the fixed
+ * `today - n * DAY` fixtures below are only equivalent to calendar days in a zone without DST — in
+ * one with it, two fixtures can normalise onto the same day and the arithmetic stops describing
+ * what the test says it does. [aRunAcrossADstShiftIsNotBroken] covers the DST case explicitly,
+ * with dates instead of arithmetic.
  */
 class CalculateStreakUseCaseTest {
     private val calculate = CalculateStreakUseCase()
+    private lateinit var originalZone: TimeZone
 
     private val today = 1_700_000_000_000L
+
+    @Before
+    fun setUp() {
+        originalZone = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+    }
+
+    @After
+    fun tearDown() {
+        TimeZone.setDefault(originalZone)
+    }
 
     private fun daysAgo(n: Int) = today - n * DAY
 
@@ -96,5 +119,55 @@ class CalculateStreakUseCaseTest {
 
     private companion object {
         const val DAY = 86_400_000L
+    }
+
+    /**
+     * The limitation this use case used to document as permanent.
+     *
+     * A local day is 23 or 25 hours long twice a year, so comparing day keys with
+     * `earlier - later == 86_400_000` breaks a streak the user did not break — silently, on one day
+     * a year, in a zone the developer probably does not live in. Consecutiveness now comes from
+     * [AnalyticsDays.isDayBefore], which asks the calendar.
+     *
+     * The zone is synthetic, with its transition on 11 March, so the fixture cannot be invalidated
+     * by a JDK tzdata update.
+     */
+    @Test
+    fun aRunAcrossADstShiftIsNotBroken() {
+        val dstZone =
+            SimpleTimeZone(
+                0,
+                "TEST-MIDWEEK-DST",
+                Calendar.MARCH,
+                11,
+                0,
+                2 * 60 * 60 * 1000,
+                Calendar.NOVEMBER,
+                4,
+                0,
+                2 * 60 * 60 * 1000,
+                60 * 60 * 1000,
+            )
+        TimeZone.setDefault(dstZone)
+
+        fun midnight(
+            year: Int,
+            month: Int,
+            dayOfMonth: Int,
+        ): Long {
+            val calendar = Calendar.getInstance()
+            calendar.clear()
+            calendar.set(year, month - 1, dayOfMonth)
+            return calendar.timeInMillis
+        }
+
+        // 11 March is 23 hours long, so 12 March midnight is 23 h after 11 March midnight.
+        val run = listOf(midnight(2026, 3, 12), midnight(2026, 3, 11), midnight(2026, 3, 10))
+
+        assertEquals(
+            "the 23-hour day is still one day",
+            3,
+            calculate(run, midnight(2026, 3, 12)),
+        )
     }
 }

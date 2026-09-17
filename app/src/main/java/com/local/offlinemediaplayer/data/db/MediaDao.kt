@@ -132,6 +132,16 @@ interface MediaDao {
     @Query("SELECT COUNT(*) FROM play_events")
     fun getTotalPlayCountFlow(): Flow<Int>
 
+    /**
+     * Every recorded day, for the personal-best records.
+     *
+     * Unbounded, and deliberately so: a record is over all history or it is not a record. The table
+     * holds at most one row per day the app has been used, so a decade of daily listening is a few
+     * thousand rows — smaller than a single album's metadata.
+     */
+    @Query("SELECT * FROM daily_playtime")
+    fun getAllDailyPlaytimes(): Flow<List<DailyPlaytime>>
+
     // Get all dates with activity to calculate streak in code
     @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
     fun getActiveDays(): Flow<List<Long>>

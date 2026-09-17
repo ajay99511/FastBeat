@@ -89,6 +89,24 @@ object AnalyticsDays {
         return days
     }
 
+    /**
+     * True when [earlier] is the calendar day immediately before [later].
+     *
+     * The one definition of "consecutive" used by both the current streak and the longest one. They
+     * have to share it or they can disagree — a run the longest-streak calculation counts as
+     * unbroken while the current-streak calculation treats it as broken would put a 0-day streak
+     * next to a record built from the very same days.
+     *
+     * Calendar-based rather than `later - earlier == 86_400_000`, which is what
+     * [CalculateStreakUseCase] used to do and documented as a known limitation: on the day a local
+     * day is 23 or 25 hours long, the subtraction disagrees with the calendar and breaks a streak
+     * the user did not break.
+     */
+    fun isDayBefore(
+        earlier: Long,
+        later: Long,
+    ): Boolean = daysBefore(later, 1) == normalizedCalendar(earlier).timeInMillis
+
     /** The day key of the first of the month [dayKey] falls in. */
     fun startOfMonth(dayKey: Long): Long =
         normalizedCalendar(dayKey)

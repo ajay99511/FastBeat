@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Today
@@ -41,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.domain.ListeningRecords
 import com.local.offlinemediaplayer.domain.PeriodChange
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
@@ -48,9 +48,6 @@ import com.local.offlinemediaplayer.viewmodel.ListeningTotals
 import com.local.offlinemediaplayer.viewmodel.RealtimeAnalytics
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
-
-/** `FormatUtils.formatDate` takes epoch *seconds*; day keys are epoch milliseconds. */
-private const val MILLIS_PER_SECOND = 1000L
 
 /** Display clamp for the week-over-week chip. See [TrendChip] for why the true value is not shown. */
 private const val MAX_DISPLAYED_PERCENT = 999
@@ -67,6 +64,7 @@ private const val MAX_DISPLAYED_PERCENT = 999
 internal fun ListeningActivitySection(
     analytics: RealtimeAnalytics,
     totals: ListeningTotals,
+    records: ListeningRecords,
     currentTrack: StateFlow<MediaFile?>,
     lastPlayedAudio: StateFlow<MediaFile?>,
     primaryColor: Color,
@@ -153,6 +151,10 @@ internal fun ListeningActivitySection(
         Spacer(modifier = Modifier.height(16.dp))
 
         AllTimeCard(totals = totals, primaryColor = primaryColor)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        RecordsCard(records = records, primaryColor = primaryColor)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -244,94 +246,6 @@ private fun FavoritesCard(
                 onPlay = onPlayMedia,
             )
         }
-    }
-}
-
-/**
- * Everything ever recorded: total time, total plays, and the date the history starts.
- *
- * Every other number on this screen is a window — today, seven days, thirty days — so a library
- * with years of listening in it had nothing to show for any of it. The data was always there;
- * `daily_playtime` and `play_events` are never pruned except when their media is deleted.
- *
- * A null [ListeningTotals.firstActiveDay] means nothing has been played yet, and is rendered as its
- * own line rather than as a zero or a fallback date, because "no history" and "history starting at
- * the epoch" look identical once you print them.
- */
-@Composable
-private fun AllTimeCard(
-    totals: ListeningTotals,
-    primaryColor: Color,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.Insights,
-                    null,
-                    tint = primaryColor,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "ALL TIME",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                AllTimeFigure(
-                    modifier = Modifier.weight(1f),
-                    value = FormatUtils.formatMinutesToHours(totals.lifetimeMinutes),
-                    label = "Played",
-                )
-                AllTimeFigure(
-                    modifier = Modifier.weight(1f),
-                    value = "${totals.lifetimePlays}",
-                    label = if (totals.lifetimePlays == 1) "Track played" else "Tracks played",
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text =
-                    totals.firstActiveDay
-                        ?.let { "Listening since ${FormatUtils.formatDate(it / MILLIS_PER_SECOND)}" }
-                        ?: "Play something and this starts filling in",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AllTimeFigure(
-    modifier: Modifier = Modifier,
-    value: String,
-    label: String,
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = value,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
