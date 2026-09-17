@@ -245,9 +245,11 @@ class AnalyticsViewModel
         /**
          * The range the activity chart is showing.
          *
-         * Held here rather than as `remember` state in the composable so it survives the Me tab
-         * scrolling out of composition — picking "Year", scrolling down to the settings cards and
-         * back would otherwise silently reset the chart to "Week" and look like a bug.
+         * Held here rather than as composable state for two reasons, neither of which is scrolling:
+         * the Me tab is a `Column` with `verticalScroll`, so every section stays composed however
+         * far it is scrolled away. The reasons are that it survives configuration changes, and that
+         * [activityBuckets] has to react to it — state the ViewModel's own flow depends on belongs
+         * to the ViewModel rather than being pushed back into it from the UI on every change.
          */
         val activityRange: StateFlow<StatsRange> = selectedRange.asStateFlow()
 
