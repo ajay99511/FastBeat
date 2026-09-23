@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.Card
@@ -35,8 +36,12 @@ import com.local.offlinemediaplayer.viewmodel.LibraryStats
 /**
  * "LIBRARY STATS" — the counts-and-storage summary near the middle of the Me tab.
  *
- * Moved out of `MeScreen.kt` unchanged. [StatCard] is the leaf used only by this section and stays
- * file-private; the section itself is `internal` because [MeScreen] calls it from a sibling file.
+ * [StatCard] is the leaf used only by this section and stays file-private; the section itself is
+ * `internal` because [MeScreen] calls it from a sibling file.
+ *
+ * Images are counted here alongside audio and video. They are part of the library — the app indexes
+ * them and gives them their own tab — and leaving them out was what made the storage headline
+ * under-report. See [StorageCard].
  */
 @Composable
 internal fun LibraryStatsSection(
@@ -76,7 +81,9 @@ internal fun LibraryStatsSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Stats Row
+        // Four tiles over two rows rather than one row of four: at 28.sp a five-figure song count
+        // does not fit a quarter-width card on a small phone, and a truncated number is worse than
+        // a taller section.
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
                 modifier = Modifier.weight(1f),
@@ -90,6 +97,17 @@ internal fun LibraryStatsSection(
                 count = stats.videoCount,
                 label = "VIDEOS",
             )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Outlined.Image,
+                count = stats.imageCount,
+                label = "IMAGES",
+            )
             StatCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Star,
@@ -100,20 +118,36 @@ internal fun LibraryStatsSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Total Storage Row
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            shape = RoundedCornerShape(12.dp),
+        StorageCard(stats = stats)
+    }
+}
+
+/**
+ * The storage total, and the breakdown that accounts for it.
+ *
+ * The breakdown is not decoration. The headline used to read "Total Storage Used" while summing
+ * audio and video only, so a library with thousands of photos reported a total that matched nothing
+ * the user could check. Printing the three parts makes the figure falsifiable: if it looks wrong,
+ * the line underneath says which media type is responsible.
+ */
+@Composable
+private fun StorageCard(stats: LibraryStats) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
             Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -129,6 +163,19 @@ internal fun LibraryStatsSection(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text =
+                    listOf(
+                        "Audio ${FormatUtils.formatSize(stats.audioStorageBytes)}",
+                        "Video ${FormatUtils.formatSize(stats.videoStorageBytes)}",
+                        "Images ${FormatUtils.formatSize(stats.imageStorageBytes)}",
+                    ).joinToString("  ·  "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

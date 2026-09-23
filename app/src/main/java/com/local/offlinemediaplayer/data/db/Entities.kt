@@ -44,6 +44,17 @@ data class PlayEvent(
     val timestamp: Long = System.currentTimeMillis(),
 )
 
+/**
+ * Projection for [MediaDao.getPlayCountsSince] — a play count per track, not a stored table.
+ *
+ * Declared here beside the entities because Room resolves it as a query result type; it maps to no
+ * table and no migration.
+ */
+data class MediaPlayCount(
+    val mediaId: Long,
+    val plays: Int,
+)
+
 @Entity(tableName = "playlists")
 data class PlaylistEntity(
     @PrimaryKey val id: String,

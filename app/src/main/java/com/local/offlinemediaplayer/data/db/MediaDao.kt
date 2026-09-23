@@ -103,13 +103,58 @@ interface MediaDao {
         endDate: Long,
     ): Flow<Long?>
 
+    /**
+     * Every millisecond ever recorded. Null when the table is empty — `SUM` over no rows is NULL,
+     * not 0, which is why every caller of these aggregates must handle a null.
+     */
+    @Query("SELECT SUM(totalPlaytimeMs) FROM daily_playtime")
+    fun getTotalPlaytimeFlow(): Flow<Long?>
+
+    /**
+     * The first day that recorded any playback at all, or null before anything has been played.
+     *
+     * The predicate is `> 0`, not the `> 60000` that [getActiveDays] uses. The streak deliberately
+     * ignores a day with only a few seconds on it; "listening since" is answering a different
+     * question — when the history starts — and a day the user did play on is part of that history
+     * however briefly.
+     */
+    @Query("SELECT MIN(date) FROM daily_playtime WHERE totalPlaytimeMs > 0")
+    fun getFirstActiveDayFlow(): Flow<Long?>
+
+    /**
+     * Lifetime play count.
+     *
+     * Sourced from `play_events` rather than summing `media_analytics.playCount` because the two
+     * genuinely differ: both are cleared for deleted media, but only this one is a row-per-play log
+     * that the range queries also read, so a total taken from here can never disagree with the
+     * per-period numbers shown beside it.
+     */
+    @Query("SELECT COUNT(*) FROM play_events")
+    fun getTotalPlayCountFlow(): Flow<Int>
+
+    /**
+     * Every recorded day, for the personal-best records.
+     *
+     * Unbounded, and deliberately so: a record is over all history or it is not a record. The table
+     * holds at most one row per day the app has been used, so a decade of daily listening is a few
+     * thousand rows — smaller than a single album's metadata.
+     */
+    @Query("SELECT * FROM daily_playtime")
+    fun getAllDailyPlaytimes(): Flow<List<DailyPlaytime>>
+
     // Get all dates with activity to calculate streak in code
     @Query("SELECT date FROM daily_playtime WHERE totalPlaytimeMs > 60000 ORDER BY date DESC")
     fun getActiveDays(): Flow<List<Long>>
 
-    // Get daily playtime records for a date range (Activity Trends)
+    /**
+     * Daily playtime rows in a closed day-key range, oldest first — the raw material the activity
+     * chart buckets.
+     *
+     * Was `getWeekDailyPlaytimes`, which the query never was: nothing here is week-shaped, and the
+     * name was the only thing suggesting the chart could not show anything else.
+     */
     @Query("SELECT * FROM daily_playtime WHERE date >= :startDate AND date <= :endDate ORDER BY date ASC")
-    fun getWeekDailyPlaytimes(
+    fun getDailyPlaytimes(
         startDate: Long,
         endDate: Long,
     ): Flow<List<DailyPlaytime>>
@@ -117,6 +162,24 @@ interface MediaDao {
     // Play Events
     @Insert
     suspend fun logPlayEvent(event: PlayEvent)
+
+    /**
+     * Play counts per track since [sinceTimestamp], busiest first.
+     *
+     * Unlimited on purpose. The top *tracks* could be a `LIMIT 10`, but the top artists and albums
+     * are sums over their tracks, and a track outside the track top ten can still belong to the
+     * busiest artist — cutting the list here would quietly rank artists by their best song rather
+     * than by their total. The result is bounded by the number of distinct tracks played in the
+     * window, never by library size.
+     *
+     * `mediaId` breaks ties so the ordering is total and the list does not reshuffle between
+     * emissions for rows SQLite happens to visit in a different order.
+     */
+    @Query(
+        "SELECT mediaId, COUNT(*) AS plays FROM play_events WHERE timestamp >= :sinceTimestamp " +
+            "GROUP BY mediaId ORDER BY plays DESC, mediaId ASC",
+    )
+    fun getPlayCountsSince(sinceTimestamp: Long): Flow<List<MediaPlayCount>>
 
     // Most played in range (Current Favorite)
     @Query(

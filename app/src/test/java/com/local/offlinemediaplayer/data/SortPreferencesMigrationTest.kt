@@ -2,8 +2,8 @@ package com.local.offlinemediaplayer.data
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.local.offlinemediaplayer.ui.screens.AudioSortOption
-import com.local.offlinemediaplayer.ui.screens.VideoSortOption
+import com.local.offlinemediaplayer.viewmodel.AudioSortOption
+import com.local.offlinemediaplayer.viewmodel.VideoSortOption
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

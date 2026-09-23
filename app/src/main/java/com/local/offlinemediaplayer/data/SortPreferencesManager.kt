@@ -8,8 +8,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.local.offlinemediaplayer.ui.screens.AudioSortOption
-import com.local.offlinemediaplayer.ui.screens.VideoSortOption
+import com.local.offlinemediaplayer.viewmodel.AudioSortOption
+import com.local.offlinemediaplayer.viewmodel.VideoSortOption
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject

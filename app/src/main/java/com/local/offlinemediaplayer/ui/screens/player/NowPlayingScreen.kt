@@ -1,0 +1,601 @@
+package com.local.offlinemediaplayer.ui.screens.player
+
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.LibraryMusic
+import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.outlined.RepeatOne
+import androidx.compose.material.icons.outlined.Shuffle
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.Player
+import coil.compose.AsyncImage
+import com.local.offlinemediaplayer.ui.common.fallbackArtwork
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
+import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.EqualizerSheet
+import com.local.offlinemediaplayer.ui.theme.LocalAppTheme
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun NowPlayingScreen(
+    viewModel: PlaybackViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    onBack: () -> Unit,
+) {
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
+    val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsStateWithLifecycle()
+    val repeatMode by viewModel.repeatMode.collectAsStateWithLifecycle()
+    val isFavorite by viewModel.isCurrentTrackFavorite.collectAsStateWithLifecycle()
+    val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
+    val sleepTimerEnd by viewModel.sleepTimerEndMillis.collectAsStateWithLifecycle()
+    val queueSourceLabel by viewModel.queueSourceLabel.collectAsStateWithLifecycle()
+
+    // Queue State - uses displayQueue which shows shuffled order when shuffle is enabled
+    val displayQueue by viewModel.displayQueue.collectAsStateWithLifecycle()
+    val displayQueueIndex by viewModel.displayQueueIndex.collectAsStateWithLifecycle()
+
+    // Bottom Sheet State
+    var showQueueSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
+    // Menu and Dialog State
+    var showMenu by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showSaveQueueDialog by remember { mutableStateOf(false) }
+    var showEqualizerSheet by remember { mutableStateOf(false) }
+
+    // Delete Intent Launcher
+    val context = LocalContext.current
+    val intentLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartIntentSenderForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                viewModel.onCurrentTrackDeleteSuccess()
+            } else {
+                viewModel.onDeleteCancelled()
+            }
+        }
+
+    LaunchedEffect(Unit) {
+        viewModel.userMessage.collect { msg ->
+            android.widget.Toast
+                .makeText(context, msg.resolve(context), android.widget.Toast.LENGTH_SHORT)
+                .show()
+        }
+    }
+
+    // Listen for delete completion to navigate back
+    LaunchedEffect(Unit) {
+        viewModel.onDeleteTrackComplete.collect {
+            onBack()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteIntentEvent.collect { intentSender ->
+            intentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
+    // Colors from Theme
+    val primaryAccent = LocalAppTheme.current.primaryColor
+    val secondaryAccent = Color(0xFF8B51E6)
+
+    val playButtonGradient =
+        Brush.verticalGradient(
+            colors = listOf(primaryAccent, secondaryAccent),
+        )
+    val progressBarGradient =
+        Brush.horizontalGradient(
+            colors = listOf(primaryAccent, Color(0xFFE44CD8), Color(0xFF42E8E0)),
+        )
+
+    if (currentTrack == null) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Nothing Playing", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape).size(40.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBackIosNew,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "NOW PLAYING",
+                        color = primaryAccent,
+                        style =
+                            MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                            ),
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "From \"$queueSourceLabel\"",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+
+                // Queue Button
+                IconButton(onClick = { showQueueSheet = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.LibraryMusic,
+                        contentDescription = "Queue",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+
+                // More Options Menu (3-dots)
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add to Playlist") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.PlaylistAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showAddToPlaylistDialog = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Playback speed (${formatSpeed(playbackSpeed)})") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Speed,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showSpeedDialog = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Equalizer") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.GraphicEq,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showEqualizerSheet = true
+                            },
+                        )
+                        // Sleep timer is night-only; show it inside the 10 PM–5 AM window,
+                        // or whenever a timer is currently running (so it can be cancelled).
+                        if (viewModel.isSleepTimerAllowed() || sleepTimerEnd != null) {
+                            DropdownMenuItem(
+                                text = { Text(if (sleepTimerEnd != null) "Sleep timer (on)" else "Sleep timer") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Bedtime,
+                                        contentDescription = null,
+                                        tint =
+                                            if (sleepTimerEnd !=
+                                                null
+                                            ) {
+                                                primaryAccent
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            },
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showSleepTimerDialog = true
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showDeleteConfirmDialog = true
+                            },
+                        )
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        BoxWithConstraints(
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
+        ) {
+            // Responsive sizing: derived from the actual space available so the layout
+            // adapts to phones, tablets and landscape instead of using fixed dimensions.
+            val isTablet = maxWidth >= 600.dp
+            val isShortScreen = maxHeight < 480.dp
+            val horizontalPadding = if (isTablet) 32.dp else 24.dp
+            val contentWidth = if (isTablet) 560.dp else maxWidth
+            val artSize =
+                minOf(
+                    contentWidth - horizontalPadding * 2,
+                    maxHeight * 0.45f,
+                    if (isTablet) 420.dp else 340.dp,
+                )
+            val titleFontSize =
+                when {
+                    isTablet -> 24.sp
+                    maxWidth < 360.dp -> 18.sp
+                    else -> 20.sp
+                }
+            val playButtonSize = if (isTablet) 88.dp else 76.dp
+            val skipIconSize = if (isTablet) 40.dp else 36.dp
+            val sectionSpacing = if (isShortScreen) 12.dp else 24.dp
+
+            Column(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .widthIn(max = contentWidth)
+                        .fillMaxHeight()
+                        .padding(horizontal = horizontalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(if (isShortScreen) 8.dp else 16.dp))
+
+                // Album Art with drop shadow
+                Box(
+                    modifier =
+                        Modifier
+                            .size(artSize)
+                            .shadow(
+                                elevation = 24.dp,
+                                shape = RoundedCornerShape(28.dp),
+                                spotColor = primaryAccent.copy(alpha = 0.25f),
+                            ).clip(RoundedCornerShape(28.dp)),
+                ) {
+                    AsyncImage(
+                        model = currentTrack?.albumArtUri,
+                        error = painterResource(fallbackArtwork),
+                        fallback = painterResource(fallbackArtwork),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Title banner: spans the full width edge to edge and scrolls
+                // (marquee) when the title is longer than the screen.
+                Text(
+                    text = currentTrack?.title ?: "",
+                    style =
+                        MaterialTheme.typography.titleLarge.copy(
+                            fontSize = titleFontSize,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1200),
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Artist Row (Artist + Like)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = currentTrack?.artist ?: "Unknown Artist",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    IconButton(onClick = { viewModel.toggleFavorite() }) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) primaryAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(sectionSpacing))
+
+                // Gradient Progress Bar (Extracted to prevent full screen recomposition)
+                PlaybackControlsWithProgress(
+                    currentPositionFlow = viewModel.currentPosition,
+                    duration = duration,
+                    progressBarGradient = progressBarGradient,
+                    onSeek = { viewModel.seekTo(it) },
+                )
+
+                Spacer(modifier = Modifier.height(sectionSpacing))
+
+                // Controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { viewModel.toggleShuffle() }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint =
+                                if (isShuffleEnabled) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.playPrevious() }) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(skipIconSize),
+                        )
+                    }
+
+                    // Play/Pause (Gradient Circle with premium glow)
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(playButtonSize)
+                                .shadow(24.dp, CircleShape, spotColor = primaryAccent.copy(alpha = 0.5f))
+                                .clip(CircleShape)
+                                .background(playButtonGradient)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { viewModel.togglePlayPause() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(playButtonSize * 0.55f),
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.playNext() }) {
+                        Icon(
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = "Next",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(skipIconSize),
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.toggleRepeat() }) {
+                        val icon =
+                            if (repeatMode ==
+                                Player.REPEAT_MODE_ONE
+                            ) {
+                                Icons.Outlined.RepeatOne
+                            } else {
+                                Icons.Outlined.Repeat
+                            }
+                        val tint =
+                            if (repeatMode ==
+                                Player.REPEAT_MODE_OFF
+                            ) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            }
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = "Repeat",
+                            tint = tint,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(if (isShortScreen) 16.dp else 48.dp))
+            }
+        }
+    }
+
+    // Queue Bottom Sheet
+    if (showQueueSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showQueueSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            QueueSheetContent(
+                queue = displayQueue,
+                currentIndex = displayQueueIndex ?: 0,
+                // Reordering rearranges the player timeline, which only matches the visible
+                // order while shuffle is off (Media3 owns the shuffle order).
+                isReorderEnabled = !isShuffleEnabled,
+                // playTrackFromQueue handles both shuffled and non-shuffled playback
+                onTrackClick = { track -> viewModel.playTrackFromQueue(track) },
+                onRemove = { track -> viewModel.removeFromQueue(track) },
+                onReorder = { track, from, to -> viewModel.moveQueueItem(track, from, to) },
+                onClear = { viewModel.clearQueueExceptCurrent() },
+                onSaveAsPlaylist = { showSaveQueueDialog = true },
+            )
+        }
+    }
+
+    // Add to Playlist Dialog
+    if (showAddToPlaylistDialog && currentTrack != null) {
+        AddToPlaylistDialog(
+            song = currentTrack!!,
+            playlistViewModel = playlistViewModel,
+            onDismiss = { showAddToPlaylistDialog = false },
+            onCreateNew = { showCreateDialog = true },
+        )
+    }
+
+    // Create Playlist Dialog
+    if (showCreateDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name -> playlistViewModel.createPlaylist(name, currentTrack?.isVideo ?: false) },
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirmDialog) {
+        DeleteConfirmationDialog(
+            count = 1,
+            onConfirm = {
+                viewModel.deleteCurrentTrack()
+            },
+            onDismiss = { showDeleteConfirmDialog = false },
+        )
+    }
+
+    // Playback Speed Dialog
+    if (showSpeedDialog) {
+        PlaybackSpeedDialog(
+            currentSpeed = playbackSpeed,
+            onSelect = { speed ->
+                viewModel.setPlaybackSpeed(speed)
+                showSpeedDialog = false
+            },
+            onDismiss = { showSpeedDialog = false },
+        )
+    }
+
+    // Save Queue as Playlist Dialog
+    if (showSaveQueueDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showSaveQueueDialog = false },
+            onCreate = { name -> viewModel.saveQueueAsPlaylist(name) },
+        )
+    }
+
+    // Sleep Timer Dialog
+    if (showSleepTimerDialog) {
+        SleepTimerDialog(
+            isActive = sleepTimerEnd != null,
+            onSelect = { minutes ->
+                viewModel.setSleepTimer(minutes)
+                showSleepTimerDialog = false
+            },
+            onCancelTimer = {
+                viewModel.cancelSleepTimer()
+                showSleepTimerDialog = false
+            },
+            onDismiss = { showSleepTimerDialog = false },
+        )
+    }
+
+    // Equalizer Sheet
+    if (showEqualizerSheet) {
+        EqualizerSheet(
+            viewModel = viewModel,
+            onDismiss = { showEqualizerSheet = false },
+        )
+    }
+}

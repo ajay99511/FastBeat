@@ -23,10 +23,12 @@ import javax.inject.Inject
  *  - A streak must be *current*: if the newest active day is older than yesterday the streak is 0,
  *    however long the historical run was. Today being absent is not a break, because the day is
  *    still in progress.
- *  - Walking back, days must be exactly one apart; the first gap ends the count.
+ *  - Walking back, days must be one calendar day apart; the first gap ends the count.
  *
- * Known limitation, carried over unchanged: a day is a fixed 86 400 000 ms, so a DST transition
- * shifts midnight and can break a streak that the user did not actually break.
+ * The DST limitation this used to carry — a day hardcoded as 86 400 000 ms, so a 23- or 25-hour day
+ * broke a streak the user had not broken — is gone. Consecutiveness now comes from
+ * [AnalyticsDays.isDayBefore], which is also what the longest-streak record uses, so the two cannot
+ * disagree about whether a given run is unbroken.
  */
 class CalculateStreakUseCase
     @Inject
@@ -36,20 +38,16 @@ class CalculateStreakUseCase
             today: Long,
         ): Int {
             val lastActive = activeDays.firstOrNull() ?: return 0
-            if (lastActive != today && lastActive != today - DAY_MS) return 0
+            if (lastActive != today && !AnalyticsDays.isDayBefore(lastActive, today)) return 0
 
             var streak = 1
             var checkDate = lastActive
             for (index in 1 until activeDays.size) {
                 val previousDay = activeDays[index]
-                if (checkDate - previousDay != DAY_MS) break
+                if (!AnalyticsDays.isDayBefore(previousDay, checkDate)) break
                 streak++
                 checkDate = previousDay
             }
             return streak
-        }
-
-        private companion object {
-            const val DAY_MS = 86_400_000L
         }
     }

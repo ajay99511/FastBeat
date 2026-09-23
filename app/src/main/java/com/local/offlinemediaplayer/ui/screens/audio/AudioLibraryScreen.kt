@@ -1,0 +1,232 @@
+
+package com.local.offlinemediaplayer.ui.screens.audio
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.components.AddToPlaylistDialog
+import com.local.offlinemediaplayer.ui.components.CreatePlaylistDialog
+import com.local.offlinemediaplayer.ui.components.MiniPlayer
+import com.local.offlinemediaplayer.ui.screens.playlist.PlaylistListScreen
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.PlaylistViewModel
+import kotlinx.coroutines.launch
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun AudioLibraryScreen(
+    viewModel: PlaybackViewModel,
+    playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
+    onNavigateToPlayer: () -> Unit,
+    onNavigateToPlaylist: (String) -> Unit,
+    onNavigateToAlbum: (Long) -> Unit,
+    onNavigateToArtist: (String) -> Unit,
+    onNavigateToSmartPlaylist: (String) -> Unit,
+    onNavigateToDecade: (Int) -> Unit,
+    isSearchVisible: Boolean,
+) {
+    // 0 = Tracks, 1 = Albums, 2 = Playlists, 3 = Artists, 4 = Decades
+    val pagerState =
+        androidx.compose.foundation.pager
+            .rememberPagerState(pageCount = { 5 })
+    val coroutineScope = rememberCoroutineScope()
+
+    // Lifted state observation
+    val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val isAlbumSelectionMode by libraryViewModel.isAlbumSelectionMode.collectAsStateWithLifecycle()
+
+    // Reset selection mode when swiping away from the relevant tab
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != 0 && isSelectionMode) {
+            libraryViewModel.toggleSelectionMode(false)
+        }
+        if (pagerState.currentPage != 1 && isAlbumSelectionMode) {
+            libraryViewModel.toggleAlbumSelectionMode(false)
+        }
+    }
+
+    // Modal Dialog States
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var songsToAdd by remember { mutableStateOf<List<MediaFile>>(emptyList()) }
+
+    // Create Playlist Dialog State
+    var showCreateDialog by remember { mutableStateOf(false) }
+
+    // App Theme Colors
+    val primaryAccent = MaterialTheme.colorScheme.primary
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column {
+            // Styled Tab Row
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = Color.Transparent, // Transparent to show background
+                contentColor = MaterialTheme.colorScheme.onBackground,
+                edgePadding = 0.dp,
+                indicator = { tabPositions ->
+                    Box(
+                        Modifier
+                            .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                            .height(3.dp)
+                            .padding(horizontal = 24.dp)
+                            .background(primaryAccent, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
+                    )
+                },
+                divider = {
+                    HorizontalDivider(
+                        Modifier,
+                        DividerDefaults.Thickness,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                val tabs = listOf("TRACKS", "ALBUMS", "PLAYLISTS", "ARTISTS", "DECADES")
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = title,
+                                fontWeight =
+                                    if (pagerState.currentPage ==
+                                        index
+                                    ) {
+                                        FontWeight.Bold
+                                    } else {
+                                        FontWeight.Normal
+                                    },
+                                letterSpacing = 1.sp,
+                                color = if (pagerState.currentPage == index) primaryAccent else inactiveColor,
+                            )
+                        },
+                    )
+                }
+            }
+
+            // Content Area
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+            ) { page ->
+                when (page) {
+                    0 -> {
+                        // TRACKS VIEW
+                        AudioListScreen(
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            onAudioClick = { file ->
+                                viewModel.playMedia(file)
+                            },
+                            onAddToPlaylist = { file ->
+                                songsToAdd = listOf(file)
+                                showAddToPlaylistDialog = true
+                            },
+                            onAddMultipleToPlaylist = { files ->
+                                songsToAdd = files
+                                showAddToPlaylistDialog = true
+                            },
+                            isSearchVisible = isSearchVisible,
+                        )
+                    }
+                    1 -> {
+                        // ALBUMS VIEW
+                        AlbumListScreen(
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            onAlbumClick = onNavigateToAlbum,
+                            onAddMultipleToPlaylist = { files ->
+                                songsToAdd = files
+                                showAddToPlaylistDialog = true
+                            },
+                            isSearchVisible = isSearchVisible,
+                        )
+                    }
+                    2 -> {
+                        // PLAYLISTS VIEW
+                        PlaylistListScreen(
+                            viewModel = viewModel,
+                            playlistViewModel = playlistViewModel,
+                            onPlaylistClick = onNavigateToPlaylist,
+                            onCreateClick = { showCreateDialog = true },
+                            isVideo = false, // Explicitly Audio
+                            onRename = { id, newName -> playlistViewModel.renamePlaylist(id, newName) },
+                            onDelete = { id -> playlistViewModel.deletePlaylist(id) },
+                            onSmartPlaylistClick = onNavigateToSmartPlaylist,
+                        )
+                    }
+                    3 -> {
+                        // ARTISTS VIEW
+                        ArtistListScreen(
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            onArtistClick = onNavigateToArtist,
+                            isSearchVisible = isSearchVisible,
+                        )
+                    }
+                    4 -> {
+                        // DECADES VIEW
+                        DecadeListScreen(
+                            viewModel = viewModel,
+                            libraryViewModel = libraryViewModel,
+                            onDecadeClick = onNavigateToDecade,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Mini Player
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            MiniPlayer(
+                viewModel = viewModel,
+                onTap = onNavigateToPlayer,
+            )
+        }
+    }
+
+    if (showCreateDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name -> playlistViewModel.createPlaylist(name, isVideo = false) },
+        )
+    }
+
+    if (showAddToPlaylistDialog && songsToAdd.isNotEmpty()) {
+        AddToPlaylistDialog(
+            songs = songsToAdd,
+            onDismiss = { showAddToPlaylistDialog = false },
+            onCreateNew = { showCreateDialog = true }, // Stack dialogs
+        )
+    }
+}

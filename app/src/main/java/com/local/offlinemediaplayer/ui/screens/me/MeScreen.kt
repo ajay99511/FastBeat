@@ -32,8 +32,11 @@ import com.local.offlinemediaplayer.viewmodel.ThemeViewModel
  * This function owns the screen's state and the vertical order of its sections, and nothing else.
  * Each section lives in its own file in this package and takes data and callbacks, so it can be
  * rendered on its own. The sections are, top to bottom: theme switcher, search box, continue
- * watching, shuffle-all, library stats, activity trends, listening activity, suggestions, and the
- * two settings cards.
+ * watching, shuffle-all, the statistics surface, suggestions, and the two settings cards.
+ *
+ * The statistics sections are reached through one call to [StatsSections] rather than four calls
+ * here, because they are one feature sharing one range control — and because that keeps moving them
+ * onto a screen of their own a one-line change.
  */
 @Composable
 fun MeScreen(
@@ -50,15 +53,8 @@ fun MeScreen(
     val isDarkTheme by themeViewModel.isDarkTheme.collectAsStateWithLifecycle()
     val audioList by libraryViewModel.audioList.collectAsStateWithLifecycle()
 
-    // Realtime Analytics
-    val analytics by analyticsViewModel.realtimeAnalytics.collectAsStateWithLifecycle()
-
     // Continue Watching Data
     val continueWatchingList by analyticsViewModel.continueWatchingList.collectAsStateWithLifecycle()
-
-    // Library Stats & Activity Trends
-    val libraryStats by analyticsViewModel.libraryStats.collectAsStateWithLifecycle()
-    val weeklyActivity by analyticsViewModel.weeklyActivity.collectAsStateWithLifecycle()
 
     // Simple local search state for MeScreen
     var searchQuery by remember { mutableStateOf("") }
@@ -110,25 +106,10 @@ fun MeScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Library stats
-        LibraryStatsSection(
-            stats = libraryStats,
-            primaryColor = theme.primaryColor,
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Activity trends
-        ActivityTrendsSection(
-            weeklyActivity = weeklyActivity,
-            primaryColor = theme.primaryColor,
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Listening activity
-        ListeningActivitySection(
-            analytics = analytics,
+        // Library summary, activity chart, top lists and listening activity. Grouped because the
+        // chart's range selector governs the top lists too — see StatsSections.
+        StatsSections(
+            analyticsViewModel = analyticsViewModel,
             currentTrack = viewModel.currentTrack,
             lastPlayedAudio = viewModel.lastPlayedAudio,
             primaryColor = theme.primaryColor,

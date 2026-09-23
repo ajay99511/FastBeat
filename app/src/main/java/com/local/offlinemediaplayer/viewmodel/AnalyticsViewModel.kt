@@ -3,34 +3,98 @@ package com.local.offlinemediaplayer.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.local.offlinemediaplayer.data.db.MediaDao
+import com.local.offlinemediaplayer.domain.ActivityChart
+import com.local.offlinemediaplayer.domain.AnalyticsDays
+import com.local.offlinemediaplayer.domain.CalculateRecordsUseCase
 import com.local.offlinemediaplayer.domain.CalculateStreakUseCase
 import com.local.offlinemediaplayer.domain.GetContinueWatchingUseCase
+import com.local.offlinemediaplayer.domain.ListeningRecords
+import com.local.offlinemediaplayer.domain.ObserveCurrentDayUseCase
+import com.local.offlinemediaplayer.domain.PeriodChange
+import com.local.offlinemediaplayer.domain.StatsRange
+import com.local.offlinemediaplayer.domain.TopLists
+import com.local.offlinemediaplayer.domain.TopListsSnapshot
+import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import java.util.Calendar
 import javax.inject.Inject
 
 // --- Data classes for UI consumption ---
 
+/**
+ * The counts-and-storage summary at the top of the stats surface.
+ *
+ * [totalStorageBytes] is derived rather than stored, so the headline figure cannot drift away from
+ * the breakdown printed underneath it — the previous shape accepted a total as a constructor
+ * argument, and the one it was given left images out entirely while the card called itself
+ * "Total Storage Used".
+ */
 data class LibraryStats(
     val songCount: Int = 0,
     val videoCount: Int = 0,
+    val imageCount: Int = 0,
     val playlistCount: Int = 0,
-    val totalStorageBytes: Long = 0,
+    val audioStorageBytes: Long = 0,
+    val videoStorageBytes: Long = 0,
+    val imageStorageBytes: Long = 0,
+) {
+    val totalStorageBytes: Long
+        get() = audioStorageBytes + videoStorageBytes + imageStorageBytes
+}
+
+/**
+ * The long-window numbers: everything ever recorded, and how the current week compares with the one
+ * before it.
+ *
+ * Lifetime and momentum share one flow because they share one question — *is this going anywhere?*
+ * — and because computing them together is what keeps [weekOverWeek] consistent with the week total
+ * it is drawn beside. Splitting them would leave the percentage free to describe a week the screen
+ * is no longer showing.
+ *
+ * [firstActiveDay] is null until something has been played. That is a real state with a real
+ * rendering, not a missing value to paper over with a zero.
+ */
+data class ListeningTotals(
+    val lifetimeMinutes: Int = 0,
+    val lifetimePlays: Int = 0,
+    val firstActiveDay: Long? = null,
+    val thisWeekMinutes: Int = 0,
+    val previousWeekMinutes: Int = 0,
+    val weekOverWeek: PeriodChange = PeriodChange.NoBaseline,
 )
 
-data class DailyActivity(
-    val dayLabel: String,
-    val playtimeMinutes: Int = 0,
-    val isToday: Boolean = false,
-)
+/**
+ * Folds the indexed media lists and the playlist count into [LibraryStats].
+ *
+ * Top-level and `internal` rather than a lambda inside the `combine` so that the one rule this has
+ * actually got wrong — *every* indexed media type is counted — is pinned by a test rather than by
+ * reading a flow declaration. The bug it replaces was invisible for exactly that reason: the fold
+ * summed two of the three lists and nothing said so out loud.
+ */
+internal fun libraryStatsOf(
+    audio: List<MediaFile>,
+    videos: List<MediaFile>,
+    images: List<MediaFile>,
+    playlistCount: Int,
+): LibraryStats =
+    LibraryStats(
+        songCount = audio.size,
+        videoCount = videos.size,
+        imageCount = images.size,
+        playlistCount = playlistCount,
+        audioStorageBytes = audio.sumOf { it.size },
+        videoStorageBytes = videos.sumOf { it.size },
+        imageStorageBytes = images.sumOf { it.size },
+    )
 
 @HiltViewModel
 class AnalyticsViewModel
@@ -39,26 +103,35 @@ class AnalyticsViewModel
         private val mediaDao: MediaDao,
         private val mediaRepository: MediaRepository,
         private val calculateStreak: CalculateStreakUseCase,
+        calculateRecords: CalculateRecordsUseCase,
         private val getContinueWatching: GetContinueWatchingUseCase,
+        observeCurrentDay: ObserveCurrentDayUseCase,
     ) : ViewModel() {
-        private val analyticsUpdateTrigger = MutableStateFlow(System.currentTimeMillis())
-
-        fun refreshAnalytics() {
-            analyticsUpdateTrigger.value = System.currentTimeMillis()
-        }
+        /**
+         * The day every window below is measured in, re-emitted at each midnight.
+         *
+         * This replaces a `MutableStateFlow` seeded once at construction plus a public
+         * `refreshAnalytics()` that nothing ever called. The trigger's only real job was to make the
+         * day-dependent windows recompute, and it could not do it: resubscribing already recomputed
+         * them, so the sole case it was needed for — the screen staying subscribed across midnight —
+         * was the one case it never covered. See [ObserveCurrentDayUseCase].
+         */
+        private val currentDay = observeCurrentDay()
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val realtimeAnalytics =
             combine(
-                analyticsUpdateTrigger,
+                currentDay,
                 mediaRepository.audioList,
                 mediaRepository.videoList,
-            ) { _, audio, videos ->
-                audio + videos
-            }.flatMapLatest { allMedia ->
-                val today = getNormalizedToday()
-                val weekStart = today - (6L * 24 * 60 * 60 * 1000)
-                val monthStart = today - (29L * 24 * 60 * 60 * 1000)
+            ) { today, audio, videos ->
+                today to (audio + videos)
+            }.flatMapLatest { (today, allMedia) ->
+                // Calendar days, not millisecond arithmetic. `date >= :start` against a bound that
+                // has drifted an hour excludes the day it was meant to include, so the rolling
+                // "last 7 days" silently becomes six. See AnalyticsDays.daysBefore.
+                val weekStart = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW - 1)
+                val monthStart = AnalyticsDays.daysBefore(today, DAYS_IN_MONTH_WINDOW - 1)
 
                 // Using vararg combine for > 5 flows
                 combine(
@@ -78,7 +151,7 @@ class AnalyticsViewModel
                     val overallFavId = args[4] as Long?
                     val recentFavId = args[5] as Long?
 
-                    val avgDailyMs = monthMs / 30
+                    val avgDailyMs = monthMs / DAYS_IN_MONTH_WINDOW
 
                     val currentStreak = calculateStreak(activeDays, today)
 
@@ -121,65 +194,147 @@ class AnalyticsViewModel
             combine(
                 mediaRepository.audioList,
                 mediaRepository.videoList,
+                mediaRepository.imageList,
                 mediaDao.getPlaylistCountFlow(),
-            ) { audio, videos, playlistCount ->
-                val totalStorage = audio.sumOf { it.size } + videos.sumOf { it.size }
-                LibraryStats(
-                    songCount = audio.size,
-                    videoCount = videos.size,
-                    playlistCount = playlistCount,
-                    totalStorageBytes = totalStorage,
-                )
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryStats())
+                ::libraryStatsOf,
+            ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LibraryStats())
 
+        /**
+         * Lifetime totals and week-over-week momentum.
+         *
+         * Five flows, so this is the *typed* `combine` rather than the vararg one — no `args[i] as
+         * Long?` casting, which is the only part of `realtimeAnalytics` the compiler cannot check.
+         *
+         * The window boundaries are calendar days from [AnalyticsDays], not millisecond arithmetic:
+         * the range predicate is `date >= :start`, so a start that lands an hour off excludes the
+         * day it was meant to include and silently shortens the window.
+         *
+         * Both week totals are read here rather than reusing the one in `realtimeAnalytics`. It is
+         * the same query against the same table, and paying for it twice is what guarantees the
+         * percentage and the two totals it was computed from can never describe different weeks.
+         */
         @OptIn(ExperimentalCoroutinesApi::class)
-        val weeklyActivity =
-            analyticsUpdateTrigger
-                .flatMapLatest {
-                    val cal = Calendar.getInstance()
-                    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-                    val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+        val listeningTotals =
+            currentDay
+                .flatMapLatest { today ->
+                    val thisWeekStart = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW - 1)
+                    val previousWeekEnd = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW)
+                    val previousWeekStart = AnalyticsDays.daysBefore(today, DAYS_IN_WINDOW * 2 - 1)
 
-                    cal.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
-                    cal.set(Calendar.HOUR_OF_DAY, 0)
-                    cal.set(Calendar.MINUTE, 0)
-                    cal.set(Calendar.SECOND, 0)
-                    cal.set(Calendar.MILLISECOND, 0)
-                    val mondayMs = cal.timeInMillis
-                    val sundayMs = mondayMs + (6L * 24 * 60 * 60 * 1000)
+                    combine(
+                        mediaDao.getTotalPlaytimeFlow(),
+                        mediaDao.getTotalPlayCountFlow(),
+                        mediaDao.getFirstActiveDayFlow(),
+                        mediaDao.getPlaytimeRange(thisWeekStart, today),
+                        mediaDao.getPlaytimeRange(previousWeekStart, previousWeekEnd),
+                    ) { lifetimeMs, plays, firstDay, thisWeekMs, previousWeekMs ->
+                        val thisWeek = thisWeekMs ?: 0L
+                        val previousWeek = previousWeekMs ?: 0L
 
-                    mediaDao.getWeekDailyPlaytimes(mondayMs, sundayMs).map { records ->
-                        val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-                        val todayMs = getNormalizedToday()
-                        val playtimeMap = records.associate { it.date to it.totalPlaytimeMs }
-
-                        labels.mapIndexed { index, label ->
-                            val dayMs = mondayMs + (index.toLong() * 24 * 60 * 60 * 1000)
-                            DailyActivity(
-                                dayLabel = label,
-                                playtimeMinutes = ((playtimeMap[dayMs] ?: 0L) / 60000).toInt(),
-                                isToday = dayMs == todayMs,
-                            )
-                        }
+                        ListeningTotals(
+                            lifetimeMinutes = ((lifetimeMs ?: 0L) / MS_PER_MINUTE).toInt(),
+                            lifetimePlays = plays,
+                            firstActiveDay = firstDay,
+                            thisWeekMinutes = (thisWeek / MS_PER_MINUTE).toInt(),
+                            previousWeekMinutes = (previousWeek / MS_PER_MINUTE).toInt(),
+                            // Compared in milliseconds, before the truncation to minutes, so the
+                            // percentage describes what was actually listened to rather than what
+                            // survived rounding.
+                            weekOverWeek = PeriodChange.between(previousWeek, thisWeek),
+                        )
                     }
-                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), generateEmptyWeek())
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ListeningTotals())
 
-        private fun generateEmptyWeek(): List<DailyActivity> {
-            val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-            val cal = Calendar.getInstance()
-            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-            val todayIndex = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
-            return labels.mapIndexed { index, label ->
-                DailyActivity(dayLabel = label, isToday = index == todayIndex)
-            }
+        private val selectedRange = MutableStateFlow(StatsRange.WEEK)
+
+        /**
+         * The range the activity chart is showing.
+         *
+         * Held here rather than as composable state for two reasons, neither of which is scrolling:
+         * the Me tab is a `Column` with `verticalScroll`, so every section stays composed however
+         * far it is scrolled away. The reasons are that it survives configuration changes, and that
+         * [activityBuckets] has to react to it — state the ViewModel's own flow depends on belongs
+         * to the ViewModel rather than being pushed back into it from the UI on every change.
+         */
+        val activityRange: StateFlow<StatsRange> = selectedRange.asStateFlow()
+
+        fun selectActivityRange(range: StatsRange) {
+            selectedRange.value = range
         }
 
-        private fun getNormalizedToday(): Long {
-            val c = Calendar.getInstance()
-            c.set(Calendar.HOUR_OF_DAY, 0)
-            c.set(Calendar.MINUTE, 0)
-            c.set(Calendar.SECOND, 0)
-            c.set(Calendar.MILLISECOND, 0)
-            return c.timeInMillis
+        /**
+         * Personal bests, over all history rather than a window.
+         *
+         * Both inputs are flows, so a record updates the moment it is beaten rather than at the
+         * next launch. `activeDays` is the same list the current streak is built from — sharing it
+         * is what stops the record and the streak disagreeing about which days count.
+         */
+        val records =
+            combine(
+                mediaDao.getActiveDays(),
+                mediaDao.getAllDailyPlaytimes(),
+                calculateRecords::invoke,
+            ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ListeningRecords())
+
+        /**
+         * Top tracks, artists and albums over the same window the chart is showing.
+         *
+         * Deliberately governed by [activityRange] rather than by a control of its own. The two
+         * answer the same question at different resolutions — *when* did I listen, and *to what* —
+         * and a screen with two independent period pickers invites exactly one mistake: reading a
+         * chart of this year beside a top list of this week and believing they agree.
+         *
+         * `play_events.timestamp` is wall-clock, while the range start is a midnight day key. A day
+         * key is a valid `>=` bound on wall-clock times, so the window opens at the first instant of
+         * its first day — the same instant the chart's first bar opens at.
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val topLists =
+            combine(currentDay, selectedRange) { today, range -> today to range }
+                .flatMapLatest { (today, range) ->
+                    combine(
+                        mediaDao.getPlayCountsSince(ActivityChart.rangeStart(range, today)),
+                        mediaRepository.audioList,
+                        mediaRepository.videoList,
+                    ) { counts, audio, videos ->
+                        TopLists.from(counts.map { it.mediaId to it.plays }, audio + videos)
+                    }
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TopListsSnapshot())
+
+        /**
+         * The bars for the selected range.
+         *
+         * The query bounds and the buckets come from the same pair of functions, which is what
+         * makes the bucketing total-preserving: there is no window the query covers and the buckets
+         * do not, or the reverse. Grouping happens in Kotlin rather than SQL because month
+         * boundaries are a local-timezone question and SQLite would have to be told the offset for
+         * every row — including the rows on either side of a DST shift, where it differs.
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val activityBuckets =
+            combine(currentDay, selectedRange) { today, range -> today to range }
+                .flatMapLatest { (today, range) ->
+                    val start = ActivityChart.rangeStart(range, today)
+                    val end = ActivityChart.rangeEnd(range, today)
+
+                    mediaDao.getDailyPlaytimes(start, end).map { records ->
+                        ActivityChart.bucketsFor(range, today, records.associate { it.date to it.totalPlaytimeMs })
+                    }
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        private companion object {
+            const val MS_PER_MINUTE = 60_000L
+
+            /**
+             * Length of the rolling "last 7 days" window, and of the week it is compared against.
+             *
+             * Named because the two windows must agree: comparing a 7-day total against a 6-day one
+             * would produce a percentage that looks like a behaviour change and is an arithmetic
+             * artefact. Both are derived from this one constant so they cannot drift apart.
+             */
+            const val DAYS_IN_WINDOW = 7
+
+            /** Length of the rolling window behind the daily average. */
+            const val DAYS_IN_MONTH_WINDOW = 30
         }
     }

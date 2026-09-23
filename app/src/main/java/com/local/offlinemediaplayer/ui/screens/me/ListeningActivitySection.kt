@@ -40,10 +40,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.local.offlinemediaplayer.domain.ListeningRecords
+import com.local.offlinemediaplayer.domain.PeriodChange
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.common.FormatUtils
+import com.local.offlinemediaplayer.viewmodel.ListeningTotals
 import com.local.offlinemediaplayer.viewmodel.RealtimeAnalytics
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.abs
+
+/** Display clamp for the week-over-week chip. See [TrendChip] for why the true value is not shown. */
+private const val MAX_DISPLAYED_PERCENT = 999
 
 /**
  * "LISTENING ACTIVITY" — the four stat tiles and the favourites card on the Me tab.
@@ -56,6 +63,8 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 internal fun ListeningActivitySection(
     analytics: RealtimeAnalytics,
+    totals: ListeningTotals,
+    records: ListeningRecords,
     currentTrack: StateFlow<MediaFile?>,
     lastPlayedAudio: StateFlow<MediaFile?>,
     primaryColor: Color,
@@ -91,7 +100,11 @@ internal fun ListeningActivitySection(
                     FormatUtils.formatMinutesToHours(
                         analytics.todayPlaytimeMinutes,
                     ),
-                subtext = "Active Listening",
+                // Not "Active Listening". PlaybackAnalyticsTracker credits every playing tick,
+                // video included, and always has — the position loop drives both through the same
+                // controller. Splitting the two is a schema change whose backfill is impossible, so
+                // the label is what gets corrected rather than the data. See DS-6.2.
+                subtext = "Audio + video",
             )
 
             AnalyticsCard(
@@ -119,6 +132,7 @@ internal fun ListeningActivitySection(
                         analytics.weekPlaytimeMinutes,
                     ),
                 subtext = "Total Playtime",
+                trend = totals.weekOverWeek,
             )
 
             AnalyticsCard(
@@ -133,6 +147,14 @@ internal fun ListeningActivitySection(
                 subtext = "Last 30 Days",
             )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        AllTimeCard(totals = totals, primaryColor = primaryColor)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        RecordsCard(records = records, primaryColor = primaryColor)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -225,6 +247,44 @@ private fun FavoritesCard(
             )
         }
     }
+}
+
+/**
+ * The week-over-week chip.
+ *
+ * Draws nothing for [PeriodChange.NoBaseline]. There is no honest way to render "compared with a
+ * week that recorded nothing" — a 0% reads as *unchanged*, a dash reads as *missing*, and a large
+ * percentage reads as a comparison that was never made — so the chip is simply absent, and the
+ * card's other numbers stand on their own.
+ *
+ * Percentages past 999 are clamped for display only: a rise from two minutes to three hours is a
+ * true +8900%, and printing it would make the tile look broken rather than impressive.
+ */
+@Composable
+private fun TrendChip(change: PeriodChange) {
+    if (change !is PeriodChange.Changed) return
+
+    val isUp = change.percent >= 0
+    val magnitude = abs(change.percent)
+    val text =
+        when {
+            change.percent == 0 -> "no change"
+            magnitude > MAX_DISPLAYED_PERCENT -> "${if (isUp) "+" else "-"}$MAX_DISPLAYED_PERCENT%+"
+            else -> "${if (isUp) "+" else ""}${change.percent}%"
+        }
+    val tint =
+        when {
+            change.percent == 0 -> MaterialTheme.colorScheme.onSurfaceVariant
+            isUp -> Color(0xFF22C55E) // Green, matching the card's own accent
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = tint,
+    )
 }
 
 /** The "Current Playing" / "Last Played" row at the top of [FavoritesCard]. */
@@ -374,6 +434,7 @@ internal fun AnalyticsCard(
     label: String,
     value: String,
     subtext: String,
+    trend: PeriodChange? = null,
 ) {
     Card(
         modifier = modifier,
@@ -419,11 +480,19 @@ internal fun AnalyticsCard(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = subtext,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = subtext,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+                if (trend != null) {
+                    TrendChip(change = trend)
+                }
+            }
         }
     }
 }
