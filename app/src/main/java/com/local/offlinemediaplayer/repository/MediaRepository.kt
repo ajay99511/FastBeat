@@ -2,6 +2,7 @@ package com.local.offlinemediaplayer.repository
 
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -26,6 +27,91 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Columns read for every image.
+ *
+ * This was `_ID`, `DISPLAY_NAME` and `SIZE` — three columns, which is why the Images tab had no
+ * dates to group or sort by, no folders, and an info button in the viewer with nothing behind it
+ * and therefore no click handler (DS-7.4). Widening it is one change that unblocks four features.
+ */
+private val IMAGE_PROJECTION =
+    arrayOf(
+        MediaStore.Images.Media._ID,
+        MediaStore.Images.Media.DISPLAY_NAME,
+        MediaStore.Images.Media.SIZE,
+        MediaStore.Images.Media.DATE_ADDED,
+        MediaStore.Images.Media.DATE_MODIFIED,
+        MediaStore.Images.Media.WIDTH,
+        MediaStore.Images.Media.HEIGHT,
+        MediaStore.Images.Media.MIME_TYPE,
+        MediaStore.Images.Media.BUCKET_ID,
+        MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+    )
+
+/**
+ * Maps a MediaStore images cursor onto [MediaFile]s.
+ *
+ * Separate from the query so it can be tested against a `MatrixCursor` — column mapping is string
+ * keys and index arithmetic, which the compiler cannot check and which fails silently by producing
+ * plausible-looking wrong values. The same argument `MediaDaoTest` makes for SQL literals.
+ *
+ * Every column past the first two is read through `getColumnIndex`, not `getColumnIndexOrThrow`:
+ * MediaStore does not guarantee a column exists on every OEM build or volume, and a missing
+ * *optional* column should cost that one field, not the entire image list.
+ */
+internal fun readImages(
+    cursor: Cursor,
+    collection: Uri,
+): List<MediaFile> {
+    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+    val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+    val sizeColumn = cursor.getColumnIndex(MediaStore.Images.Media.SIZE)
+    val dateAddedColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
+    val dateModifiedColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATE_MODIFIED)
+    val widthColumn = cursor.getColumnIndex(MediaStore.Images.Media.WIDTH)
+    val heightColumn = cursor.getColumnIndex(MediaStore.Images.Media.HEIGHT)
+    val mimeTypeColumn = cursor.getColumnIndex(MediaStore.Images.Media.MIME_TYPE)
+    val bucketIdColumn = cursor.getColumnIndex(MediaStore.Images.Media.BUCKET_ID)
+    val bucketNameColumn = cursor.getColumnIndex(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+
+    val images = ArrayList<MediaFile>(cursor.count)
+    while (cursor.moveToNext()) {
+        val id = cursor.getLong(idColumn)
+        val name = cursor.getString(nameColumn) ?: "Unknown Image"
+        images +=
+            MediaFile(
+                id = id,
+                uri = ContentUris.withAppendedId(collection, id),
+                title = name,
+                displayName = name,
+                artist = null,
+                duration = 0,
+                isVideo = false,
+                isImage = true,
+                albumArtUri = null,
+                albumId = -1,
+                size = cursor.longOr(sizeColumn),
+                dateAdded = cursor.longOr(dateAddedColumn),
+                dateModified = cursor.longOr(dateModifiedColumn),
+                width = cursor.intOr(widthColumn),
+                height = cursor.intOr(heightColumn),
+                mimeType = cursor.stringOr(mimeTypeColumn),
+                bucketId = cursor.stringOr(bucketIdColumn),
+                // Files at the volume root have no bucket name. "Unknown" matches what the video
+                // query already substitutes, so the two media types group the same way.
+                bucketName = cursor.stringOr(bucketNameColumn).ifEmpty { "Unknown" },
+            )
+    }
+    return images
+}
+
+/** Reads a column that may be absent or NULL, which MediaStore permits for optional columns. */
+private fun Cursor.longOr(column: Int): Long = if (column != -1 && !isNull(column)) getLong(column) else 0L
+
+private fun Cursor.intOr(column: Int): Int = if (column != -1 && !isNull(column)) getInt(column) else 0
+
+private fun Cursor.stringOr(column: Int): String = if (column != -1 && !isNull(column)) getString(column) ?: "" else ""
+
 @Singleton
 class MediaRepository
     @Inject
@@ -35,6 +121,9 @@ class MediaRepository
     ) {
         companion object {
             private const val TAG = "MediaRepository"
+
+            /** Audio shorter than this is a ringtone or a voice memo, not a track. */
+            private const val MIN_AUDIO_DURATION_MS = 45_000
         }
 
         private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -157,7 +246,14 @@ class MediaRepository
                         MediaStore.Audio.Media.MIME_TYPE,
                     )
                 }
-            val selection = if (!isVideo) "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 45000" else null
+            // Music only, and long enough not to be a notification tone or voice memo.
+            val selection =
+                if (isVideo) {
+                    null
+                } else {
+                    "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND " +
+                        "${MediaStore.Audio.Media.DURATION} >= $MIN_AUDIO_DURATION_MS"
+                }
 
             try {
                 context.contentResolver.query(collection, projection, selection, null, null)?.use { cursor ->
@@ -341,57 +437,25 @@ class MediaRepository
         }
 
         private fun queryImages(): List<MediaFile> {
-            val imageList = mutableListOf<MediaFile>()
             val collection =
                 if (Build.VERSION.SDK_INT >= 29) {
                     MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 } else {
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                 }
-            // SIZE is read so images can be counted in the library's storage total. Without it
-            // every image carries size = 0 and the total silently under-reports.
-            val projection =
-                arrayOf(
-                    MediaStore.Images.Media._ID,
-                    MediaStore.Images.Media.DISPLAY_NAME,
-                    MediaStore.Images.Media.SIZE,
-                )
-            try {
+            return try {
                 context.contentResolver
                     .query(
                         collection,
-                        projection,
+                        IMAGE_PROJECTION,
                         null,
                         null,
                         "${MediaStore.Images.Media.DATE_ADDED} DESC",
-                    )?.use { cursor ->
-                        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                        val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                        val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-                        while (cursor.moveToNext()) {
-                            val id = cursor.getLong(idColumn)
-                            val name = cursor.getString(nameColumn) ?: "Unknown Image"
-                            val contentUri = ContentUris.withAppendedId(collection, id)
-                            imageList.add(
-                                MediaFile(
-                                    id = id,
-                                    uri = contentUri,
-                                    title = name,
-                                    artist = null,
-                                    duration = 0,
-                                    isVideo = false,
-                                    isImage = true,
-                                    albumArtUri = null,
-                                    albumId = -1,
-                                    size = cursor.getLong(sizeColumn),
-                                ),
-                            )
-                        }
-                    }
+                    )?.use { cursor -> readImages(cursor, collection) } ?: emptyList()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to query media", e)
+                Log.e(TAG, "Failed to query images", e)
+                emptyList()
             }
-            return imageList
         }
 
         private fun queryAlbums(): List<Album> {
