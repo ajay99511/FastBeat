@@ -844,6 +844,93 @@ the label: time-based numbers from `daily_playtime`, count-based numbers from `p
 | **S-6.6** | Records: longest streak ever, best single day, most-active weekday. | 🟩 | S-6.1 | Longest-streak agrees with `CalculateStreakUseCase` on any run that is still current | Pure-function tests, including agreement with the existing use case |
 | **S-6.7** | Empty state and chart accessibility. | 🟩 | S-6.4 | Every stat surface is reachable and describable without sight or touch precision | Compose UI tests, per the P5-G precedent |
 
+### Phase 7 — Images
+
+**Tier: Standard**, rising to *Consequential* for one task (I-7.6, which changes what "Delete" means). Scope is the images surface only: `ImageListScreen`, `MediaRepository.queryImages`, and the image-specific paths in `PlaybackViewModel` / `LibraryViewModel`. No other screen changes.
+
+#### What the screen is, and what it is not
+
+`ImageListScreen.kt` is a grid plus a full-screen pager viewer: adaptive cell sizing, pull-to-refresh, search, single-image delete with a correct scoped-storage consent round-trip, and an empty state. The delete round-trip in particular is careful work and is preserved intact.
+
+It is also the only media tab with **no sorting, no multi-select, no zoom, and no tests at all** — and the reason for the last one is structural, not neglect (DS-7.1).
+
+#### Decision records
+
+##### DS-7.1 — Move the screen off `PlaybackViewModel` onto `LibraryViewModel`
+
+`ImageListScreen` takes `PlaybackViewModel`: 2 173 lines owning a `MediaController`, the queue, playback state and analytics. Images have nothing to do with playback. This is the exact coupling F-7 predicted and F-44 confirmed would block Compose tests — `MiniPlayer` had to be split into a stateless half before a single assertion could run against it. Zero tests exist for images, and none can while the screen's only input is that ViewModel.
+
+**The seam already exists and is unused.** `LibraryViewModel` exposes `imageList` (the repository flow, not a copy), owns the shared selection API that the audio and video screens already use, and owns the delete path that correctly updates the repository. Moving images onto it is not a refactor for its own sake: it fixes DS-7.2's divergence, unblocks multi-select, and makes the screen testable — one move, three problems.
+
+**What is deliberately *not* done:** a new `ImagesViewModel`. There is no behaviour here that `LibraryViewModel` does not already model, and a third ViewModel would add a file, a Hilt binding and a second selection API to serve one screen. Revisit only if images grow state the library genuinely does not share.
+
+##### DS-7.2 — One list, one owner: the repository
+
+The image list exists twice. `MediaRepository.imageList` is the source of truth, read by `AnalyticsViewModel.libraryStats` and `LibraryViewModel`. `PlaybackViewModel._imageList` is a **snapshot copy**, refreshed only inside `scanMedia()`, and `completeImageDelete()` prunes only the copy.
+
+So deleting an image updates the grid and nothing else: the Me tab's IMAGES tile and "Total Storage Used" keep counting the deleted file, and `MediaRepository.mediaById` keeps resolving it, until the next full rescan.
+
+The correct plumbing already exists and already handles images — `MediaRepository.removeMediaIds()` filters `_imageList`, and `LibraryViewModel.onDeleteSuccess` calls it. The single-image path is the only caller that does not. **The copy is deleted rather than kept in sync**: two lists that must agree are a bug waiting to recur, and the second one has no owner.
+
+##### DS-7.3 — Deletion is driven by the list, not by an optimistic callback
+
+On API 30+ `MediaStore.createDeleteRequest` only *emits an IntentSender*; nothing is deleted until the user confirms. The viewer calls `onDeleted(currentPage)` synchronously right after `deleteImage()`, against a list that still contains the image.
+
+**Being precise about the blast radius, because it explains why this was never reported:** the "step back one" branch is *inert* — `rememberPagerState` ignores later `initialPage` changes, so the pager never moves, and the viewer appears to work because `pageCount` shrinks when the list finally does. The branch that does bite is `size <= 1`: deleting your only photo closes the viewer before the system dialog resolves, and cancelling leaves you on the grid having done nothing.
+
+The fix is to delete the callback, not to correct its arithmetic. The list is already the signal; anything that recomputes position from a pre-consent guess is a second source of truth for where the user is.
+
+##### DS-7.4 — The three-column projection is the root cause, not a separate defect
+
+`queryImages()` selects `_ID`, `DISPLAY_NAME`, `SIZE`. Not `DATE_ADDED`, `WIDTH`/`HEIGHT`, `MIME_TYPE`, `BUCKET_*`.
+
+That single omission is why there is no date grouping, no sort, no folder view, no info panel, and why the viewer's bottom bar holds an `Icon` labelled "Info" with **no click handler** — there was nothing to show. One projection change unblocks four features, so it lands early (I-7.3) and the features that need it come after.
+
+##### DS-7.5 — Zoom is hand-rolled, and GIF support is an explicit dependency decision
+
+Pinch/double-tap zoom is `detectTransformGestures` + `graphicsLayer` — roughly sixty lines, no new artifact. A zoom library would be a runtime dependency on the most-used interaction of the screen, which the project's dependency posture (deliberate, low-touch, no majors) does not warrant for code this small.
+
+Animated GIF/WebP is the opposite case: it **cannot** be hand-rolled and needs `io.coil-kt:coil-gif`. That is a real new artifact, so it is its own task at the end (I-7.9), separable and revertible on its own, and skippable without affecting anything above it.
+
+#### Essentialism triage
+
+**Must be right now** — wrong or irreversible:
+- One owner for the image list (DS-7.2). A list that disagrees with itself corrupts every count derived from it.
+- Deletion driven by confirmed state (DS-7.3). This is the screen's only irreversible action.
+- The projection (DS-7.4) — cheap now, and everything else waits on it.
+
+**Should be there at ship:**
+- Zoom. Both the most expected gallery interaction and the accessibility fix for low vision.
+- Content descriptions that are not raw filenames, and no controls that announce themselves and then do nothing.
+- Tests, which DS-7.1 is what makes possible.
+- Saved UI state across rotation.
+
+**Defer, leave a seam:**
+- A folder/album destination. Needs a nav route; the bucket columns land in I-7.3 so the data is ready when it is wanted.
+- Date-grouped headers — wanted, but behind sort and info in value.
+
+**Explicitly not doing:**
+- EXIF editing, rotation, cropping. This is a media *player*; editing is a different product.
+- Any cloud, backup or sharing-to-service feature. The app removes `INTERNET` from the merged manifest on purpose.
+- Coil 3. A major bump on the library that renders every screen, to gain nothing this phase needs.
+- A dedicated `ImagesViewModel` (DS-7.1).
+
+#### Tasks
+
+| ID | Task | Risk | Depends on | Invariant to hold | Verification |
+|---|---|---|---|---|---|
+| **I-7.1** | One owner for the image list: screen reads the repository flow, `removeMediaIds` prunes it, the `PlaybackViewModel` copy is deleted. | 🟨 | — | Every consumer of the image list sees the same list after a delete | Unit test over the repository; Me-tab counts asserted against the same source |
+| **I-7.2** | Screen takes data + callbacks instead of `PlaybackViewModel`; stateless half extracted so it can be driven from a test. | 🟨 | I-7.1 | No behaviour change — the same composables render the same thing | The Compose test that was impossible before now runs |
+| **I-7.3** | Projection: `DATE_ADDED`, `WIDTH`, `HEIGHT`, `MIME_TYPE`, `BUCKET_ID`, `BUCKET_DISPLAY_NAME`. | 🟩 | — | Existing fields keep their values; new fields are absent rather than wrong when MediaStore has no answer | DAO-style test over a fake cursor is not possible; verified by compilation + the info sheet that consumes it |
+| **I-7.4** | Deletion driven by confirmed state: drop the optimistic callback, save viewer state across rotation, `remember` the filter, fix the footer cell. | 🟨 | I-7.2 | Cancelling a delete leaves the viewer exactly where it was | Compose tests for the viewer's position rules |
+| **I-7.5** | Zoom: pinch, double-tap, pan, with pager swipe gated while zoomed. | 🟨 | I-7.2 | A zoomed image never pages sideways; a reset image always can | Pure-function tests for the transform clamping; Compose test for gating |
+| **I-7.6** | Trash instead of permanent delete on API 30+, **and the dialog copy that currently promises the opposite**. | 🟥 | I-7.4 | The copy and the behaviour agree, on every API level | Verified on device — this one genuinely needs it |
+| **I-7.7** | Accessibility: real content descriptions with position, labelled tap target, no dead controls. | 🟩 | I-7.2 | Nothing announces an action it cannot perform | Compose semantics tests |
+| **I-7.8** | Info sheet + share. | 🟩 | I-7.3, I-7.2 | Share grants read access to exactly the one URI shared | Compose test for the sheet; intent asserted, not launched |
+| **I-7.9** | Multi-select in the grid, reusing the existing selection API. | 🟨 | I-7.2 | Selecting images and deleting them actually deletes them — `deleteSelectedMedia` composes `videoList + audioList` today and would silently skip images | Unit test over the id→file resolution |
+| **I-7.10** | Sort (date / name / size) via the existing `SortPreferencesManager`. | 🟩 | I-7.3 | Sort survives process death, like the other tabs | Unit tests for the comparators |
+| **I-7.11** | Animated GIF/WebP — new `coil-gif` artifact. | 🟩 | — | Resolution verified on the debug runtime classpath | Dependency resolution + visual check |
+
 ---
 
 ## 9. Progress tracker
@@ -902,6 +989,17 @@ Update the status cell as the **last step** of each task, in the same commit.
 | S-6.5 | Top tracks / artists / albums | 🟨 | S-6.3, S-6.4 | ✅ | `domain/TopLists.kt` + `ui/screens/me/TopListsSection.kt` [NEW]; `getPlayCountsSince` with a `MediaPlayCount` projection. The screen showed exactly two tracks — *Current Obsession* and *All Time #1* — while the ranking behind them was computed and thrown away, so the honest summary of a year of listening was one song title. **Artists and albums are summed from all their tracks, not taken from the track ranking.** A track outside the track top five still counts towards its artist, and skipping that would rank artists by their single best song — a different and much less interesting question. That is also why the query has **no `LIMIT`**: it is bounded by distinct tracks played in the window, never by library size, and truncating it in SQL would quietly corrupt the grouped lists. **Ties break by name in Kotlin and by `mediaId` in SQL**, so both orderings are total. Without it, equal-count rows depend on iteration order and the list reshuffles between emissions, which reads as data changing when nothing has. **The window is the chart's, deliberately** — one period control for the whole trends area. Two independent pickers would let a reader compare a chart of this year against a top list of this week without noticing; the heading names the range for the same reason. Artist and album rows are **not** clickable: playing *everything by this artist* is a queue decision belonging to the library screens, and a row that looks tappable and does nothing is worse than one that plainly is not. **15 new tests** (`TopListsTest` 12, `MediaDaoTest` +3 → 33), covering the grouped-total rule, tie stability from two different input orders, untagged tracks grouping rather than vanishing, and play counts for media no longer in the library being dropped rather than rendering an unplayable row. **Negative control:** removing the tie-break failed exactly `tiesBreakByNameSoTheOrderIsStable` and nothing else. Gate: `assembleDebug lint testDebugUnitTest detekt ktlintCheck` → **BUILD SUCCESSFUL, 335 tests / 0 failures** (was 320). Detekt baseline unchanged — the new files are clean against the full rule set. |
 | S-6.6 | Records: longest streak, best day | 🟩 | S-6.1 | ✅ | `domain/CalculateRecordsUseCase.kt` [NEW] + a RECORDS card: longest streak ever, best single day, busiest weekday. Gives the streak tile something to measure against — *4 days* means nothing alone; *4 days, best ever 21* is the difference between a number and a goal. **The card's invariant was met by construction, not by hoping:** `AnalyticsDays.isDayBefore` is now the single definition of *consecutive*, used by both the current streak and the record. Two implementations of the same rule can drift, and the failure would be visible nonsense — a 0-day streak beside a 12-day record built from the identical list. A test asserts the record is never shorter than the current streak across four differently-shaped runs. **This closed a limitation `CalculateStreakUseCase` documented as permanent:** it compared day keys with `== 86_400_000`, so a 23- or 25-hour local day broke a streak the user had not broken. Its test suite now pins UTC — the fixed-millisecond fixtures are only equivalent to calendar days in a zone without DST — plus a synthetic-zone regression test covering the shift itself. Weekday grouping is done in Kotlin, not SQL: day keys are *local* midnights stored as epoch millis, and `strftime('%w', …)` would read them as UTC and mis-assign every day for anyone not on it. Ties resolve to the earlier weekday so the answer does not depend on map iteration order. Records that do not exist yet render as *Not set yet* rather than as `0` or `1 Jan 1970`, which is what a non-null default produces and which looks like data. **10 new tests** (`CalculateRecordsUseCaseTest` 9, `CalculateStreakUseCaseTest` +1 → 19). **Negative control:** reverting `isDayBefore` to millisecond subtraction failed exactly the DST regression test and nothing else. ⚠️ **Two detekt violations were introduced and fixed structurally rather than baselined** (F-38's precedent): `ListeningActivitySection.kt` crossed the 11-function limit and `MeScreen` hit 120 lines. The long-window cards moved to `ListeningTotalsCards.kt`, and the four statistics sections moved behind one `StatsSections` composable — **which is DS-6.1's promised seam, now actually built**: relocating statistics to a dedicated screen is a one-line change, and the chart's range selector no longer sits in a different file from the top lists it governs. Gate: `assembleDebug lint testDebugUnitTest detekt ktlintCheck` → **BUILD SUCCESSFUL, 345 tests / 0 failures** (was 335). Detekt baseline unchanged. |
 | S-6.7 | Empty state and chart accessibility | 🟩 | S-6.4 | ✅ | `ui/screens/me/EmptyStatsCard.kt` [NEW] + chart semantics + `StatsAccessibilityTest` (10 tests). **Accessibility:** a `Canvas` contributes no semantics, so the chart was simply *absent* to TalkBack — in an app that ships an accessibility guide screen. Worse, the per-bar values existed only behind a tap on a bar a few pixels wide. The description **summarises rather than enumerates**: range, total, busiest bucket. Reading out thirty daily values is complete and useless; three sentences are what the chart is actually for, and a user who needs a specific day has the top lists and tiles, which are real text. The range chips already carried `Role.RadioButton`, and a test now pins that the *selected* one reports as selected — three identically-named buttons announce nothing otherwise. **Empty state:** a fresh install showed five zeroes, an empty chart and "Keep Listening…", explaining neither why nor what would change it. `EmptyStatsCard` replaces the three listening-derived sections (the library summary stays — it counts files, which exist before any playback) and states the two otherwise-invisible rules: a track counts after ~30 s, and a day joins a streak after a minute. **The predicate is three conditions, not one, and the reason is a real case:** a user who only ever skips accrues playtime without crossing the play threshold, so `lifetimePlays` stays 0 while `firstActiveDay` is set. They have history and must see their chart, not an introduction. Pinned by `playtimeWithoutAnyCountedPlayStillCountsAsHistory`. ⚠️ **Accepted coupling, stated rather than hidden:** the thresholds quoted in the copy live in `PlaybackAnalyticsTracker` (`private`) and in a SQL literal in `getActiveDays`, so they are restated, not referenced. If either is retuned the copy must move with it. Describing them vaguely would have wasted the explanation, which is the whole point of the card. **Negative control:** removing the chart's `semantics` block failed exactly `theChartIsDescribedToAScreenReader` and nothing else. Gate: `assembleDebug lint testDebugUnitTest detekt ktlintCheck` → **BUILD SUCCESSFUL, 355 tests / 0 failures** (was 345). Both baselines untouched. **Phase 6 closed.** |
+| I-7.1 | One owner for the image list | 🟨 | — | ⬜ | |
+| I-7.2 | Images screen off `PlaybackViewModel` | 🟨 | I-7.1 | ⬜ | |
+| I-7.3 | Image projection: date, size, type, bucket | 🟩 | — | ⬜ | |
+| I-7.4 | Deletion driven by confirmed state | 🟨 | I-7.2 | ⬜ | |
+| I-7.5 | Pinch / double-tap zoom and pan | 🟨 | I-7.2 | ⬜ | |
+| I-7.6 | Trash instead of permanent delete | 🟥 | I-7.4 | ⬜ | |
+| I-7.7 | Viewer and grid accessibility | 🟩 | I-7.2 | ⬜ | |
+| I-7.8 | Info sheet and share | 🟩 | I-7.3, I-7.2 | ⬜ | |
+| I-7.9 | Multi-select in the grid | 🟨 | I-7.2 | ⬜ | |
+| I-7.10 | Sort by date / name / size | 🟩 | I-7.3 | ⬜ | |
+| I-7.11 | Animated GIF and WebP | 🟩 | — | ⬜ | |
 
 ### Follow-ups discovered during execution
 *(Append here rather than expanding a task's scope. Empty is fine.)*
