@@ -159,8 +159,16 @@ class PlaybackViewModel
 
         val audioList = mediaRepository.audioList
 
-        private val _imageList = MutableStateFlow<List<MediaFile>>(emptyList())
-        val imageList = _imageList.asStateFlow()
+        /**
+         * Delegated to the repository rather than copied, matching [audioList] directly above.
+         *
+         * This used to be a `MutableStateFlow` snapshot refreshed only inside `scanMedia`, with
+         * `completeImageDelete` pruning the copy and nothing else. Two lists that have to agree
+         * always drift, and this pair drifted the moment anything was deleted: the grid updated
+         * while `AnalyticsViewModel.libraryStats` — reading the repository — went on counting the
+         * file in the Me tab's IMAGES tile and storage total until the next full rescan. See DS-7.2.
+         */
+        val imageList = mediaRepository.imageList
 
         private val _albums = MutableStateFlow<List<Album>>(emptyList())
         val albums = _albums.asStateFlow()
@@ -404,9 +412,17 @@ class PlaybackViewModel
             }
         }
 
+        /**
+         * Prunes the repository, which every reader of the image list shares.
+         *
+         * `removeMediaIds` already filtered images before this called it — it was simply not the
+         * function being called. No `cleanupDeletedMedia` here on purpose: MediaStore ids are unique
+         * across audio, video and images on a volume, so an image id matches no playlist, queue,
+         * history or analytics row, and calling it would imply otherwise.
+         */
         private fun completeImageDelete() {
             val id = pendingImageDeleteId.value ?: return
-            _imageList.value = _imageList.value.filter { it.id != id }
+            mediaRepository.removeMediaIds(listOf(id))
             pendingImageDeleteId.value = null
         }
 
@@ -790,8 +806,8 @@ class PlaybackViewModel
                     // Delegate to MediaRepository which handles querying & thumbnail caching
                     val (videos, audio) = mediaRepository.scanMedia()
 
-                    // Sync local state from repository for images/albums which are still internally managed
-                    _imageList.value = mediaRepository.imageList.value
+                    // Albums are still a local copy; images are read straight from the
+                    // repository now (DS-7.2), so there is nothing to sync for them.
                     _albums.value = mediaRepository.albums.value
 
                     // RESTORE QUEUE AFTER LOADING
