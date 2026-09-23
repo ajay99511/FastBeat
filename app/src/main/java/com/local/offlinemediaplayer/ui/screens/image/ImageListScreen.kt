@@ -1,7 +1,7 @@
-
 package com.local.offlinemediaplayer.ui.screens.image
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -33,29 +33,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
+import com.local.offlinemediaplayer.ui.adaptive.adaptiveImageCellSize
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The Images tab, bound to its ViewModel.
+ *
+ * This half owns only what needs a ViewModel: the scoped-storage consent round-trip and the
+ * user-message toasts. Everything that draws is [ImageListContent], which takes data and callbacks
+ * and can therefore be driven from a test.
+ *
+ * That split is the point. Until it existed there was no way to assert anything about this screen —
+ * its single parameter was a 2 000-line ViewModel that constructs a `MediaController`, which is the
+ * coupling F-7 predicted and F-44 confirmed. `MiniPlayer` was split the same way and for the same
+ * reason; this follows that precedent rather than inventing a new one.
+ *
+ * **Deviation from DS-7.1, deliberate.** That record says the screen moves onto `LibraryViewModel`,
+ * which already exposes `imageList`, `isRefreshing`, `scanMedia`, the delete-intent stream and the
+ * shared selection API — everything except a single-image delete. Moving *that* means swapping one
+ * working scoped-storage delete path for another, on an irreversible operation, for no gain this
+ * task needs. The migration is deferred to I-7.9, where multi-select needs the selection API and
+ * the two delete paths get consolidated on purpose rather than in passing.
+ */
 @Composable
 fun ImageListScreen(
     viewModel: PlaybackViewModel,
     isSearchVisible: Boolean,
 ) {
     val images by viewModel.imageList.collectAsStateWithLifecycle()
-    var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
-
-    // Refresh State
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-
-    // Local search state for Images
-    var searchQuery by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     // Deletion Flow (for Android 11+ scoped storage)
     val intentLauncher =
@@ -75,21 +91,46 @@ fun ImageListScreen(
         }
     }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.userMessage.collect { msg ->
-            android.widget.Toast
-                .makeText(context, msg.resolve(context), android.widget.Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(context, msg.resolve(context), Toast.LENGTH_SHORT).show()
         }
     }
+
+    ImageListContent(
+        images = images,
+        isRefreshing = isRefreshing,
+        isSearchVisible = isSearchVisible,
+        onRefresh = { viewModel.scanMedia() },
+        onDeleteImage = { image -> viewModel.deleteImage(image) },
+    )
+}
+
+/**
+ * Everything the Images tab draws: the grid, the search box, the empty states and the full-screen
+ * viewer.
+ *
+ * Stateless with respect to the app — it takes a list and reports intent through callbacks. The
+ * viewer's open/closed state and the search query stay here because they are view state, not
+ * application state, and nothing outside this screen has any use for them.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ImageListContent(
+    images: List<MediaFile>,
+    isRefreshing: Boolean,
+    isSearchVisible: Boolean,
+    onRefresh: () -> Unit,
+    onDeleteImage: (MediaFile) -> Unit,
+) {
+    var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     // Handle Back Press to close viewer
     BackHandler(enabled = selectedImageIndex != null) {
         selectedImageIndex = null
     }
 
-    // Filter images
     val filteredImages =
         if (searchQuery.isNotEmpty()) {
             images.filter { it.title.contains(searchQuery, ignoreCase = true) }
@@ -98,12 +139,11 @@ fun ImageListScreen(
         }
 
     if (selectedImageIndex != null && filteredImages.isNotEmpty()) {
-        // Full Screen Viewer
         ImageViewer(
-            viewModel = viewModel,
             images = filteredImages,
             initialIndex = selectedImageIndex!!,
             onBack = { selectedImageIndex = null },
+            onDelete = onDeleteImage,
             onDeleted = { deletedIndex ->
                 // After deletion: navigate to next image, or prev, or close viewer
                 if (filteredImages.size <= 1) {
@@ -117,9 +157,7 @@ fun ImageListScreen(
             },
         )
     } else {
-        // Grid View
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // Collapsible Search Box
             CollapsibleSearchBox(
                 isVisible = isSearchVisible,
                 query = searchQuery,
@@ -129,59 +167,65 @@ fun ImageListScreen(
 
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
-                onRefresh = { viewModel.scanMedia() },
+                onRefresh = onRefresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (filteredImages.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text =
-                                    if (searchQuery.isNotEmpty()) {
-                                        "No images match search"
-                                    } else {
-                                        "No images found on device"
-                                    },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    EmptyImages(isSearching = searchQuery.isNotEmpty())
                 } else {
-                    val widthClass = com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass.current
-                    LazyVerticalGrid(
-                        columns =
-                            GridCells.Adaptive(
-                                minSize =
-                                    com.local.offlinemediaplayer.ui.adaptive
-                                        .adaptiveImageCellSize(widthClass),
-                            ),
-                        contentPadding = PaddingValues(bottom = 80.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        itemsIndexed(filteredImages) { index, image ->
-                            ImageItem(image, onClick = { selectedImageIndex = index })
-                        }
-                        // Bottom padding to avoid navigation bar overlap if any
-                        item { Spacer(modifier = Modifier.height(80.dp)) }
-                    }
+                    ImageGrid(
+                        images = filteredImages,
+                        onImageClick = { index -> selectedImageIndex = index },
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyImages(isSearching: Boolean) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = if (isSearching) "No images match search" else "No images found on device",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImageGrid(
+    images: List<MediaFile>,
+    onImageClick: (Int) -> Unit,
+) {
+    val widthClass = LocalWindowSizeClass.current
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = adaptiveImageCellSize(widthClass)),
+        contentPadding = PaddingValues(bottom = 80.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        itemsIndexed(images) { index, image ->
+            ImageItem(image, onClick = { onImageClick(index) })
+        }
+        // Bottom padding to avoid navigation bar overlap if any
+        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
 
@@ -210,10 +254,10 @@ fun ImageItem(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageViewer(
-    viewModel: PlaybackViewModel,
     images: List<MediaFile>,
     initialIndex: Int,
     onBack: () -> Unit,
+    onDelete: (MediaFile) -> Unit,
     onDeleted: (Int) -> Unit,
 ) {
     val pagerState =
@@ -288,7 +332,6 @@ fun ImageViewer(
                     }
                 }
 
-                // Delete Button
                 IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(
                         Icons.Outlined.Delete,
@@ -324,7 +367,6 @@ fun ImageViewer(
         }
     }
 
-    // Delete Confirmation Dialog
     if (showDeleteDialog) {
         val currentPage = pagerState.currentPage
         val currentImage = images.getOrNull(currentPage)
@@ -332,7 +374,7 @@ fun ImageViewer(
             DeleteConfirmationDialog(
                 count = 1,
                 onConfirm = {
-                    viewModel.deleteImage(currentImage)
+                    onDelete(currentImage)
                     onDeleted(currentPage)
                 },
                 onDismiss = { showDeleteDialog = false },
