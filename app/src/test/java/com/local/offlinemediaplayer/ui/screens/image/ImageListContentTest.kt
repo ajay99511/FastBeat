@@ -8,12 +8,14 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import com.local.offlinemediaplayer.model.MediaFile
 import com.local.offlinemediaplayer.ui.theme.OfflineMediaPlayerTheme
 import org.junit.Assert.assertEquals
@@ -260,5 +262,23 @@ class ImageListContentTest {
 
         composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
         composeRule.onNodeWithText("beach.jpg").assertIsDisplayed()
+    }
+    // ------------------------------------------------------------------ zoom gates paging
+
+    /**
+     * While an image is magnified a horizontal drag must pan it, not move to the next photo, so the
+     * pager's own scrolling is switched off. Asserted through the pager's scroll semantics, which
+     * `userScrollEnabled = false` removes.
+     */
+    @Test
+    fun pagingIsDisabledWhileTheImageIsZoomed() {
+        setContent()
+
+        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        composeRule.onNode(hasScrollToIndexAction()).assertExists()
+
+        composeRule.onNodeWithContentDescription("beach.jpg").performTouchInput { doubleClick() }
+
+        composeRule.onNode(hasScrollToIndexAction()).assertDoesNotExist()
     }
 }

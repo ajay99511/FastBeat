@@ -12,7 +12,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -32,8 +33,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -257,6 +262,59 @@ fun ImageItem(
     }
 }
 
+/**
+ * One full-screen photo: pinch, double-tap and pan.
+ *
+ * The gesture handlers are keyed on [page] so a recycled page starts with fresh detectors rather
+ * than ones still tracking the previous photo's pointers.
+ *
+ * The tap that toggles the viewer's chrome lives here rather than on an outer `clickable`, because
+ * a parent click and a child `detectTapGestures` cannot both have the tap — and only the child can
+ * tell a single tap from the double tap that zooms.
+ */
+@Composable
+private fun ZoomablePage(
+    image: MediaFile,
+    page: Int,
+    zoom: ZoomState,
+    onZoomChange: (ZoomState) -> Unit,
+    onToggleControls: () -> Unit,
+) {
+    var viewport by remember { mutableStateOf(Size.Zero) }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .onSizeChanged { viewport = Size(it.width.toFloat(), it.height.toFloat()) }
+                .pointerInput(page) {
+                    detectTapGestures(
+                        onTap = { onToggleControls() },
+                        onDoubleTap = { onZoomChange(ImageZoom.toggle(zoom)) },
+                    )
+                }.pointerInput(page) {
+                    detectTransformGestures { _, pan, gestureZoom, _ ->
+                        onZoomChange(ImageZoom.transform(zoom, gestureZoom, pan, viewport))
+                    }
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        AsyncImage(
+            model = image.uri,
+            contentDescription = image.title,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = zoom.scale
+                        scaleY = zoom.scale
+                        translationX = zoom.offset.x
+                        translationY = zoom.offset.y
+                    },
+            contentScale = ContentScale.Fit,
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageViewer(
@@ -272,34 +330,35 @@ fun ImageViewer(
         )
     var showControls by remember { mutableStateOf(true) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var zoom by remember { mutableStateOf(ZoomState()) }
+
+    // A photo left magnified would otherwise hand the next one a scale and an offset it never
+    // earned, and — since paging is disabled while zoomed — strand the user on it.
+    LaunchedEffect(pagerState.currentPage) { zoom = ZoomState() }
 
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Color.Black)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { showControls = !showControls },
+                .background(Color.Black),
     ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             pageSpacing = 16.dp,
+            // While magnified a horizontal drag has to pan the photo. Paging is turned off rather
+            // than handed off at the edges: edge hand-off is what a full gallery does, but it needs
+            // the drawn bitmap's bounds and fails confusingly when it is a pixel out. Disabling is
+            // unambiguous — zoom out and swiping works again.
+            userScrollEnabled = !zoom.isZoomed,
         ) { page ->
-            val image = images[page]
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                AsyncImage(
-                    model = image.uri,
-                    contentDescription = image.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
-            }
+            ZoomablePage(
+                image = images[page],
+                page = page,
+                zoom = zoom,
+                onZoomChange = { zoom = it },
+                onToggleControls = { showControls = !showControls },
+            )
         }
 
         // Top Bar Overlay
