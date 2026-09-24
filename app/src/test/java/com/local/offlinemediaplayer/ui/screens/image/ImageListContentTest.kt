@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.doubleClick
@@ -66,6 +67,14 @@ class ImageListContentTest {
 
     private fun SemanticsNodeInteraction.click() = performSemanticsAction(SemanticsActions.OnClick)
 
+    /**
+     * Finds a cell or viewer page by its title.
+     *
+     * Descriptions carry a position now — "beach.jpg, image 1 of 3" — so an exact match would pin
+     * this suite to the wording, which is `imageDescriptionTest`'s job, not this one's.
+     */
+    private fun node(title: String) = composeRule.onNodeWithContentDescription(title, substring = true)
+
     private fun setContent(
         images: List<MediaFile> = threeImages,
         isSearchVisible: Boolean = false,
@@ -117,7 +126,7 @@ class ImageListContentTest {
     fun everyImageGetsACell() {
         setContent()
 
-        threeImages.forEach { composeRule.onNodeWithContentDescription(it.title).assertIsDisplayed() }
+        threeImages.forEach { node(it.title).assertIsDisplayed() }
     }
 
     @Test
@@ -133,7 +142,7 @@ class ImageListContentTest {
     fun tappingAnImageOpensTheViewer() {
         setContent()
 
-        composeRule.onNodeWithContentDescription("mountain.png").click()
+        node("mountain.png").click()
 
         // The viewer replaces the grid, so the title appears in the top bar as text rather than
         // only as a cell's content description.
@@ -144,7 +153,7 @@ class ImageListContentTest {
     fun theViewerOpensOnTheImageThatWasTapped() {
         setContent()
 
-        composeRule.onNodeWithContentDescription("beach-sunset.jpg").click()
+        node("beach-sunset.jpg").click()
 
         composeRule.onNodeWithText("beach-sunset.jpg").assertIsDisplayed()
     }
@@ -153,13 +162,13 @@ class ImageListContentTest {
     fun backReturnsToTheGrid() {
         setContent()
 
-        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        node("beach.jpg").click()
         composeRule.onNodeWithContentDescription("Back").click()
 
         // The viewer's chrome is gone and every cell is back — the viewer shows one image at a
         // time, so all three being present is only true of the grid.
         composeRule.onNodeWithContentDescription("Back").assertIsNotDisplayed()
-        threeImages.forEach { composeRule.onNodeWithContentDescription(it.title).assertIsDisplayed() }
+        threeImages.forEach { node(it.title).assertIsDisplayed() }
     }
 
     // ------------------------------------------------------------------ deletion wiring
@@ -174,7 +183,7 @@ class ImageListContentTest {
         var deleted: MediaFile? = null
         setContent(onDeleteImage = { deleted = it })
 
-        composeRule.onNodeWithContentDescription("mountain.png").click()
+        node("mountain.png").click()
         composeRule.onNodeWithContentDescription("Delete").click()
         composeRule.onNodeWithText("Delete").click()
 
@@ -198,7 +207,7 @@ class ImageListContentTest {
         var deleted: MediaFile? = null
         setContent(onDeleteImage = { deleted = it })
 
-        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        node("beach.jpg").click()
         composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
         composeRule.onNodeWithContentDescription("Delete").click()
         composeRule.onNodeWithText("Delete").click()
@@ -211,7 +220,7 @@ class ImageListContentTest {
         var deleted: MediaFile? = null
         setContent(onDeleteImage = { deleted = it })
 
-        composeRule.onNodeWithContentDescription("mountain.png").click()
+        node("mountain.png").click()
         composeRule.onNodeWithContentDescription("Delete").click()
         composeRule.onNodeWithText("Cancel").click()
 
@@ -231,7 +240,7 @@ class ImageListContentTest {
     fun confirmingDeletionDoesNotCloseTheViewerBeforeTheFileIsGone() {
         setContent(images = listOf(threeImages[0]))
 
-        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        node("beach.jpg").click()
         composeRule.onNodeWithContentDescription("Delete").click()
         composeRule.onNodeWithText("Delete").click()
 
@@ -243,7 +252,7 @@ class ImageListContentTest {
     fun theViewerClosesOnceTheLastImageIsActuallyRemoved() {
         val setImages = setMutableContent(initial = listOf(threeImages[0]))
 
-        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        node("beach.jpg").click()
         composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
 
         setImages(emptyList())
@@ -257,7 +266,7 @@ class ImageListContentTest {
     fun theViewerStaysOpenWhenADifferentImageIsRemoved() {
         val setImages = setMutableContent()
 
-        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        node("beach.jpg").click()
         setImages(listOf(threeImages[0], threeImages[1]))
 
         composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
@@ -274,11 +283,49 @@ class ImageListContentTest {
     fun pagingIsDisabledWhileTheImageIsZoomed() {
         setContent()
 
-        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        node("beach.jpg").click()
         composeRule.onNode(hasScrollToIndexAction()).assertExists()
 
-        composeRule.onNodeWithContentDescription("beach.jpg").performTouchInput { doubleClick() }
+        node("beach.jpg").performTouchInput { doubleClick() }
 
         composeRule.onNode(hasScrollToIndexAction()).assertDoesNotExist()
+    }
+    // ------------------------------------------------------------------ accessibility
+
+    /**
+     * The grid used to hand TalkBack the bare filename with no sense of place, so a camera roll
+     * announced itself as one unlabelled button after another. Position is what makes it navigable
+     * without sight.
+     */
+    @Test
+    fun aGridCellIsDescribedWithItsPosition() {
+        setContent()
+
+        composeRule
+            .onNodeWithContentDescription("mountain.png, image 2 of 3")
+            .assertIsDisplayed()
+    }
+
+    /**
+     * The viewer is a full-screen `Canvas`-like surface driven by `detectTapGestures`, which
+     * contributes no semantics whatever. Without an explicit description it is a black rectangle.
+     */
+    @Test
+    fun theViewerPageIsDescribedWithItsPosition() {
+        setContent()
+
+        node("beach-sunset.jpg").click()
+
+        composeRule
+            .onNodeWithContentDescription("beach-sunset.jpg, image 3 of 3")
+            .assertIsDisplayed()
+    }
+
+    /** The photo itself must not repeat what its container already says. */
+    @Test
+    fun theGridDescribesEachPhotoExactlyOnce() {
+        setContent()
+
+        node("beach.jpg").assertContentDescriptionEquals("beach.jpg, image 1 of 3")
     }
 }

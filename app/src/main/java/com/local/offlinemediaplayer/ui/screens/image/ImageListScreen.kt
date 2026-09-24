@@ -40,6 +40,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -235,27 +240,43 @@ private fun ImageGrid(
         // Keyed by id so deleting a photo removes that cell rather than shifting every image one
         // place left and reusing the wrong bitmap for the rest of the grid.
         itemsIndexed(images, key = { _, image -> image.id }) { index, image ->
-            ImageItem(image, onClick = { onImageClick(index) })
+            ImageItem(
+                image = image,
+                position = index + 1,
+                total = images.size,
+                onClick = { onImageClick(index) },
+            )
         }
     }
 }
 
+/**
+ * One grid cell.
+ *
+ * The description lives on the cell, not on the `AsyncImage`, so the photo and its tap target are a
+ * single thing to a screen reader instead of an unlabelled button wrapped around a filename.
+ */
 @Composable
 fun ImageItem(
     image: MediaFile,
+    position: Int,
+    total: Int,
     onClick: () -> Unit,
 ) {
+    val description = imageDescription(image.title, position, total)
     Box(
         modifier =
             Modifier
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(4.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(onClick = onClick),
+                .clickable(onClickLabel = VIEW_IMAGE_LABEL, onClick = onClick)
+                .semantics { contentDescription = description },
     ) {
         AsyncImage(
             model = image.uri,
-            contentDescription = image.title,
+            // Described by the cell above; repeating it here would have TalkBack say it twice.
+            contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
@@ -276,16 +297,34 @@ fun ImageItem(
 private fun ZoomablePage(
     image: MediaFile,
     page: Int,
+    total: Int,
     zoom: ZoomState,
     onZoomChange: (ZoomState) -> Unit,
     onToggleControls: () -> Unit,
 ) {
     var viewport by remember { mutableStateOf(Size.Zero) }
+    val description = imageDescription(image.title, page + 1, total)
+    val zoomLabel = zoomActionLabel(zoom.isZoomed)
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
-                .onSizeChanged { viewport = Size(it.width.toFloat(), it.height.toFloat()) }
+                .semantics {
+                    contentDescription = description
+                    // `detectTapGestures` contributes no semantics at all, so without these the
+                    // whole viewer is an unlabelled black rectangle to a screen reader.
+                    onClick(label = TOGGLE_CONTROLS_LABEL) {
+                        onToggleControls()
+                        true
+                    }
+                    customActions =
+                        listOf(
+                            CustomAccessibilityAction(zoomLabel) {
+                                onZoomChange(ImageZoom.toggle(zoom))
+                                true
+                            },
+                        )
+                }.onSizeChanged { viewport = Size(it.width.toFloat(), it.height.toFloat()) }
                 .pointerInput(page) {
                     detectTapGestures(
                         onTap = { onToggleControls() },
@@ -300,7 +339,8 @@ private fun ZoomablePage(
     ) {
         AsyncImage(
             model = image.uri,
-            contentDescription = image.title,
+            // Described by the page above.
+            contentDescription = null,
             modifier =
                 Modifier
                     .fillMaxSize()
@@ -355,6 +395,7 @@ fun ImageViewer(
             ZoomablePage(
                 image = images[page],
                 page = page,
+                total = images.size,
                 zoom = zoom,
                 onZoomChange = { zoom = it },
                 onToggleControls = { showControls = !showControls },
@@ -424,7 +465,9 @@ fun ImageViewer(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Info,
-                    contentDescription = "Info",
+                    // Decorative until I-7.8 gives it something to do. It previously announced
+                    // itself as a control and then did nothing when activated.
+                    contentDescription = null,
                     tint = Color.White.copy(alpha = 0.7f),
                 )
             }
