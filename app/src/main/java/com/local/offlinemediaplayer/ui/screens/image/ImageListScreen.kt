@@ -1,6 +1,7 @@
 package com.local.offlinemediaplayer.ui.screens.image
 
 import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -45,6 +47,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -121,6 +124,9 @@ fun ImageListScreen(
         bottomPadding = bottomPadding,
         onRefresh = { viewModel.scanMedia() },
         onDeleteImage = { image -> viewModel.deleteImage(image) },
+        onShareImage = { image ->
+            context.startActivity(Intent.createChooser(shareIntentFor(image), null))
+        },
     )
 }
 
@@ -140,6 +146,7 @@ internal fun ImageListContent(
     isSearchVisible: Boolean,
     onRefresh: () -> Unit,
     onDeleteImage: (MediaFile) -> Unit,
+    onShareImage: (MediaFile) -> Unit = {},
     bottomPadding: Dp = 16.dp,
 ) {
     // Saveable, not remembered: rotating while looking at a photo used to drop the viewer and the
@@ -169,6 +176,7 @@ internal fun ImageListContent(
             initialIndex = selectedImageIndex!!,
             onBack = { selectedImageIndex = null },
             onDelete = onDeleteImage,
+            onShare = onShareImage,
         )
     } else {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -355,6 +363,112 @@ private fun ZoomablePage(
     }
 }
 
+/**
+ * What the viewer's info button shows.
+ *
+ * Rows come from [imageDetails], which drops whatever MediaStore did not report, so a photo missing
+ * its dimensions shows a shorter sheet rather than "0 × 0".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImageDetailsSheet(
+    image: MediaFile,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Details",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            imageDetails(image).forEach { detail ->
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = detail.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = detail.value,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The viewer's top chrome: back, the photo's name, share and delete.
+ *
+ * Extracted because `ImageViewer` crossed detekt's length limit once the share control and the
+ * details sheet arrived — and because a bar of buttons is a coherent thing on its own.
+ *
+ * [title] is nullable rather than defaulted: the pager can momentarily report a page the list no
+ * longer has while a deletion settles, and an empty bar is honest where a stale name would not be.
+ */
+@Composable
+private fun ViewerTopBar(
+    title: String?,
+    onBack: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .statusBarsPadding()
+                .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            if (title != null) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        IconButton(onClick = onShare, enabled = title != null) {
+            Icon(Icons.Outlined.Share, contentDescription = "Share", tint = Color.White)
+        }
+
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color.White)
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageViewer(
@@ -362,6 +476,7 @@ fun ImageViewer(
     initialIndex: Int,
     onBack: () -> Unit,
     onDelete: (MediaFile) -> Unit,
+    onShare: (MediaFile) -> Unit = {},
 ) {
     val pagerState =
         rememberPagerState(
@@ -370,6 +485,7 @@ fun ImageViewer(
         )
     var showControls by remember { mutableStateOf(true) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showInfo by rememberSaveable { mutableStateOf(false) }
     var zoom by remember { mutableStateOf(ZoomState()) }
 
     // A photo left magnified would otherwise hand the next one a scale and an offset it never
@@ -409,42 +525,12 @@ fun ImageViewer(
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter),
         ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.4f))
-                        .statusBarsPadding()
-                        .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                val currentImage = images.getOrNull(pagerState.currentPage)
-                if (currentImage != null) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = currentImage.title,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = "Delete",
-                        tint = Color.White,
-                    )
-                }
-            }
+            ViewerTopBar(
+                title = images.getOrNull(pagerState.currentPage)?.title,
+                onBack = onBack,
+                onShare = { images.getOrNull(pagerState.currentPage)?.let(onShare) },
+                onDelete = { showDeleteDialog = true },
+            )
         }
 
         // Bottom Info Overlay
@@ -463,14 +549,20 @@ fun ImageViewer(
                         .padding(16.dp),
                 horizontalArrangement = Arrangement.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    // Decorative until I-7.8 gives it something to do. It previously announced
-                    // itself as a control and then did nothing when activated.
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.7f),
-                )
+                IconButton(onClick = { showInfo = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Details",
+                        tint = Color.White.copy(alpha = 0.7f),
+                    )
+                }
             }
+        }
+    }
+
+    if (showInfo) {
+        images.getOrNull(pagerState.currentPage)?.let { image ->
+            ImageDetailsSheet(image = image, onDismiss = { showInfo = false })
         }
     }
 

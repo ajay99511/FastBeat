@@ -328,4 +328,50 @@ class ImageListContentTest {
 
         node("beach.jpg").assertContentDescriptionEquals("beach.jpg, image 1 of 3")
     }
+    // ------------------------------------------------------------------ details and share
+
+    /**
+     * The info button existed as a bare `Icon` with no click handler, because the query read three
+     * columns and there was nothing to put behind it. This is the other half of that fix.
+     */
+    @Test
+    fun theInfoButtonOpensDetailsForThePhotoOnScreen() {
+        val described =
+            image(9, "portrait.jpg").copy(width = 4032, height = 3024, size = 2_048, bucketName = "Camera")
+        setContent(images = listOf(described))
+
+        node("portrait.jpg").click()
+        composeRule.onNodeWithContentDescription("Details").click()
+
+        // Asserted on rows only the sheet can produce: the title alone appears twice, since the
+        // viewer's top bar is still behind the sheet showing the same name.
+        //
+        // `assertExists` rather than `assertIsDisplayed` because the test window is shorter than a
+        // real phone, so rows past the first fall outside its bounds. What is being pinned is that
+        // the sheet opened with this photo's details in it, not where they landed on screen.
+        composeRule.onNodeWithText("4032 × 3024 (12.2 MP)").assertExists()
+        composeRule.onNodeWithText("Camera").assertExists()
+    }
+
+    @Test
+    fun shareReportsThePhotoOnScreen() {
+        var shared: MediaFile? = null
+        composeRule.setContent {
+            OfflineMediaPlayerTheme {
+                ImageListContent(
+                    images = threeImages,
+                    isRefreshing = false,
+                    isSearchVisible = false,
+                    onRefresh = {},
+                    onDeleteImage = {},
+                    onShareImage = { shared = it },
+                )
+            }
+        }
+
+        node("beach-sunset.jpg").click()
+        composeRule.onNodeWithContentDescription("Share").click()
+
+        assertEquals(threeImages[2], shared)
+    }
 }
