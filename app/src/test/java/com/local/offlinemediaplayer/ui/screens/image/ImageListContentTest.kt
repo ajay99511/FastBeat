@@ -1,6 +1,9 @@
 package com.local.offlinemediaplayer.ui.screens.image
 
 import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -78,6 +81,32 @@ class ImageListContentTest {
                 )
             }
         }
+    }
+
+    /**
+     * Renders against a list the test can change afterwards.
+     *
+     * The distinction this exists to draw is the whole of I-7.4: asking to delete and the file
+     * actually going away are separate events, separated by a system consent dialog the app does
+     * not control. Only a list that changes on the test's command can tell the two apart.
+     */
+    private fun setMutableContent(
+        initial: List<MediaFile> = threeImages,
+        onDeleteImage: (MediaFile) -> Unit = {},
+    ): (List<MediaFile>) -> Unit {
+        var images by mutableStateOf(initial)
+        composeRule.setContent {
+            OfflineMediaPlayerTheme {
+                ImageListContent(
+                    images = images,
+                    isRefreshing = false,
+                    isSearchVisible = false,
+                    onRefresh = {},
+                    onDeleteImage = onDeleteImage,
+                )
+            }
+        }
+        return { updated -> composeRule.runOnIdle { images = updated } }
     }
 
     // ------------------------------------------------------------------ grid
@@ -185,5 +214,51 @@ class ImageListContentTest {
         composeRule.onNodeWithText("Cancel").click()
 
         assertEquals(null, deleted)
+    }
+    // ------------------------------------------------------------------ deletion is list-driven
+
+    /**
+     * The regression this task exists for.
+     *
+     * `createDeleteRequest` only emits an IntentSender; the file survives until the user confirms a
+     * system dialog. The viewer used to adjust or close itself the instant the app's own dialog was
+     * confirmed, so deleting your only photo dropped you back to the grid before you had agreed to
+     * anything — and cancelling left you there having done nothing.
+     */
+    @Test
+    fun confirmingDeletionDoesNotCloseTheViewerBeforeTheFileIsGone() {
+        setContent(images = listOf(threeImages[0]))
+
+        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        composeRule.onNodeWithContentDescription("Delete").click()
+        composeRule.onNodeWithText("Delete").click()
+
+        // Still in the viewer: nothing has been removed from the list yet.
+        composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
+    }
+
+    @Test
+    fun theViewerClosesOnceTheLastImageIsActuallyRemoved() {
+        val setImages = setMutableContent(initial = listOf(threeImages[0]))
+
+        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
+
+        setImages(emptyList())
+
+        composeRule.onNodeWithContentDescription("Back").assertDoesNotExist()
+        composeRule.onNodeWithText("No images found on device").assertIsDisplayed()
+    }
+
+    /** Removing some other photo must not eject the user from the one they are looking at. */
+    @Test
+    fun theViewerStaysOpenWhenADifferentImageIsRemoved() {
+        val setImages = setMutableContent()
+
+        composeRule.onNodeWithContentDescription("beach.jpg").click()
+        setImages(listOf(threeImages[0], threeImages[1]))
+
+        composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
+        composeRule.onNodeWithText("beach.jpg").assertIsDisplayed()
     }
 }

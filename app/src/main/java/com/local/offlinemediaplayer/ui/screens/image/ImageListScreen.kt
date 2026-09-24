@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -71,7 +73,12 @@ fun ImageListScreen(
 ) {
     val images by viewModel.imageList.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Same rule every other list in the app uses, rather than this screen's own magic number.
+    val isMiniPlayerVisible = currentTrack != null && !currentTrack!!.isVideo
+    val bottomPadding = if (isMiniPlayerVisible) 100.dp else 16.dp
 
     // Deletion Flow (for Android 11+ scoped storage)
     val intentLauncher =
@@ -101,6 +108,7 @@ fun ImageListScreen(
         images = images,
         isRefreshing = isRefreshing,
         isSearchVisible = isSearchVisible,
+        bottomPadding = bottomPadding,
         onRefresh = { viewModel.scanMedia() },
         onDeleteImage = { image -> viewModel.deleteImage(image) },
     )
@@ -122,20 +130,27 @@ internal fun ImageListContent(
     isSearchVisible: Boolean,
     onRefresh: () -> Unit,
     onDeleteImage: (MediaFile) -> Unit,
+    bottomPadding: Dp = 16.dp,
 ) {
-    var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
+    // Saveable, not remembered: rotating while looking at a photo used to drop the viewer and the
+    // search query on the floor.
+    var selectedImageIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     // Handle Back Press to close viewer
     BackHandler(enabled = selectedImageIndex != null) {
         selectedImageIndex = null
     }
 
+    // Keyed, so a library of several thousand photos is not re-filtered on every recomposition —
+    // and toggling the viewer's controls recomposes plenty.
     val filteredImages =
-        if (searchQuery.isNotEmpty()) {
-            images.filter { it.title.contains(searchQuery, ignoreCase = true) }
-        } else {
-            images
+        remember(images, searchQuery) {
+            if (searchQuery.isEmpty()) {
+                images
+            } else {
+                images.filter { it.title.contains(searchQuery, ignoreCase = true) }
+            }
         }
 
     if (selectedImageIndex != null && filteredImages.isNotEmpty()) {
@@ -144,17 +159,6 @@ internal fun ImageListContent(
             initialIndex = selectedImageIndex!!,
             onBack = { selectedImageIndex = null },
             onDelete = onDeleteImage,
-            onDeleted = { deletedIndex ->
-                // After deletion: navigate to next image, or prev, or close viewer
-                if (filteredImages.size <= 1) {
-                    // Was the last image, close viewer
-                    selectedImageIndex = null
-                } else if (deletedIndex >= filteredImages.size - 1) {
-                    // Was the last item in list, go to previous
-                    selectedImageIndex = deletedIndex - 1
-                }
-                // Otherwise stay at same index (next image slides in)
-            },
         )
     } else {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -175,6 +179,7 @@ internal fun ImageListContent(
                 } else {
                     ImageGrid(
                         images = filteredImages,
+                        bottomPadding = bottomPadding,
                         onImageClick = { index -> selectedImageIndex = index },
                     )
                 }
@@ -211,21 +216,22 @@ private fun EmptyImages(isSearching: Boolean) {
 @Composable
 private fun ImageGrid(
     images: List<MediaFile>,
+    bottomPadding: Dp,
     onImageClick: (Int) -> Unit,
 ) {
     val widthClass = LocalWindowSizeClass.current
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = adaptiveImageCellSize(widthClass)),
-        contentPadding = PaddingValues(bottom = 80.dp),
+        contentPadding = PaddingValues(bottom = bottomPadding),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        itemsIndexed(images) { index, image ->
+        // Keyed by id so deleting a photo removes that cell rather than shifting every image one
+        // place left and reusing the wrong bitmap for the rest of the grid.
+        itemsIndexed(images, key = { _, image -> image.id }) { index, image ->
             ImageItem(image, onClick = { onImageClick(index) })
         }
-        // Bottom padding to avoid navigation bar overlap if any
-        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
 
@@ -258,7 +264,6 @@ fun ImageViewer(
     initialIndex: Int,
     onBack: () -> Unit,
     onDelete: (MediaFile) -> Unit,
-    onDeleted: (Int) -> Unit,
 ) {
     val pagerState =
         rememberPagerState(
@@ -368,15 +373,11 @@ fun ImageViewer(
     }
 
     if (showDeleteDialog) {
-        val currentPage = pagerState.currentPage
-        val currentImage = images.getOrNull(currentPage)
+        val currentImage = images.getOrNull(pagerState.currentPage)
         if (currentImage != null) {
             DeleteConfirmationDialog(
                 count = 1,
-                onConfirm = {
-                    onDelete(currentImage)
-                    onDeleted(currentPage)
-                },
+                onConfirm = { onDelete(currentImage) },
                 onDismiss = { showDeleteDialog = false },
             )
         }
