@@ -5,15 +5,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
@@ -373,5 +378,108 @@ class ImageListContentTest {
         composeRule.onNodeWithContentDescription("Share").click()
 
         assertEquals(threeImages[2], shared)
+    }
+    // ------------------------------------------------------------------ selection
+
+    private fun setSelectableContent(
+        selection: ImageSelection,
+        actions: ImageSelectionActions,
+    ) {
+        composeRule.setContent {
+            OfflineMediaPlayerTheme {
+                ImageListContent(
+                    images = threeImages,
+                    isRefreshing = false,
+                    isSearchVisible = false,
+                    onRefresh = {},
+                    onDeleteImage = {},
+                    selection = selection,
+                    selectionActions = actions,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun longPressingAPhotoStartsSelectionOnIt() {
+        var started: Long? = null
+        setSelectableContent(ImageSelection(), ImageSelectionActions(start = { started = it }))
+
+        node("mountain.png").performSemanticsAction(SemanticsActions.OnLongClick)
+
+        assertEquals(threeImages[1].id, started)
+    }
+
+    /**
+     * Once selection is active a tap toggles rather than opens. Getting this wrong is the bug where
+     * trying to pick a second photo throws the user into the viewer instead.
+     */
+    @Test
+    fun tappingDuringSelectionTogglesInsteadOfOpeningTheViewer() {
+        var toggled: Long? = null
+        setSelectableContent(
+            ImageSelection(isActive = true, selectedIds = setOf(1L)),
+            ImageSelectionActions(toggle = { toggled = it }),
+        )
+
+        node("beach-sunset.jpg").click()
+
+        assertEquals(threeImages[2].id, toggled)
+        composeRule.onNodeWithContentDescription("Back").assertDoesNotExist()
+    }
+
+    /** The tick is a purely visual signal; without this a screen reader cannot hear what is chosen. */
+    @Test
+    fun aSelectedPhotoReportsItsStateToAScreenReader() {
+        setSelectableContent(ImageSelection(isActive = true, selectedIds = setOf(2L)), ImageSelectionActions())
+
+        node("mountain.png").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Selected"))
+        node("beach.jpg").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Not selected"))
+    }
+
+    @Test
+    fun theSelectionBarReplacesTheSearchBoxAndCountsWhatIsChosen() {
+        setSelectableContent(ImageSelection(isActive = true, selectedIds = setOf(1L, 2L)), ImageSelectionActions())
+
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+    }
+
+    /**
+     * An empty selection is reachable — long-press then deselect — and deleting nothing is not an
+     * action, so the control reports itself as unavailable rather than quietly doing nothing.
+     */
+    @Test
+    fun deleteIsUnavailableWhileNothingIsSelected() {
+        setSelectableContent(ImageSelection(isActive = true), ImageSelectionActions())
+
+        composeRule.onNodeWithContentDescription("Delete selected").assertIsNotEnabled()
+    }
+
+    @Test
+    fun deletingTheSelectionAsksBeforeDoingIt() {
+        var deleted = false
+        setSelectableContent(
+            ImageSelection(isActive = true, selectedIds = setOf(1L, 2L)),
+            ImageSelectionActions(deleteSelected = { deleted = true }),
+        )
+
+        composeRule.onNodeWithContentDescription("Delete selected").performClick()
+        assertEquals(false, deleted)
+
+        composeRule.onNodeWithText("Delete").performClick()
+        assertEquals(true, deleted)
+    }
+
+    @Test
+    fun closingTheSelectionBarClearsTheSelection() {
+        var cleared = false
+        setSelectableContent(
+            ImageSelection(isActive = true, selectedIds = setOf(1L)),
+            ImageSelectionActions(clear = { cleared = true }),
+        )
+
+        composeRule.onNodeWithContentDescription("Cancel selection").performClick()
+
+        assertEquals(true, cleared)
     }
 }

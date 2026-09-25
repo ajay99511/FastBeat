@@ -35,6 +35,26 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
+/**
+ * Resolves selected ids back to the media files they name.
+ *
+ * Top-level and `internal` rather than a line inside `deleteSelectedMedia`, because the bug it
+ * fixes is invisible at the call site and silent at runtime: the fold used to search
+ * `videoList + audioList` only, so selecting photos and tapping delete cleared the selection and
+ * deleted nothing — an empty URI list being a perfectly valid delete request. Nothing failed, and
+ * nothing happened.
+ *
+ * Selection state is shared by every tab that offers it, so *every* list the app indexes has to be
+ * searched here. MediaStore ids are unique across audio, video and images on a volume, so there is
+ * no ambiguity to resolve — only lists to remember to include.
+ */
+internal fun resolveSelectedMedia(
+    ids: Set<Long>,
+    audio: List<MediaFile>,
+    videos: List<MediaFile>,
+    images: List<MediaFile>,
+): List<MediaFile> = (audio + videos + images).filter { it.id in ids }
+
 @HiltViewModel
 class LibraryViewModel
     @Inject
@@ -530,8 +550,13 @@ class LibraryViewModel
             if (idsToDelete.isEmpty()) return
 
             viewModelScope.launch(Dispatchers.IO) {
-                val allMedia = videoList.value + audioList.value
-                val filesToDelete = allMedia.filter { idsToDelete.contains(it.id) }
+                val filesToDelete =
+                    resolveSelectedMedia(
+                        ids = idsToDelete.toSet(),
+                        audio = audioList.value,
+                        videos = videoList.value,
+                        images = imageList.value,
+                    )
                 val uris = filesToDelete.map { it.uri }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

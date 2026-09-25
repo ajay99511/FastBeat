@@ -12,7 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
@@ -24,7 +24,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Share
@@ -47,10 +50,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
@@ -58,6 +63,7 @@ import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
 import com.local.offlinemediaplayer.ui.adaptive.adaptiveImageCellSize
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 
 /**
@@ -83,10 +89,13 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
 fun ImageListScreen(
     viewModel: PlaybackViewModel,
     isSearchVisible: Boolean,
+    libraryViewModel: LibraryViewModel = hiltViewModel(),
 ) {
-    val images by viewModel.imageList.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val images by libraryViewModel.imageList.collectAsStateWithLifecycle()
+    val isRefreshing by libraryViewModel.isRefreshing.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
+    val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedIds by libraryViewModel.selectedMediaIds.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Same rule every other list in the app uses, rather than this screen's own magic number.
@@ -111,8 +120,34 @@ fun ImageListScreen(
         }
     }
 
+    // The batch delete lives on LibraryViewModel and emits its own consent intents, so it needs a
+    // launcher of its own. Two streams rather than one is the convention AudioListScreen and
+    // VideoListScreen already follow.
+    val selectionIntentLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartIntentSenderForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                libraryViewModel.onDeleteSuccess()
+            } else {
+                libraryViewModel.onDeleteCancelled()
+            }
+        }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.deleteIntentEvent.collect { intentSender ->
+            selectionIntentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.userMessage.collect { msg ->
+            Toast.makeText(context, msg.resolve(context), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        libraryViewModel.userMessage.collect { msg ->
             Toast.makeText(context, msg.resolve(context), Toast.LENGTH_SHORT).show()
         }
     }
@@ -122,7 +157,19 @@ fun ImageListScreen(
         isRefreshing = isRefreshing,
         isSearchVisible = isSearchVisible,
         bottomPadding = bottomPadding,
-        onRefresh = { viewModel.scanMedia() },
+        selection = ImageSelection(isActive = isSelectionMode, selectedIds = selectedIds),
+        selectionActions =
+            ImageSelectionActions(
+                start = { id ->
+                    libraryViewModel.toggleSelectionMode(true)
+                    libraryViewModel.toggleSelection(id)
+                },
+                toggle = libraryViewModel::toggleSelection,
+                selectAll = { libraryViewModel.selectAll(images.map { it.id }) },
+                clear = { libraryViewModel.toggleSelectionMode(false) },
+                deleteSelected = libraryViewModel::deleteSelectedMedia,
+            ),
+        onRefresh = { libraryViewModel.scanMedia() },
         onDeleteImage = { image -> viewModel.deleteImage(image) },
         onShareImage = { image ->
             context.startActivity(Intent.createChooser(shareIntentFor(image), null))
@@ -148,15 +195,22 @@ internal fun ImageListContent(
     onDeleteImage: (MediaFile) -> Unit,
     onShareImage: (MediaFile) -> Unit = {},
     bottomPadding: Dp = 16.dp,
+    selection: ImageSelection = ImageSelection(),
+    selectionActions: ImageSelectionActions = ImageSelectionActions(),
 ) {
     // Saveable, not remembered: rotating while looking at a photo used to drop the viewer and the
     // search query on the floor.
     var selectedImageIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showDeleteSelectedDialog by rememberSaveable { mutableStateOf(false) }
 
     // Handle Back Press to close viewer
     BackHandler(enabled = selectedImageIndex != null) {
         selectedImageIndex = null
+    }
+
+    BackHandler(enabled = selectedImageIndex == null && selection.isActive) {
+        selectionActions.clear()
     }
 
     // Keyed, so a library of several thousand photos is not re-filtered on every recomposition —
@@ -179,13 +233,30 @@ internal fun ImageListContent(
             onShare = onShareImage,
         )
     } else {
-        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            CollapsibleSearchBox(
-                isVisible = isSearchVisible,
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                placeholderText = "Search images...",
+        if (showDeleteSelectedDialog) {
+            DeleteConfirmationDialog(
+                count = selection.count,
+                onConfirm = selectionActions.deleteSelected,
+                onDismiss = { showDeleteSelectedDialog = false },
             )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            if (selection.isActive) {
+                SelectionBar(
+                    count = selection.count,
+                    onSelectAll = selectionActions.selectAll,
+                    onDelete = { showDeleteSelectedDialog = true },
+                    onClose = selectionActions.clear,
+                )
+            } else {
+                CollapsibleSearchBox(
+                    isVisible = isSearchVisible,
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    placeholderText = "Search images...",
+                )
+            }
 
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
@@ -198,7 +269,15 @@ internal fun ImageListContent(
                     ImageGrid(
                         images = filteredImages,
                         bottomPadding = bottomPadding,
-                        onImageClick = { index -> selectedImageIndex = index },
+                        selection = selection,
+                        onImageClick = { index ->
+                            val image = filteredImages[index]
+                            when (tapIntent(selection)) {
+                                TapIntent.OPEN_VIEWER -> selectedImageIndex = index
+                                TapIntent.TOGGLE_SELECTION -> selectionActions.toggle(image.id)
+                            }
+                        },
+                        onImageLongClick = { index -> selectionActions.start(filteredImages[index].id) },
                     )
                 }
             }
@@ -235,7 +314,9 @@ private fun EmptyImages(isSearching: Boolean) {
 private fun ImageGrid(
     images: List<MediaFile>,
     bottomPadding: Dp,
+    selection: ImageSelection,
     onImageClick: (Int) -> Unit,
+    onImageLongClick: (Int) -> Unit,
 ) {
     val widthClass = LocalWindowSizeClass.current
     LazyVerticalGrid(
@@ -252,7 +333,10 @@ private fun ImageGrid(
                 image = image,
                 position = index + 1,
                 total = images.size,
+                isSelectionMode = selection.isActive,
+                isSelected = selection.contains(image.id),
                 onClick = { onImageClick(index) },
+                onLongClick = { onImageLongClick(index) },
             )
         }
     }
@@ -262,32 +346,114 @@ private fun ImageGrid(
  * One grid cell.
  *
  * The description lives on the cell, not on the `AsyncImage`, so the photo and its tap target are a
- * single thing to a screen reader instead of an unlabelled button wrapped around a filename.
+ * single thing to a screen reader instead of an unlabelled button wrapped around a filename. In
+ * selection mode it also reports whether the photo is selected, because the tick is otherwise a
+ * purely visual signal — a screen-reader user could toggle their way through a grid with no way to
+ * hear what they had chosen.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageItem(
     image: MediaFile,
     position: Int,
     total: Int,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val description = imageDescription(image.title, position, total)
+    val stateLabel = if (isSelected) SELECTED_LABEL else NOT_SELECTED_LABEL
     Box(
         modifier =
             Modifier
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(4.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(onClickLabel = VIEW_IMAGE_LABEL, onClick = onClick)
-                .semantics { contentDescription = description },
+                .combinedClickable(
+                    onClickLabel = if (isSelectionMode) TOGGLE_SELECTION_LABEL else VIEW_IMAGE_LABEL,
+                    onLongClickLabel = SELECT_IMAGE_LABEL,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ).semantics {
+                    contentDescription = description
+                    if (isSelectionMode) stateDescription = stateLabel
+                },
     ) {
         AsyncImage(
             model = image.uri,
             // Described by the cell above; repeating it here would have TalkBack say it twice.
             contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    // A selected photo shrinks rather than gaining a border, so the tick has
+                    // somewhere to sit that is not on top of the picture.
+                    .padding(if (isSelected) 8.dp else 0.dp),
             contentScale = ContentScale.Crop,
         )
+
+        if (isSelectionMode) {
+            Icon(
+                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(20.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The bar that replaces the search box while photos are being selected.
+ *
+ * It replaces rather than stacks: searching and selecting are different modes, and a search box
+ * sitting above a selection count invites typing into a list that is about to be deleted from.
+ */
+@Composable
+private fun SelectionBar(
+    count: Int,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClose) {
+            Icon(Icons.Default.Close, contentDescription = "Cancel selection")
+        }
+        Text(
+            text = if (count == 1) "1 selected" else "$count selected",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onSelectAll) {
+            Text("Select all")
+        }
+        // An empty selection is a real state — long-press then deselect — and deleting nothing is
+        // not an action, so the control says so rather than quietly doing nothing.
+        IconButton(onClick = onDelete, enabled = count > 0) {
+            Icon(
+                Icons.Outlined.Delete,
+                contentDescription = "Delete selected",
+                tint =
+                    if (count > 0) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        }
     }
 }
 

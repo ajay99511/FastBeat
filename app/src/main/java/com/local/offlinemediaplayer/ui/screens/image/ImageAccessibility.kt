@@ -35,3 +35,18 @@ internal const val VIEW_IMAGE_LABEL = "View"
  * TalkBack surfaces through its own menu rather than through the gesture it has already claimed.
  */
 internal fun zoomActionLabel(isZoomed: Boolean): String = if (isZoomed) "Zoom out" else "Zoom in"
+
+/** Announced for the tap that adds or removes a photo from the selection. */
+internal const val TOGGLE_SELECTION_LABEL = "Select or deselect"
+
+/** Announced for the long-press that starts selection. */
+internal const val SELECT_IMAGE_LABEL = "Select"
+
+/**
+ * Spoken state for a cell in selection mode.
+ *
+ * The tick in the corner is a purely visual signal, so without a state description a screen-reader
+ * user can move through a grid toggling photos with no way to hear which ones they have chosen.
+ */
+internal const val SELECTED_LABEL = "Selected"
+internal const val NOT_SELECTED_LABEL = "Not selected"
