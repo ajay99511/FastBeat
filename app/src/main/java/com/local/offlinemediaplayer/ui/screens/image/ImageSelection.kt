@@ -1,5 +1,11 @@
 package com.local.offlinemediaplayer.ui.screens.image
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.viewmodel.ImageSortField
+import com.local.offlinemediaplayer.viewmodel.SortState
+
 /**
  * Which photos are selected, and whether the grid is in selection mode at all.
  *
@@ -47,3 +53,29 @@ internal enum class TapIntent {
     OPEN_VIEWER,
     TOGGLE_SELECTION,
 }
+
+/**
+ * Everything the Images grid renders from.
+ *
+ * Bundled because the signature had grown to eleven parameters, which detekt stops at and which is
+ * past the point a reader can hold it in their head. Splitting *state* from *actions* rather than
+ * inventing four narrower holders is the shape Compose screens converge on anyway: one thing to
+ * render, one thing to call.
+ */
+internal data class ImageGridState(
+    val images: List<MediaFile> = emptyList(),
+    val isRefreshing: Boolean = false,
+    val isSearchVisible: Boolean = false,
+    val bottomPadding: Dp = 16.dp,
+    val sort: SortState<ImageSortField> = SortState(ImageSortField.DATE_ADDED),
+    val selection: ImageSelection = ImageSelection(),
+)
+
+/** Everything the Images grid can ask for. */
+internal data class ImageGridActions(
+    val refresh: () -> Unit = {},
+    val delete: (MediaFile) -> Unit = {},
+    val share: (MediaFile) -> Unit = {},
+    val sortBy: (SortState<ImageSortField>) -> Unit = {},
+    val selection: ImageSelectionActions = ImageSelectionActions(),
+)

@@ -89,11 +89,8 @@ class ImageListContentTest {
         composeRule.setContent {
             OfflineMediaPlayerTheme {
                 ImageListContent(
-                    images = images,
-                    isRefreshing = false,
-                    isSearchVisible = isSearchVisible,
-                    onRefresh = onRefresh,
-                    onDeleteImage = onDeleteImage,
+                    state = ImageGridState(images = images, isSearchVisible = isSearchVisible),
+                    actions = ImageGridActions(refresh = onRefresh, delete = onDeleteImage),
                 )
             }
         }
@@ -114,11 +111,8 @@ class ImageListContentTest {
         composeRule.setContent {
             OfflineMediaPlayerTheme {
                 ImageListContent(
-                    images = images,
-                    isRefreshing = false,
-                    isSearchVisible = false,
-                    onRefresh = {},
-                    onDeleteImage = onDeleteImage,
+                    state = ImageGridState(images = images),
+                    actions = ImageGridActions(delete = onDeleteImage),
                 )
             }
         }
@@ -364,12 +358,8 @@ class ImageListContentTest {
         composeRule.setContent {
             OfflineMediaPlayerTheme {
                 ImageListContent(
-                    images = threeImages,
-                    isRefreshing = false,
-                    isSearchVisible = false,
-                    onRefresh = {},
-                    onDeleteImage = {},
-                    onShareImage = { shared = it },
+                    state = ImageGridState(images = threeImages),
+                    actions = ImageGridActions(share = { shared = it }),
                 )
             }
         }
@@ -388,13 +378,8 @@ class ImageListContentTest {
         composeRule.setContent {
             OfflineMediaPlayerTheme {
                 ImageListContent(
-                    images = threeImages,
-                    isRefreshing = false,
-                    isSearchVisible = false,
-                    onRefresh = {},
-                    onDeleteImage = {},
-                    selection = selection,
-                    selectionActions = actions,
+                    state = ImageGridState(images = threeImages, selection = selection),
+                    actions = ImageGridActions(selection = actions),
                 )
             }
         }

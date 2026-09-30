@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -102,6 +103,19 @@ class LibraryViewModel
             return SortState(field, stored.ascending ?: field.defaultAscending)
         }
 
+        /**
+         * Image counterpart of [loadMediaSortState], with **no migration branch**.
+         *
+         * The Images tab never had a sort, so there is no legacy preference under this key and
+         * nothing to migrate from. Writing a migration for data that cannot exist would be a branch
+         * no test could ever reach — the class of code DR-4 refused elsewhere in this plan.
+         */
+        private suspend fun loadImageSortState(): SortState<ImageSortField> {
+            val stored = appPrefs.getSort(LibrarySort.IMAGES) ?: return SortState(ImageSortField.DATE_ADDED)
+            val field = ImageSortField.entries.getOrElse(stored.fieldOrdinal) { ImageSortField.DATE_ADDED }
+            return SortState(field, stored.ascending ?: field.defaultAscending)
+        }
+
         /** Album counterpart of [loadMediaSortState], migrating from [AlbumSortOption]. */
         private suspend fun loadAlbumSortState(sort: LibrarySort): SortState<AlbumSortField> {
             val stored = appPrefs.getSort(sort)
@@ -158,6 +172,22 @@ class LibraryViewModel
 
         private val _movieSortState = MutableStateFlow(SortState(SortField.DATE_ADDED))
         val movieSortState = _movieSortState.asStateFlow()
+
+        private val _imageSortState = MutableStateFlow(SortState(ImageSortField.DATE_ADDED))
+        val imageSortState = _imageSortState.asStateFlow()
+
+        /**
+         * The image list in the order the user chose.
+         *
+         * Sorted here and searched in the screen, which is where the Images tab already keeps its
+         * query. Splitting them that way is not elegant, but hoisting the search into this ViewModel
+         * would change behaviour the user did not ask to have changed — `_searchQuery` here is shared
+         * with the audio list.
+         */
+        val sortedImageList: StateFlow<List<MediaFile>> =
+            combine(mediaRepository.imageList, _imageSortState) { images, sort ->
+                images.applyImageSort(sort)
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         val moviesList =
             videoList
@@ -343,6 +373,11 @@ class LibraryViewModel
             saveSortState(LibrarySort.VIDEO, state)
         }
 
+        fun updateImageSort(state: SortState<ImageSortField>) {
+            _imageSortState.value = state
+            saveSortState(LibrarySort.IMAGES, state)
+        }
+
         fun updateAlbumSort(state: SortState<AlbumSortField>) {
             _albumSortState.value = state
             saveSortState(LibrarySort.ALBUMS, state)
@@ -381,6 +416,7 @@ class LibraryViewModel
                 _videoSortState.value = loadMediaSortState(LibrarySort.VIDEO)
                 _movieSortState.value = loadMediaSortState(LibrarySort.MOVIES)
                 _albumSortState.value = loadAlbumSortState(LibrarySort.ALBUMS)
+                _imageSortState.value = loadImageSortState()
                 _videoGridView.value = appPrefs.getLayout(LibraryLayout.VIDEO_GRID)
                 _folderGridView.value = appPrefs.getLayout(LibraryLayout.FOLDER_GRID)
                 _movieGridView.value = appPrefs.getLayout(LibraryLayout.MOVIE_GRID)

@@ -55,6 +55,36 @@ fun List<MediaFile>.applySort(
     return sortedWith(if (state.ascending) comparator else comparator.reversed())
 }
 
+/**
+ * Sort fields for the image grid.
+ *
+ * A separate enum rather than reusing [SortField], which carries `Runtime` and `Play Count` — a
+ * photo has neither, and offering a user a sort that cannot order anything is worse than offering
+ * three that can. `Size` is the field images need and audio and video do not expose.
+ *
+ * Newest-first and largest-first are the defaults people expect from a camera roll; only name
+ * starts ascending.
+ */
+enum class ImageSortField(
+    override val label: String,
+    override val defaultAscending: Boolean,
+) : SortableField {
+    DATE_ADDED("Date Added", false),
+    NAME("Name", true),
+    SIZE("Size", false),
+}
+
+/** Applies an [ImageSortField] ordering. */
+fun List<MediaFile>.applyImageSort(state: SortState<ImageSortField>): List<MediaFile> {
+    val comparator: Comparator<MediaFile> =
+        when (state.field) {
+            ImageSortField.DATE_ADDED -> compareBy { it.dateAdded }
+            ImageSortField.NAME -> compareBy { it.title.lowercase() }
+            ImageSortField.SIZE -> compareBy { it.size }
+        }
+    return sortedWith(if (state.ascending) comparator else comparator.reversed())
+}
+
 /** Sort fields for the album grid/list. */
 enum class AlbumSortField(
     override val label: String,

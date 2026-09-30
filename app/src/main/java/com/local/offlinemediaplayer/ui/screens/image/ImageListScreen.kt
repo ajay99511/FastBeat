@@ -7,30 +7,23 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -38,21 +31,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -63,8 +48,11 @@ import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
 import com.local.offlinemediaplayer.ui.adaptive.adaptiveImageCellSize
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
+import com.local.offlinemediaplayer.ui.components.SortDropdownMenu
+import com.local.offlinemediaplayer.viewmodel.ImageSortField
 import com.local.offlinemediaplayer.viewmodel.LibraryViewModel
 import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
+import com.local.offlinemediaplayer.viewmodel.SortState
 
 /**
  * The Images tab, bound to its ViewModel.
@@ -78,12 +66,13 @@ import com.local.offlinemediaplayer.viewmodel.PlaybackViewModel
  * coupling F-7 predicted and F-44 confirmed. `MiniPlayer` was split the same way and for the same
  * reason; this follows that precedent rather than inventing a new one.
  *
- * **Deviation from DS-7.1, deliberate.** That record says the screen moves onto `LibraryViewModel`,
- * which already exposes `imageList`, `isRefreshing`, `scanMedia`, the delete-intent stream and the
- * shared selection API — everything except a single-image delete. Moving *that* means swapping one
- * working scoped-storage delete path for another, on an irreversible operation, for no gain this
- * task needs. The migration is deferred to I-7.9, where multi-select needs the selection API and
- * the two delete paths get consolidated on purpose rather than in passing.
+ * **On the two ViewModels (DS-7.1, as resolved in I-7.9).** `LibraryViewModel` owns library data,
+ * sorting, selection and the batch delete; `PlaybackViewModel` is kept for the single-image delete
+ * and for whether the mini player is on screen. Taking both is the convention `AudioListScreen` and
+ * `VideoListScreen` already follow, not a compromise — the original decision record said *move*, and
+ * was simply wrong about what the codebase does. The single-image delete stays on its existing
+ * scoped-storage path rather than being rewritten onto the batch one, because that is an
+ * irreversible operation and consolidating it buys nothing either path needs.
  */
 @Composable
 fun ImageListScreen(
@@ -91,7 +80,8 @@ fun ImageListScreen(
     isSearchVisible: Boolean,
     libraryViewModel: LibraryViewModel = hiltViewModel(),
 ) {
-    val images by libraryViewModel.imageList.collectAsStateWithLifecycle()
+    val images by libraryViewModel.sortedImageList.collectAsStateWithLifecycle()
+    val sortState by libraryViewModel.imageSortState.collectAsStateWithLifecycle()
     val isRefreshing by libraryViewModel.isRefreshing.collectAsStateWithLifecycle()
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isSelectionMode by libraryViewModel.isSelectionMode.collectAsStateWithLifecycle()
@@ -153,27 +143,35 @@ fun ImageListScreen(
     }
 
     ImageListContent(
-        images = images,
-        isRefreshing = isRefreshing,
-        isSearchVisible = isSearchVisible,
-        bottomPadding = bottomPadding,
-        selection = ImageSelection(isActive = isSelectionMode, selectedIds = selectedIds),
-        selectionActions =
-            ImageSelectionActions(
-                start = { id ->
-                    libraryViewModel.toggleSelectionMode(true)
-                    libraryViewModel.toggleSelection(id)
-                },
-                toggle = libraryViewModel::toggleSelection,
-                selectAll = { libraryViewModel.selectAll(images.map { it.id }) },
-                clear = { libraryViewModel.toggleSelectionMode(false) },
-                deleteSelected = libraryViewModel::deleteSelectedMedia,
+        state =
+            ImageGridState(
+                images = images,
+                isRefreshing = isRefreshing,
+                isSearchVisible = isSearchVisible,
+                bottomPadding = bottomPadding,
+                sort = sortState,
+                selection = ImageSelection(isActive = isSelectionMode, selectedIds = selectedIds),
             ),
-        onRefresh = { libraryViewModel.scanMedia() },
-        onDeleteImage = { image -> viewModel.deleteImage(image) },
-        onShareImage = { image ->
-            context.startActivity(Intent.createChooser(shareIntentFor(image), null))
-        },
+        actions =
+            ImageGridActions(
+                refresh = { libraryViewModel.scanMedia() },
+                delete = { image -> viewModel.deleteImage(image) },
+                share = { image ->
+                    context.startActivity(Intent.createChooser(shareIntentFor(image), null))
+                },
+                sortBy = libraryViewModel::updateImageSort,
+                selection =
+                    ImageSelectionActions(
+                        start = { id ->
+                            libraryViewModel.toggleSelectionMode(true)
+                            libraryViewModel.toggleSelection(id)
+                        },
+                        toggle = libraryViewModel::toggleSelection,
+                        selectAll = { libraryViewModel.selectAll(images.map { it.id }) },
+                        clear = { libraryViewModel.toggleSelectionMode(false) },
+                        deleteSelected = libraryViewModel::deleteSelectedMedia,
+                    ),
+            ),
     )
 }
 
@@ -188,16 +186,11 @@ fun ImageListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ImageListContent(
-    images: List<MediaFile>,
-    isRefreshing: Boolean,
-    isSearchVisible: Boolean,
-    onRefresh: () -> Unit,
-    onDeleteImage: (MediaFile) -> Unit,
-    onShareImage: (MediaFile) -> Unit = {},
-    bottomPadding: Dp = 16.dp,
-    selection: ImageSelection = ImageSelection(),
-    selectionActions: ImageSelectionActions = ImageSelectionActions(),
+    state: ImageGridState,
+    actions: ImageGridActions = ImageGridActions(),
 ) {
+    val images = state.images
+    val selection = state.selection
     // Saveable, not remembered: rotating while looking at a photo used to drop the viewer and the
     // search query on the floor.
     var selectedImageIndex by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -210,7 +203,7 @@ internal fun ImageListContent(
     }
 
     BackHandler(enabled = selectedImageIndex == null && selection.isActive) {
-        selectionActions.clear()
+        actions.selection.clear()
     }
 
     // Keyed, so a library of several thousand photos is not re-filtered on every recomposition —
@@ -229,14 +222,14 @@ internal fun ImageListContent(
             images = filteredImages,
             initialIndex = selectedImageIndex!!,
             onBack = { selectedImageIndex = null },
-            onDelete = onDeleteImage,
-            onShare = onShareImage,
+            onDelete = actions.delete,
+            onShare = actions.share,
         )
     } else {
         if (showDeleteSelectedDialog) {
             DeleteConfirmationDialog(
                 count = selection.count,
-                onConfirm = selectionActions.deleteSelected,
+                onConfirm = actions.selection.deleteSelected,
                 onDismiss = { showDeleteSelectedDialog = false },
             )
         }
@@ -245,22 +238,30 @@ internal fun ImageListContent(
             if (selection.isActive) {
                 SelectionBar(
                     count = selection.count,
-                    onSelectAll = selectionActions.selectAll,
+                    onSelectAll = actions.selection.selectAll,
                     onDelete = { showDeleteSelectedDialog = true },
-                    onClose = selectionActions.clear,
+                    onClose = actions.selection.clear,
                 )
             } else {
                 CollapsibleSearchBox(
-                    isVisible = isSearchVisible,
+                    isVisible = state.isSearchVisible,
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     placeholderText = "Search images...",
                 )
             }
 
+            if (!selection.isActive && filteredImages.isNotEmpty()) {
+                ImageListHeader(
+                    count = filteredImages.size,
+                    sortState = state.sort,
+                    onSortChange = actions.sortBy,
+                )
+            }
+
             PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = onRefresh,
+                isRefreshing = state.isRefreshing,
+                onRefresh = actions.refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (filteredImages.isEmpty()) {
@@ -268,16 +269,16 @@ internal fun ImageListContent(
                 } else {
                     ImageGrid(
                         images = filteredImages,
-                        bottomPadding = bottomPadding,
+                        bottomPadding = state.bottomPadding,
                         selection = selection,
                         onImageClick = { index ->
                             val image = filteredImages[index]
                             when (tapIntent(selection)) {
                                 TapIntent.OPEN_VIEWER -> selectedImageIndex = index
-                                TapIntent.TOGGLE_SELECTION -> selectionActions.toggle(image.id)
+                                TapIntent.TOGGLE_SELECTION -> actions.selection.toggle(image.id)
                             }
                         },
-                        onImageLongClick = { index -> selectionActions.start(filteredImages[index].id) },
+                        onImageLongClick = { index -> actions.selection.start(filteredImages[index].id) },
                     )
                 }
             }
@@ -337,6 +338,72 @@ private fun ImageGrid(
                 isSelected = selection.contains(image.id),
                 onClick = { onImageClick(index) },
                 onLongClick = { onImageLongClick(index) },
+            )
+        }
+    }
+}
+
+/**
+ * The count-and-sort strip above the grid.
+ *
+ * The Images tab had neither. A count is the cheapest thing a gallery can tell you about itself, and
+ * the sort control is what makes a long roll navigable — every other media list in the app has had
+ * one; this was the exception.
+ *
+ * Hidden during selection, because the strip's job is to describe the library and selection mode is
+ * about a subset of it.
+ */
+@Composable
+private fun ImageListHeader(
+    count: Int,
+    sortState: SortState<ImageSortField>,
+    onSortChange: (SortState<ImageSortField>) -> Unit,
+) {
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = if (count == 1) "1 photo" else "$count photos",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Box {
+            Row(
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClickLabel = "Change sort order") { showSortMenu = true }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = if (sortState.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                    contentDescription = if (sortState.ascending) "Sorted ascending" else "Sorted descending",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "Sort: ${sortState.field.label}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SortDropdownMenu(
+                expanded = showSortMenu,
+                onDismissRequest = { showSortMenu = false },
+                fields = ImageSortField.entries,
+                sortState = sortState,
+                onSortChange = onSortChange,
             )
         }
     }
@@ -452,293 +519,6 @@ private fun SelectionBar(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-            )
-        }
-    }
-}
-
-/**
- * One full-screen photo: pinch, double-tap and pan.
- *
- * The gesture handlers are keyed on [page] so a recycled page starts with fresh detectors rather
- * than ones still tracking the previous photo's pointers.
- *
- * The tap that toggles the viewer's chrome lives here rather than on an outer `clickable`, because
- * a parent click and a child `detectTapGestures` cannot both have the tap — and only the child can
- * tell a single tap from the double tap that zooms.
- */
-@Composable
-private fun ZoomablePage(
-    image: MediaFile,
-    page: Int,
-    total: Int,
-    zoom: ZoomState,
-    onZoomChange: (ZoomState) -> Unit,
-    onToggleControls: () -> Unit,
-) {
-    var viewport by remember { mutableStateOf(Size.Zero) }
-    val description = imageDescription(image.title, page + 1, total)
-    val zoomLabel = zoomActionLabel(zoom.isZoomed)
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .semantics {
-                    contentDescription = description
-                    // `detectTapGestures` contributes no semantics at all, so without these the
-                    // whole viewer is an unlabelled black rectangle to a screen reader.
-                    onClick(label = TOGGLE_CONTROLS_LABEL) {
-                        onToggleControls()
-                        true
-                    }
-                    customActions =
-                        listOf(
-                            CustomAccessibilityAction(zoomLabel) {
-                                onZoomChange(ImageZoom.toggle(zoom))
-                                true
-                            },
-                        )
-                }.onSizeChanged { viewport = Size(it.width.toFloat(), it.height.toFloat()) }
-                .pointerInput(page) {
-                    detectTapGestures(
-                        onTap = { onToggleControls() },
-                        onDoubleTap = { onZoomChange(ImageZoom.toggle(zoom)) },
-                    )
-                }.pointerInput(page) {
-                    detectTransformGestures { _, pan, gestureZoom, _ ->
-                        onZoomChange(ImageZoom.transform(zoom, gestureZoom, pan, viewport))
-                    }
-                },
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = image.uri,
-            // Described by the page above.
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = zoom.scale
-                        scaleY = zoom.scale
-                        translationX = zoom.offset.x
-                        translationY = zoom.offset.y
-                    },
-            contentScale = ContentScale.Fit,
-        )
-    }
-}
-
-/**
- * What the viewer's info button shows.
- *
- * Rows come from [imageDetails], which drops whatever MediaStore did not report, so a photo missing
- * its dimensions shows a shorter sheet rather than "0 × 0".
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ImageDetailsSheet(
-    image: MediaFile,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
-        ) {
-            Text(
-                text = "Details",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            imageDetails(image).forEach { detail ->
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = detail.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = detail.value,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.End,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * The viewer's top chrome: back, the photo's name, share and delete.
- *
- * Extracted because `ImageViewer` crossed detekt's length limit once the share control and the
- * details sheet arrived — and because a bar of buttons is a coherent thing on its own.
- *
- * [title] is nullable rather than defaulted: the pager can momentarily report a page the list no
- * longer has while a deletion settles, and an empty bar is honest where a stale name would not be.
- */
-@Composable
-private fun ViewerTopBar(
-    title: String?,
-    onBack: () -> Unit,
-    onShare: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.4f))
-                .statusBarsPadding()
-                .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            if (title != null) {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-
-        IconButton(onClick = onShare, enabled = title != null) {
-            Icon(Icons.Outlined.Share, contentDescription = "Share", tint = Color.White)
-        }
-
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color.White)
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun ImageViewer(
-    images: List<MediaFile>,
-    initialIndex: Int,
-    onBack: () -> Unit,
-    onDelete: (MediaFile) -> Unit,
-    onShare: (MediaFile) -> Unit = {},
-) {
-    val pagerState =
-        rememberPagerState(
-            initialPage = initialIndex,
-            pageCount = { images.size },
-        )
-    var showControls by remember { mutableStateOf(true) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showInfo by rememberSaveable { mutableStateOf(false) }
-    var zoom by remember { mutableStateOf(ZoomState()) }
-
-    // A photo left magnified would otherwise hand the next one a scale and an offset it never
-    // earned, and — since paging is disabled while zoomed — strand the user on it.
-    LaunchedEffect(pagerState.currentPage) { zoom = ZoomState() }
-
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            pageSpacing = 16.dp,
-            // While magnified a horizontal drag has to pan the photo. Paging is turned off rather
-            // than handed off at the edges: edge hand-off is what a full gallery does, but it needs
-            // the drawn bitmap's bounds and fails confusingly when it is a pixel out. Disabling is
-            // unambiguous — zoom out and swiping works again.
-            userScrollEnabled = !zoom.isZoomed,
-        ) { page ->
-            ZoomablePage(
-                image = images[page],
-                page = page,
-                total = images.size,
-                zoom = zoom,
-                onZoomChange = { zoom = it },
-                onToggleControls = { showControls = !showControls },
-            )
-        }
-
-        // Top Bar Overlay
-        AnimatedVisibility(
-            visible = showControls,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.TopCenter),
-        ) {
-            ViewerTopBar(
-                title = images.getOrNull(pagerState.currentPage)?.title,
-                onBack = onBack,
-                onShare = { images.getOrNull(pagerState.currentPage)?.let(onShare) },
-                onDelete = { showDeleteDialog = true },
-            )
-        }
-
-        // Bottom Info Overlay
-        AnimatedVisibility(
-            visible = showControls,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.4f))
-                        .navigationBarsPadding()
-                        .padding(16.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                IconButton(onClick = { showInfo = true }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Info,
-                        contentDescription = "Details",
-                        tint = Color.White.copy(alpha = 0.7f),
-                    )
-                }
-            }
-        }
-    }
-
-    if (showInfo) {
-        images.getOrNull(pagerState.currentPage)?.let { image ->
-            ImageDetailsSheet(image = image, onDismiss = { showInfo = false })
-        }
-    }
-
-    if (showDeleteDialog) {
-        val currentImage = images.getOrNull(pagerState.currentPage)
-        if (currentImage != null) {
-            DeleteConfirmationDialog(
-                count = 1,
-                onConfirm = { onDelete(currentImage) },
-                onDismiss = { showDeleteDialog = false },
             )
         }
     }
