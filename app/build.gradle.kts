@@ -342,6 +342,7 @@ dependencies {
 
     // Coil for loading album art
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif) // animated GIF/WebP in the image grid and viewer
 
     // Lifecycle integration
     implementation(libs.lifecycle.viewmodel.compose)
