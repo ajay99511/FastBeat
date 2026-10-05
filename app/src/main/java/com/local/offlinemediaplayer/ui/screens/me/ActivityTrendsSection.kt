@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.local.offlinemediaplayer.domain.ActivityBucket
@@ -137,6 +139,14 @@ internal fun ActivityTrendsSection(
                 // labelled ones would space them evenly among themselves and detach every label
                 // from the bar it names — the failure gets worse the more bars there are, which is
                 // exactly when labels are sparse.
+                //
+                // **Each label is allowed to draw outside its own cell.** A cell is the chart width
+                // divided by the bar count, which for the thirty-day view is about 9 dp on a phone
+                // — narrower than any word. Constrained to that, every label in the Month and Year
+                // views was clipped to a letter or two, and a larger font setting clipped the Week
+                // view as well. The labels are deliberately sparse (`ActivityChart` labels anchor
+                // days only), so there is room beside each one to grow into; what there is no room
+                // for is the cell itself.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -144,9 +154,12 @@ internal fun ActivityTrendsSection(
                     buckets.forEach { bucket ->
                         Text(
                             text = bucket.label,
-                            fontSize = 11.sp,
+                            // Theme scale rather than a hardcoded size, so the chart's axis tracks
+                            // the same type ramp as the rest of the screen.
+                            style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             softWrap = false,
+                            overflow = TextOverflow.Visible,
                             fontWeight = if (bucket.isCurrent) FontWeight.Bold else FontWeight.Normal,
                             color =
                                 if (bucket.isCurrent) {
@@ -155,7 +168,10 @@ internal fun ActivityTrendsSection(
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.weight(1f),
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .wrapContentWidth(unbounded = true),
                         )
                     }
                 }
