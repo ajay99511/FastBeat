@@ -184,7 +184,7 @@ class ImageListContentTest {
 
         node("mountain.png").click()
         composeRule.onNodeWithContentDescription("Delete").click()
-        composeRule.onNodeWithText("Delete").click()
+        composeRule.onNodeWithText(CONFIRM_LABEL).click()
 
         assertEquals(threeImages[1], deleted)
     }
@@ -209,7 +209,7 @@ class ImageListContentTest {
         node("beach.jpg").click()
         composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
         composeRule.onNodeWithContentDescription("Delete").click()
-        composeRule.onNodeWithText("Delete").click()
+        composeRule.onNodeWithText(CONFIRM_LABEL).click()
 
         assertEquals(threeImages[2], deleted)
     }
@@ -241,7 +241,7 @@ class ImageListContentTest {
 
         node("beach.jpg").click()
         composeRule.onNodeWithContentDescription("Delete").click()
-        composeRule.onNodeWithText("Delete").click()
+        composeRule.onNodeWithText(CONFIRM_LABEL).click()
 
         // Still in the viewer: nothing has been removed from the list yet.
         composeRule.onNodeWithContentDescription("Back").assertIsDisplayed()
@@ -451,7 +451,7 @@ class ImageListContentTest {
         composeRule.onNodeWithContentDescription("Delete selected").performClick()
         assertEquals(false, deleted)
 
-        composeRule.onNodeWithText("Delete").performClick()
+        composeRule.onNodeWithText(CONFIRM_LABEL).performClick()
         assertEquals(true, deleted)
     }
 
@@ -466,5 +466,16 @@ class ImageListContentTest {
         composeRule.onNodeWithContentDescription("Cancel selection").performClick()
 
         assertEquals(true, cleared)
+    }
+
+    private companion object {
+        /**
+         * The confirm button's label, which depends on whether photos move to the trash.
+         *
+         * These tests run at SDK 34, where they do — so the button reads "Move to Trash", not
+         * "Delete". Spelled out rather than derived from `deletePrompt`, so that changing the copy
+         * breaks a test instead of silently agreeing with itself.
+         */
+        const val CONFIRM_LABEL = "Move to Trash"
     }
 }

@@ -44,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.playback.supportsTrash
 import com.local.offlinemediaplayer.ui.adaptive.LocalWindowSizeClass
 import com.local.offlinemediaplayer.ui.adaptive.adaptiveImageCellSize
 import com.local.offlinemediaplayer.ui.components.CollapsibleSearchBox
@@ -169,7 +170,7 @@ fun ImageListScreen(
                         toggle = libraryViewModel::toggleSelection,
                         selectAll = { libraryViewModel.selectAll(images.map { it.id }) },
                         clear = { libraryViewModel.toggleSelectionMode(false) },
-                        deleteSelected = libraryViewModel::deleteSelectedMedia,
+                        deleteSelected = { libraryViewModel.deleteSelectedMedia(moveToTrash = supportsTrash()) },
                     ),
             ),
     )
@@ -231,6 +232,7 @@ internal fun ImageListContent(
                 count = selection.count,
                 onConfirm = actions.selection.deleteSelected,
                 onDismiss = { showDeleteSelectedDialog = false },
+                movesToTrash = supportsTrash(),
             )
         }
 

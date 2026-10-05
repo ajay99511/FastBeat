@@ -581,7 +581,17 @@ class LibraryViewModel
             _selectedAlbumIds.value = ids.toSet()
         }
 
-        fun deleteSelectedMedia() {
+        /**
+         * @param moveToTrash recoverable rather than permanent, on the API levels that have a
+         *   trash. Only the Images tab passes `true` (DS-7.6).
+         *
+         *   **If this is ever extended to audio or video, `onDeleteSuccess` needs revisiting**: it
+         *   calls `cleanupDeletedMedia`, which wipes playlist membership, play history and
+         *   analytics. That is right for a file that is gone and wrong for one the user can
+         *   restore. Images have no rows in any of those tables, which is the only reason the
+         *   question does not arise today.
+         */
+        fun deleteSelectedMedia(moveToTrash: Boolean = false) {
             val idsToDelete = _selectedMediaIds.value.toList()
             if (idsToDelete.isEmpty()) return
 
@@ -596,9 +606,16 @@ class LibraryViewModel
                 val uris = filesToDelete.map { it.uri }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
+                    val pendingIntent: PendingIntent =
+                        if (moveToTrash) {
+                            MediaStore.createTrashRequest(app.contentResolver, uris, true)
+                        } else {
+                            MediaStore.createDeleteRequest(app.contentResolver, uris)
+                        }
                     _deleteIntentEvent.emit(pendingIntent.intentSender)
                 } else {
+                    // No trash below API 30; the legacy path is permanent whatever was asked for,
+                    // which is why the confirmation copy is chosen by the same `supportsTrash`.
                     startLegacyDelete(filesToDelete) { deletedIds -> onDeleteSuccess(deletedIds) }
                 }
             }

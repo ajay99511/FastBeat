@@ -32,6 +32,7 @@ import com.local.offlinemediaplayer.playback.PlaybackAnalyticsTracker
 import com.local.offlinemediaplayer.playback.QueueManager
 import com.local.offlinemediaplayer.playback.QueuePersistence
 import com.local.offlinemediaplayer.playback.QueuePolicy
+import com.local.offlinemediaplayer.playback.supportsTrash
 import com.local.offlinemediaplayer.repository.MediaRepository
 import com.local.offlinemediaplayer.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -397,6 +398,9 @@ class PlaybackViewModel
                     uri = image.uri,
                     deleted = { completeImageDelete() },
                     failed = { onLegacyImageDeleteFailed() },
+                    // Photos are the one media type the app trashes rather than destroys. See
+                    // DS-7.6 for why audio and video deliberately stay on a permanent delete.
+                    moveToTrash = supportsTrash(),
                 )
             }
         }

@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.local.offlinemediaplayer.model.MediaFile
+import com.local.offlinemediaplayer.playback.supportsTrash
 import com.local.offlinemediaplayer.ui.components.DeleteConfirmationDialog
 
 /**
@@ -216,6 +217,7 @@ fun ImageViewer(
                 count = 1,
                 onConfirm = { onDelete(currentImage) },
                 onDismiss = { showDeleteDialog = false },
+                movesToTrash = supportsTrash(),
             )
         }
     }
