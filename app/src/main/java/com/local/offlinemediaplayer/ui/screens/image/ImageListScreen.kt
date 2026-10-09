@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -375,7 +376,16 @@ private fun ImageListHeader(
             text = if (count == 1) "1 photo" else "$count photos",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // The count yields and the sort control does not. A `Row` measures its unweighted
+            // children first, so weighting this one guarantees the control keeps its full width at
+            // any font size — losing a caption is cosmetic, losing the only way to change the sort
+            // order is not.
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         Box {
             Row(

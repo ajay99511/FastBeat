@@ -2,7 +2,7 @@ package com.local.offlinemediaplayer.ui.screens.me
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,7 +34,10 @@ internal fun ShuffleAllButton(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .height(56.dp),
+                // A minimum, not a fixed height. At a 200% font setting the label needs more than
+                // 56 dp and a fixed height crops it; a minimum keeps the button identical at the
+                // default scale and lets it grow where it has to.
+                .heightIn(min = 56.dp),
         colors =
             ButtonDefaults.buttonColors(
                 containerColor = primaryColor,

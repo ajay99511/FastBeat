@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.local.offlinemediaplayer.domain.ListeningRecords
@@ -209,7 +210,15 @@ private fun RecordRow(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // Weighted so the label is the side that yields: a `Row` measures its unweighted
+            // children first, so the record itself keeps its width at any font size and the
+            // label truncates. Losing "Busiest day of the week" to an ellipsis costs nothing;
+            // losing "Wednesday · 32h" costs the whole row.
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = value ?: "Not set yet",
             style = MaterialTheme.typography.bodyMedium,

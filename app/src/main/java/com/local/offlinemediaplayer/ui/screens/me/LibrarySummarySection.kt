@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.local.offlinemediaplayer.ui.common.FormatUtils
@@ -155,7 +156,16 @@ private fun StorageCard(stats: LibraryStats) {
                     text = "Total Storage Used",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
+                    // Weighted so it is the side that yields. A `Row` measures its unweighted
+                    // children first and gives the remainder to the weighted ones, so the figure
+                    // below keeps its full width at any font size and this caption truncates
+                    // instead. A label that shortens is a cosmetic loss; a number that vanishes is
+                    // the content.
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = FormatUtils.formatSize(stats.totalStorageBytes),
                     style = MaterialTheme.typography.bodyLarge,

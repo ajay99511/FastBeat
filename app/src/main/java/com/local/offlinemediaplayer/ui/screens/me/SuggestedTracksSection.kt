@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -265,7 +266,7 @@ private fun PlayActionsRow(
     ) {
         Button(
             onClick = onPlayAll,
-            modifier = Modifier.weight(1f).height(48.dp),
+            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
             colors =
                 ButtonDefaults.buttonColors(
                     containerColor = primaryColor,
@@ -290,7 +291,7 @@ private fun PlayActionsRow(
             modifier =
                 Modifier
                     .weight(1f)
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
                     .border(
                         1.dp,
                         MaterialTheme.colorScheme
