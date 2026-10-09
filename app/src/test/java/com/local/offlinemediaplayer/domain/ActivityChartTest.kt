@@ -240,6 +240,46 @@ class ActivityChartTest {
         )
     }
 
+    // ------------------------------------------------------------------ label density
+
+    /**
+     * Axis labels draw *outside* their own cell, because a cell in the thirty-day view is about
+     * 9 dp wide on a phone and no word fits that. What keeps them from colliding is that they are
+     * sparse — so sparseness is a layout contract, not a cosmetic choice, and these pin it.
+     *
+     * A change that labelled every day in the Month view would still look fine in a unit test and
+     * would overlap into mush on a device. This is the guard for that.
+     */
+    private fun labelledIndices(
+        range: StatsRange,
+        today: Long = tuesday,
+    ) = ActivityChart
+        .bucketsFor(range, today, emptyMap())
+        .mapIndexedNotNull { index, bucket -> index.takeIf { bucket.label.isNotEmpty() } }
+
+    private fun smallestGap(indices: List<Int>) = indices.zipWithNext { a, b -> b - a }.minOrNull() ?: Int.MAX_VALUE
+
+    @Test
+    fun theWeekViewLabelsEveryBarBecauseItsCellsAreWideEnough() {
+        assertEquals(AnalyticsDays.DAYS_PER_WEEK, labelledIndices(StatsRange.WEEK).size)
+    }
+
+    @Test
+    fun theMonthViewLabelsFarFewerBarsThanItHas() {
+        val labelled = labelledIndices(StatsRange.MONTH)
+
+        assertTrue("$labelled is too many labels for 30 narrow cells", labelled.size <= 4)
+        assertTrue("labels at $labelled would sit on top of each other", smallestGap(labelled) >= 5)
+    }
+
+    @Test
+    fun theYearViewLabelsAlternateBarsAndNoCloser() {
+        val labelled = labelledIndices(StatsRange.YEAR)
+
+        assertEquals(ActivityChart.MONTHS_IN_YEAR_VIEW / 2, labelled.size)
+        assertEquals(2, smallestGap(labelled))
+    }
+
     private companion object {
         const val MS_PER_MINUTE = 60_000L
     }

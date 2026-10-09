@@ -463,7 +463,9 @@ fun DeleteConfirmationDialog(
     count: Int,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    movesToTrash: Boolean = false,
 ) {
+    val prompt = deletePrompt(count, movesToTrash)
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
@@ -480,14 +482,14 @@ fun DeleteConfirmationDialog(
         },
         title = {
             Text(
-                text = "Delete File${if (count > 1) "s" else ""}?",
+                text = prompt.title,
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         },
         text = {
             Text(
-                "Are you sure you want to permanently delete ${if (count > 1) "$count files" else "this file"} from your device? This action cannot be undone.",
+                prompt.body,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -501,7 +503,7 @@ fun DeleteConfirmationDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Delete")
+                Text(prompt.confirmLabel)
             }
         },
         dismissButton = {

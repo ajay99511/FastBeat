@@ -487,7 +487,14 @@ internal fun AnalyticsCard(
                 Text(
                     text = subtext,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // Yields first. Without a weight both children measure at their natural width,
+                    // and in a half-width tile at a large font setting the chip is the one that
+                    // loses — squeezed to nothing, so the number it qualifies disappears while the
+                    // label describing it survives. The caption is the more expendable of the two.
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 if (trend != null) {
                     TrendChip(change = trend)

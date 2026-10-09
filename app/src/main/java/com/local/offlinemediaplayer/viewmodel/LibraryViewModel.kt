@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -34,6 +35,26 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+
+/**
+ * Resolves selected ids back to the media files they name.
+ *
+ * Top-level and `internal` rather than a line inside `deleteSelectedMedia`, because the bug it
+ * fixes is invisible at the call site and silent at runtime: the fold used to search
+ * `videoList + audioList` only, so selecting photos and tapping delete cleared the selection and
+ * deleted nothing — an empty URI list being a perfectly valid delete request. Nothing failed, and
+ * nothing happened.
+ *
+ * Selection state is shared by every tab that offers it, so *every* list the app indexes has to be
+ * searched here. MediaStore ids are unique across audio, video and images on a volume, so there is
+ * no ambiguity to resolve — only lists to remember to include.
+ */
+internal fun resolveSelectedMedia(
+    ids: Set<Long>,
+    audio: List<MediaFile>,
+    videos: List<MediaFile>,
+    images: List<MediaFile>,
+): List<MediaFile> = (audio + videos + images).filter { it.id in ids }
 
 @HiltViewModel
 class LibraryViewModel
@@ -79,6 +100,19 @@ class LibraryViewModel
                 return migrated
             }
             val field = SortField.entries.getOrElse(stored.fieldOrdinal) { SortField.DATE_ADDED }
+            return SortState(field, stored.ascending ?: field.defaultAscending)
+        }
+
+        /**
+         * Image counterpart of [loadMediaSortState], with **no migration branch**.
+         *
+         * The Images tab never had a sort, so there is no legacy preference under this key and
+         * nothing to migrate from. Writing a migration for data that cannot exist would be a branch
+         * no test could ever reach — the class of code DR-4 refused elsewhere in this plan.
+         */
+        private suspend fun loadImageSortState(): SortState<ImageSortField> {
+            val stored = appPrefs.getSort(LibrarySort.IMAGES) ?: return SortState(ImageSortField.DATE_ADDED)
+            val field = ImageSortField.entries.getOrElse(stored.fieldOrdinal) { ImageSortField.DATE_ADDED }
             return SortState(field, stored.ascending ?: field.defaultAscending)
         }
 
@@ -138,6 +172,22 @@ class LibraryViewModel
 
         private val _movieSortState = MutableStateFlow(SortState(SortField.DATE_ADDED))
         val movieSortState = _movieSortState.asStateFlow()
+
+        private val _imageSortState = MutableStateFlow(SortState(ImageSortField.DATE_ADDED))
+        val imageSortState = _imageSortState.asStateFlow()
+
+        /**
+         * The image list in the order the user chose.
+         *
+         * Sorted here and searched in the screen, which is where the Images tab already keeps its
+         * query. Splitting them that way is not elegant, but hoisting the search into this ViewModel
+         * would change behaviour the user did not ask to have changed — `_searchQuery` here is shared
+         * with the audio list.
+         */
+        val sortedImageList: StateFlow<List<MediaFile>> =
+            combine(mediaRepository.imageList, _imageSortState) { images, sort ->
+                images.applyImageSort(sort)
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         val moviesList =
             videoList
@@ -323,6 +373,11 @@ class LibraryViewModel
             saveSortState(LibrarySort.VIDEO, state)
         }
 
+        fun updateImageSort(state: SortState<ImageSortField>) {
+            _imageSortState.value = state
+            saveSortState(LibrarySort.IMAGES, state)
+        }
+
         fun updateAlbumSort(state: SortState<AlbumSortField>) {
             _albumSortState.value = state
             saveSortState(LibrarySort.ALBUMS, state)
@@ -361,6 +416,7 @@ class LibraryViewModel
                 _videoSortState.value = loadMediaSortState(LibrarySort.VIDEO)
                 _movieSortState.value = loadMediaSortState(LibrarySort.MOVIES)
                 _albumSortState.value = loadAlbumSortState(LibrarySort.ALBUMS)
+                _imageSortState.value = loadImageSortState()
                 _videoGridView.value = appPrefs.getLayout(LibraryLayout.VIDEO_GRID)
                 _folderGridView.value = appPrefs.getLayout(LibraryLayout.FOLDER_GRID)
                 _movieGridView.value = appPrefs.getLayout(LibraryLayout.MOVIE_GRID)
@@ -525,19 +581,41 @@ class LibraryViewModel
             _selectedAlbumIds.value = ids.toSet()
         }
 
-        fun deleteSelectedMedia() {
+        /**
+         * @param moveToTrash recoverable rather than permanent, on the API levels that have a
+         *   trash. Only the Images tab passes `true` (DS-7.6).
+         *
+         *   **If this is ever extended to audio or video, `onDeleteSuccess` needs revisiting**: it
+         *   calls `cleanupDeletedMedia`, which wipes playlist membership, play history and
+         *   analytics. That is right for a file that is gone and wrong for one the user can
+         *   restore. Images have no rows in any of those tables, which is the only reason the
+         *   question does not arise today.
+         */
+        fun deleteSelectedMedia(moveToTrash: Boolean = false) {
             val idsToDelete = _selectedMediaIds.value.toList()
             if (idsToDelete.isEmpty()) return
 
             viewModelScope.launch(Dispatchers.IO) {
-                val allMedia = videoList.value + audioList.value
-                val filesToDelete = allMedia.filter { idsToDelete.contains(it.id) }
+                val filesToDelete =
+                    resolveSelectedMedia(
+                        ids = idsToDelete.toSet(),
+                        audio = audioList.value,
+                        videos = videoList.value,
+                        images = imageList.value,
+                    )
                 val uris = filesToDelete.map { it.uri }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(app.contentResolver, uris)
+                    val pendingIntent: PendingIntent =
+                        if (moveToTrash) {
+                            MediaStore.createTrashRequest(app.contentResolver, uris, true)
+                        } else {
+                            MediaStore.createDeleteRequest(app.contentResolver, uris)
+                        }
                     _deleteIntentEvent.emit(pendingIntent.intentSender)
                 } else {
+                    // No trash below API 30; the legacy path is permanent whatever was asked for,
+                    // which is why the confirmation copy is chosen by the same `supportsTrash`.
                     startLegacyDelete(filesToDelete) { deletedIds -> onDeleteSuccess(deletedIds) }
                 }
             }

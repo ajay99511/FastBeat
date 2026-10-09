@@ -28,4 +28,14 @@ data class MediaFile(
     val mimeType: String = "",
     /** Album name from the audio tag. Audio only. */
     val album: String? = null,
+    /**
+     * Pixel dimensions, 0 when unknown. Images only for now.
+     *
+     * Kept separate from [resolution], which for video is a *quality bucket* ("4K", "1080P") rather
+     * than a size. A photo's interesting fact is its actual dimensions, and overloading one field
+     * with two meanings is how a field ends up having to be pulled apart later. Video already reads
+     * these columns and discards them after bucketing; it can adopt these when something needs them.
+     */
+    val width: Int = 0,
+    val height: Int = 0,
 )

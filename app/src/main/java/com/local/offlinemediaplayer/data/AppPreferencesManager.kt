@@ -36,6 +36,7 @@ enum class LibrarySort(
     VIDEO("sort_video"),
     MOVIES("sort_movies"),
     ALBUMS("sort_albums"),
+    IMAGES("sort_images"),
 }
 
 /** The four library lists that persist a grid-vs-list layout choice. */

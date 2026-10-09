@@ -22,6 +22,17 @@ enum class DeletionKind {
 }
 
 /**
+ * Whether a delete on this device can be a recoverable move to the system trash.
+ *
+ * `createTrashRequest` arrived in API 30. Below it there is no trash at all, so a delete is
+ * permanent and the confirmation copy has to say so — which is why this is one function rather
+ * than a version check written out at each of the places that needs the answer. The UI asks it to
+ * choose its wording and the handler asks it to choose its request; a second copy of the check is
+ * a second thing that can disagree.
+ */
+internal fun supportsTrash(sdkInt: Int = Build.VERSION.SDK_INT): Boolean = sdkInt >= Build.VERSION_CODES.R
+
+/**
  * Owns the scoped-storage delete round-trip: asking the system for permission to delete a file,
  * surfacing the consent dialog, and retrying where the platform requires it.
  *
@@ -79,13 +90,22 @@ class MediaDeletionHandler
             uri: Uri,
             deleted: suspend () -> Unit,
             failed: suspend (Exception) -> Unit,
+            moveToTrash: Boolean = false,
         ) {
             onDeleted[kind] = deleted
             onFailed[kind] = failed
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Both return a PendingIntent and both are completed by the system once the user
+                // consents, so the post-consent path below is identical either way. Trashed items
+                // are excluded from MediaStore queries by default, so a rescan drops them exactly
+                // as a deletion would.
                 val pendingIntent: PendingIntent =
-                    MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+                    if (moveToTrash) {
+                        MediaStore.createTrashRequest(context.contentResolver, listOf(uri), true)
+                    } else {
+                        MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+                    }
                 _deleteIntentEvent.emit(pendingIntent.intentSender)
                 return
             }
