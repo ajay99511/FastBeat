@@ -1,0 +1,72 @@
+# `enhancement` is a GitHub default label, so this applies cleanly on a fresh repo.
+name: 💡 Feature request
+description: Suggest a capability or an improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the **Roadmap** in [README.md](https://github.com/ajay99511/FastBeat/blob/master/README.md#-roadmap) first —
+        some of this may already be planned or already decided against.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and the roadmap for this idea.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you unable to do today, and what do you do instead? Describe the
+        situation, not the feature — a well-described problem often has a better
+        solution than the one you came in with.
+      placeholder: "I keep losing my place in audiobooks because the queue reshuffles when…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What you would like to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including other apps that do this well, and what they get right or wrong.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does this fit FastBeat?
+      description: >
+        Two properties are not negotiable and shape what can be accepted. A request
+        that needs either one broken is very likely to be declined, so it is worth
+        checking before you write it up.
+      options:
+        - label: This works fully **offline** — it needs no server, account or network call.
+          required: false
+        - label: This needs **no new permission** and sends nothing off the device.
+          required: false
+
+  - type: textarea
+    id: offline-note
+    attributes:
+      label: If you left either box unticked, explain
+      description: >
+        Not an automatic no — but "100% offline, nothing leaves your device" is the
+        product, so a feature that costs that needs to be worth it. Make the case.
+
+  - type: textarea
+    id: mockups
+    attributes:
+      label: Mockups, screenshots or references
+      description: Drag files in. A rough sketch beats three paragraphs for anything visual.

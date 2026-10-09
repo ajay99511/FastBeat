@@ -32,13 +32,17 @@ cd FastBeat
 ### 2. Create a Branch
 
 ```bash
-# Always branch from main
-git checkout main
-git pull origin main
+# Always branch from master -- the default branch is `master`, not `main`
+git checkout master
+git pull origin master
 
 # Create a feature branch
 git checkout -b feature/your-feature-name
 ```
+
+> **Use one of these prefixes:** `feature/`, `fix/` or `refactor/`. This is not cosmetic —
+> [`build.yml`](.github/workflows/build.yml) only triggers on pushes to `master` and to those three
+> prefixes, so a branch named anything else gets **no CI run at all** until you open the PR.
 
 ### 3. Make Your Changes
 - Ensure your code follows the existing style and architecture (MVVM).
@@ -227,43 +231,67 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## 🐛 Reporting Bugs
 
-### Bug Report Template
-```markdown
-### Describe the Bug
-Clear and concise description of the bug.
+Bug reports go through the [bug report form](https://github.com/ajay99511/FastBeat/issues/new?template=bug_report.yml),
+which asks for the device, Android version, app version and reproduction steps as **required** fields.
+That is deliberate: those four are what make a report actionable, and a free-text template reliably
+did not produce them.
 
-### To Reproduce
-1. Open 'Video Player'
-2. Swipe up on 'Brightness' side
-3. See 'Crash/Error'
+Two things worth knowing before you file:
 
-### Expected Behavior
-Brightness should increase smoothly.
+- **Security problems never go in a public issue.** Use a
+  [private advisory](https://github.com/ajay99511/FastBeat/security/advisories/new) — see [SECURITY.md](SECURITY.md).
+- **For playback bugs, describe the file** — container, codec, duration. These bugs are nearly always
+  specific to one file's format, so without it the report usually ends as "cannot reproduce".
 
-### Environment
-- Device: [e.g., Pixel 7]
-- OS: [e.g., Android 14]
-- FastBeat Version: [e.g., 1.0.0]
-```
+Feature ideas go through the [feature request form](https://github.com/ajay99511/FastBeat/issues/new?template=feature_request.yml).
+Check the [roadmap](README.md#-roadmap) first.
 
 ---
 
 ## 🔍 Pull Request Process
 
-### PR Checklist
-Before submitting:
-- [ ] Code follows style guidelines.
-- [ ] All tests are passing locally.
-- [ ] Linter/Static analysis passes.
-- [ ] Documentation updated if needed.
-- [ ] Commit messages follow convention.
+Opening a PR loads [`.github/pull_request_template.md`](.github/pull_request_template.md) as the
+description. **Fill it in rather than deleting it** — it is the review checklist, and the sections it
+asks for are the ones that are routinely missed. In particular:
+
+- **Evidence, not assertion.** Paste the commands you ran and what they printed. There is a
+  *"Not verified"* field; an empty one reads as a claim of full coverage.
+- **Say whether you ran it on a device.** CI runs **no instrumented tests** — there is no emulator
+  job. A green check proves the project compiles, the unit suite passes, R8 succeeds and style is
+  clean. It proves nothing about playback, Room migrations, the Hilt graph or Compose rendering. If
+  you touched any of those, a manual run is the only gate there is.
+- **Check that new files are actually tracked.** `git status --short` clean, and `git ls-files` lists
+  them. A bare `/app` rule in `.gitignore` once kept two source files out of the repository and merged
+  a `master` that did not compile; `.gitignore` carries the warning, the template carries the habit.
+
+### Before you open it
+
+```bash
+# The full local gate -- the same tasks CI runs
+./gradlew assembleDebug lint testDebugUnitTest detekt ktlintCheck --stacktrace
+```
+
+- [ ] That command passes.
+- [ ] Commit subjects follow [Conventional Commits](#-commit-message-convention) — `release.yml`
+      reads them to compute the next version tag, so the prefixes decide the release.
+- [ ] Docs updated if behaviour changed, and [CHANGELOG.md](CHANGELOG.md) has an *Unreleased* entry.
+- [ ] One PR, one concern. A PR that does two things gets reviewed as well as the worse half of it.
+
+Review is by [@ajay99511](https://github.com/ajay99511) — [CODEOWNERS](.github/CODEOWNERS) requests it
+automatically on every PR.
 
 ---
 
 ## 📞 Getting Help
+
+- **Where do I take this?** → [SUPPORT.md](SUPPORT.md) routes every kind of question in one table.
 - **Getting Started**: Read the [Getting Started Guide](docs/GETTING_STARTED.md)
+- **The quality bar**: [Engineering Playbook](docs/ENGINEERING_PLAYBOOK.md)
 - **Features**: Explore the [Features Guide](docs/FEATURES.md)
-- **Issues**: Use [GitHub Issues](https://github.com/yourusername/FastBeat/issues) for bugs and features.
+- **Issues**: [GitHub Issues](https://github.com/ajay99511/FastBeat/issues) for bugs and features,
+  [Discussions](https://github.com/ajay99511/FastBeat/discussions) for questions.
+- **Conduct**: Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+- **Licence**: Contributions are licensed under [Apache-2.0](LICENSE).
 
 ---
 

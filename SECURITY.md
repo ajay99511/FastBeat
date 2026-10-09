@@ -47,8 +47,11 @@ Report vulnerabilities privately through GitHub Security Advisories:
 ## Scope
 
 This app is an **offline** local media player. It requests media/storage
-permissions and does not transmit your library off-device. Areas of particular
-interest for reports:
+permissions and does not transmit your library off-device — the build strips the
+`INTERNET` permission from the shipped APK, so it cannot. [PRIVACY.md](PRIVACY.md)
+sets out what is stored, where, and how to verify that claim from the APK itself.
+
+Areas of particular interest for reports:
 
 - Improper handling of untrusted media files or metadata (e.g. crafted tags,
   filenames, or thumbnails leading to crashes, path traversal, or code

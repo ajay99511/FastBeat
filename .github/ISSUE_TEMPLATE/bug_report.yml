@@ -1,0 +1,138 @@
+# A FORM, not a markdown template, on purpose: the free-text bug template that
+# lived in CONTRIBUTING.md asked for a device and an Android version and reliably
+# did not get them. Required fields are the only mechanism that actually does.
+#
+# NOTE for the maintainer: every label named here must already exist in the
+# repository, otherwise it is silently not applied. `bug` is a GitHub default.
+name: 🐛 Bug report
+description: Something is broken, crashes, or behaves differently than it should.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **Security problems do not belong here.** If this is a vulnerability,
+        close this form and follow [SECURITY.md](https://github.com/ajay99511/FastBeat/blob/master/SECURITY.md) —
+        report it privately through GitHub Security Advisories instead.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and this is not already reported.
+          required: true
+        - label: I am on the latest release (older versions are not patched — see SECURITY.md).
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected to see instead.
+      placeholder: |
+        Expected: brightness increases smoothly when I swipe up on the left.
+        Actual:   the player freezes for ~2s, then the app closes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: >
+        Numbered, from a cold start of the app. A bug that cannot be reproduced
+        cannot be fixed, so this is the most valuable part of the report.
+      placeholder: |
+        1. Open the app and go to Videos
+        2. Play any .mkv longer than 10 minutes
+        3. Swipe up on the left edge
+        4. The app closes
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app
+      options:
+        - Video player (playback, gestures, PiP, tracks)
+        - Audio player (queue, mini player, playback)
+        - Library (lists, sorting, search, playlists)
+        - Images (grid, viewer, delete, share)
+        - "\"Me\" dashboard (stats, streaks, history)"
+        - Theming / appearance
+        - Permissions or storage access
+        - After updating the app (data loss, migration)
+        - Something else / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: "Pixel 7, Samsung Galaxy A54, Android Studio emulator…"
+    validations:
+      required: true
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version / API level
+      description: "Settings → About phone → Android version. The app supports Android 8.0 (API 26) and newer."
+      placeholder: "Android 14 (API 34)"
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: FastBeat version
+      description: >
+        The version you are running, e.g. `1.4.0`. If you built it yourself,
+        paste the commit instead (`git rev-parse --short HEAD`).
+      placeholder: "1.4.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen
+      options:
+        - Every time
+        - Often, but not every time
+        - Happened once and I cannot reproduce it
+    validations:
+      required: true
+
+  - type: textarea
+    id: media
+    attributes:
+      label: The media file involved, if any
+      description: >
+        Container, codec, duration and roughly how it was produced — downloaded,
+        recorded on the device, ripped. Do **not** upload copyrighted media.
+        Most playback bugs are specific to one file's format, so this is often
+        the difference between a fix and a "cannot reproduce".
+      placeholder: "8 GB .mkv, HEVC + E-AC3, 2h10m, with two subtitle tracks"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or stack trace
+      description: >
+        For a crash, `adb logcat -d > crash.txt` right after it happens, or
+        attach the Play Store / Android bug report. Redact anything personal —
+        logcat can contain file paths, and file paths can contain your name.
+      render: text
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a recording
+      description: Drag files in. For a visual glitch this is usually worth more than the description.

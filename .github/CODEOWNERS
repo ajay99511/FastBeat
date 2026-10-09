@@ -20,6 +20,20 @@ LICENSE                 @ajay99511
 .github/workflows/      @ajay99511
 
 # ──────────────────────────────────────────────
+# Governance & contributor-facing templates
+# Covered by the `*` rule above already; listed explicitly because these are the
+# files that define the process itself, and a change to one should never look
+# like an incidental docs edit in a review queue.
+# ──────────────────────────────────────────────
+CODE_OF_CONDUCT.md              @ajay99511
+CONTRIBUTING.md                 @ajay99511
+SUPPORT.md                      @ajay99511
+CHANGELOG.md                    @ajay99511
+.github/pull_request_template.md @ajay99511
+.github/ISSUE_TEMPLATE/         @ajay99511
+.github/dependabot.yml          @ajay99511
+
+# ──────────────────────────────────────────────
 # Build & dependency configuration
 # ──────────────────────────────────────────────
 build.gradle.kts        @ajay99511

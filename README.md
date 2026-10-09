@@ -225,7 +225,12 @@ Comprehensive documentation is available in the `docs/` directory:
 | [Engineering Playbook](docs/ENGINEERING_PLAYBOOK.md) | **The quality bar.** Kotlin and Android practices, architecture, data safety, testing, accessibility — plus the skill map for mobile engineers. |
 | [Features Guide](docs/FEATURES.md) | Deep dive into all available features and roadmap. |
 | [Engineering Audit](docs/ENGINEERING_AUDIT.md) | 2026-08-21 standards audit and its [addendum](docs/AUDIT_ADDENDUM.md). |
-| [Contributing](CONTRIBUTING.md) | Guidelines for contributing to the project. |
+| [Contributing](CONTRIBUTING.md) | How to set up, branch, commit, test and open a PR. |
+| [Changelog](CHANGELOG.md) | What changed in each release, and how versions are derived from git. |
+| [Security Policy](SECURITY.md) | Supported versions, scope, and how to report a vulnerability **privately**. |
+| [Privacy Policy](PRIVACY.md) | What the app stores and why it has no way to send it anywhere. Required for the Play listing. |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | Contributor Covenant v2.1. Applies to issues, PRs and reviews. |
+| [Support](SUPPORT.md) | Where to take a bug, an idea, or a question — one table. |
 | [License](LICENSE) | Apache License 2.0. |
 
 ---
@@ -446,12 +451,19 @@ The [`build.yml`](.github/workflows/build.yml) GitHub Actions workflow runs on e
 Contributions are welcome! Please follow these steps:
 
 1. **Fork** the repository.
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`).
-3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`).
-4. **Push** to the branch (`git push origin feature/amazing-feature`).
-5. **Open** a Pull Request.
+2. **Create** a feature branch off `master` (`git checkout -b feature/amazing-feature`). Use a
+   `feature/`, `fix/` or `refactor/` prefix — [CI only triggers on those](.github/workflows/build.yml).
+3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`). The prefix matters: it is
+   what [`release.yml`](.github/workflows/release.yml) reads to compute the next version tag.
+4. **Run the gate** in [Pre-Push Checklist](#-pre-push-checklist) before you push.
+5. **Push** to the branch (`git push origin feature/amazing-feature`).
+6. **Open** a Pull Request — the [template](.github/pull_request_template.md) loads as the
+   description. Fill it in; it is the review checklist.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines, [SUPPORT.md](SUPPORT.md) if you just
+have a question, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the ground rules. Bugs and ideas go
+through the [issue forms](https://github.com/ajay99511/FastBeat/issues/new/choose); security problems
+**never** do — see [SECURITY.md](SECURITY.md).
 
 ---
 
